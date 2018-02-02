@@ -48,13 +48,34 @@ cabal-version:       >=1.10
 
 library
   -- Modules exported by the library.
-  exposed-modules:     Outline, TypeClassOnly, TypeClassAssocFamily, Generics.MRSOP.Base.Internal.NP, Generics.MRSOP.Base.Internal.NS
+  exposed-modules: 
+    Generics.MRSOP.Base.Internal.NS,
+    Generics.MRSOP.Base.Internal.NP,
+    Generics.MRSOP.Base.Universe,
+    Generics.MRSOP.Util
   
   -- Modules included in this library but not exported.
   -- other-modules:       
   
   -- LANGUAGE extensions used by modules in this package.
-  other-extensions:    MultiParamTypeClasses, FlexibleInstances, FlexibleContexts, TypeSynonymInstances, RankNTypes, StandaloneDeriving, TypeFamilies, TypeOperators, DataKinds, PolyKinds, GADTs, UndecidableInstances, TypeApplications, ConstraintKinds, FunctionalDependencies, DefaultSignatures, AllowAmbiguousTypes, ScopedTypeVariables
+  other-extensions: 
+    MultiParamTypeClasses,
+    FlexibleInstances,
+    FlexibleContexts,
+    TypeSynonymInstances,
+    RankNTypes,
+    StandaloneDeriving,
+    TypeFamilies,
+    TypeOperators,
+    DataKinds,
+    PolyKinds,
+    GADTs,
+    UndecidableInstances,
+    TypeApplications,
+    ConstraintKinds,
+    FunctionalDependencies,
+    DefaultSignatures,
+    ScopedTypeVariables
   
   -- Other library packages from which modules are imported.
   build-depends:       base >=4.9 && <4.10
