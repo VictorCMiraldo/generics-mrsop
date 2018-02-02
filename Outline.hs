@@ -51,7 +51,7 @@ data NP :: (k -> *) -> [k] -> * where
   (:*) :: p x -> NP p xs -> NP p (x : xs)
 
 instance Show (NP p '[]) where
-  show NP0 = "NP0"
+  show NP0 = "■"
 instance (Show (p x), Show (NP p xs)) => Show (NP p (x : xs)) where
   showsPrec p (v :* vs) = showParen (p > 5) $ showsPrec 5 v . showString " :* " . showsPrec 5 vs
 
@@ -61,7 +61,9 @@ data NS :: (k -> *) -> [k] -> * where
 
 instance Show (NS p '[]) where
   show _ = error "This code is unreachable"
-deriving instance (Show (p x), Show (NS p xs)) => Show (NS p (x : xs))
+instance (Show (p x), Show (NS p xs)) => Show (NS p (x : xs)) where
+  show (There r) = '→' : show r
+  show (Here  x) = "□ (" ++ show x ++ ")"
 
 data NA  :: (Nat -> *) -> Atom -> * where
   NA_I :: fam k   -> NA fam (I k) 
@@ -69,9 +71,9 @@ data NA  :: (Nat -> *) -> Atom -> * where
 
 -- https://stackoverflow.com/questions/9082642/implementing-the-show-class
 instance (Show (fam k))   => Show (NA fam (I k)) where
-  showsPrec p (NA_I v) = showParen (p > 10) $ showString "NA_I " . showsPrec 11 v
+  showsPrec p (NA_I v) = showParen (p > 10) $ showString "𝕀 { " . showsPrec 11 v . showString " }"
 instance (Show (Konst k)) => Show (NA fam (K k)) where
-  showsPrec p (NA_K v) = showParen (p > 10) $ showString "NA_K " . showsPrec 11 v
+  showsPrec p (NA_K v) = showParen (p > 10) $ showString "𝕂 " . showsPrec 11 v
 
 type Rep (fam :: Nat -> *) = NS (Poa fam)
 type Poa (fam :: Nat -> *) = NP (NA fam)
@@ -126,7 +128,8 @@ type family Lkup (n :: Nat) (ks :: [k]) :: k where
 newtype Fix (fam :: Family) (n :: Nat)
   = Fix { unFix :: Rep (Fix fam) (Lkup n fam) }
 
-deriving instance Show (Rep (Fix fam) (Lkup n fam)) => Show (Fix fam n)
+instance Show (Rep (Fix fam) (Lkup n fam)) => Show (Fix fam n) where
+  show (Fix x) = show x
 
 -- * Cannonical Example
 
