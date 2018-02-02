@@ -53,7 +53,7 @@ data NP :: (k -> *) -> [k] -> * where
 instance Show (NP p '[]) where
   show NP0 = "■"
 instance (Show (p x), Show (NP p xs)) => Show (NP p (x : xs)) where
-  showsPrec p (v :* vs) = showParen (p > 5) $ showsPrec 5 v . showString " :* " . showsPrec 5 vs
+  showsPrec p (v :* vs)  = showParen (p > 5) $ showsPrec 5 v . showString " :* " . showsPrec 5 vs
 
 data NS :: (k -> *) -> [k] -> * where
   There :: NS p xs -> NS p (x : xs)
@@ -71,7 +71,7 @@ data NA  :: (Nat -> *) -> Atom -> * where
 
 -- https://stackoverflow.com/questions/9082642/implementing-the-show-class
 instance (Show (fam k))   => Show (NA fam (I k)) where
-  showsPrec p (NA_I v) = showParen (p > 10) $ showString "𝕀 { " . showsPrec 11 v . showString " }"
+  showsPrec p (NA_I v) = showParen (p > 10) $ showString "𝕀" . showsPrec 11 v
 instance (Show (Konst k)) => Show (NA fam (K k)) where
   showsPrec p (NA_K v) = showParen (p > 10) $ showString "𝕂 " . showsPrec 11 v
 
