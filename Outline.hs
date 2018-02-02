@@ -198,3 +198,24 @@ cons x xs = Fix (There $ Here (NA_I x :* NA_I xs :* NP0))
 
 fork :: Int -> Fix Singl Rose Z -> Fix Singl Rose (S Z)
 fork x xs = Fix (Here (NA_K (SInt x) :* NA_I xs :* NP0))
+
+-- * Metadata a la generics-sop
+
+type ModuleName = String
+type DatatypeName = String
+type ConstructorName = String
+type FieldName = String
+
+data DatatypeInfo :: [[Atom kon]] -> * where
+  ADT :: ModuleName -> DatatypeName -> NP ConstructorInfo c
+      -> DatatypeInfo c
+  New :: ModuleName -> DatatypeName -> ConstructorInfo '[ c ]
+      -> DatatypeInfo '[ '[ c ]]
+
+data ConstructorInfo :: [Atom kon] -> * where
+  Constructor :: ConstructorName -> ConstructorInfo xs
+  Infix       :: ConstructorName -> ConstructorInfo '[ x , y ]
+  Record      :: ConstructorName -> NP FieldInfo xs -> ConstructorInfo xs
+
+data FieldInfo :: Atom kon -> * where
+  FieldInfo :: FieldName -> FieldInfo k
