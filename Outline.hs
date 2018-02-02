@@ -137,7 +137,9 @@ data Kon = KInt
          deriving (Eq, Show)
 
 data Singl (kon :: Kon) where
-  SInt :: Int -> Singl KInt 
+  SInt :: Int -> Singl KInt
+
+deriving instance Show (Singl KInt)
 
 type Rose = '[List , RT]
 
