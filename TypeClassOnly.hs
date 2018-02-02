@@ -5,31 +5,31 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE ConstraintKinds #-}
 {-# OPTIONS_GHC -cpp #-}
 module TypeClassOnly where
 
 import Outline
 
-#define Prod    [Atom]
-#define Sum     [Prod]
-#define Family  [Sum]
-
 -- * Multirec
 
-class Element ty (fam :: Family) (ix :: Nat) {- | ty -> fam ix -} where
-  from :: ty -> Fix fam ix
-  to   :: Fix fam ix -> ty
+class Element (ki :: kon -> *) (fam :: [[[Atom kon]]]) (ix :: Nat) ty {- | ty -> fam ix -} where
+  from :: ty -> Fix ki fam ix
+  to   :: Fix ki fam ix -> ty
+
+type HsElement = Element Singl
 
 -- Just to fix the order of variables
 
-from' :: forall fam ix ty. Element ty fam ix => ty -> Fix fam ix
+from' :: forall ki fam ix ty. Element ki fam ix ty => ty -> Fix ki fam ix
 from' = from
-to'   :: forall ty fam ix. Element ty fam ix => Fix fam ix -> ty
+to'   :: forall ty ki fam ix. Element ki fam ix ty => Fix ki fam ix -> ty
 to'   = to
 
 -- * Usage
 
-instance Element [R Int] Rose Z where
+instance Element Singl Rose Z [R Int] where
   from []     = nil 
   from (x:xs) = cons (from x) (from xs)
 
@@ -38,12 +38,12 @@ instance Element [R Int] Rose Z where
                     Tag (CS CZ) (NA_I vx :* NA_I vxs :* NP0)
                        -> (to vx : to vxs)
 
-instance Element (R Int) Rose (S Z) where
+instance Element Singl Rose (S Z) (R Int) where
   from (i :>: is) = fork i (from is)
-  to (Fix (Here (NA_K i :* NA_I xs :* NP0))) = i :>: to xs
+  to (Fix (Here (NA_K (SInt i) :* NA_I xs :* NP0))) = i :>: to xs
 
-value1 :: Fix Rose (S Z)
+value1 :: Fix Singl Rose (S Z)
 value1 = from value
 
 -- Using TypeApplications
-value2 = from' @Rose @(S Z) value
+value2 = from' @Singl @Rose @(S Z) value
