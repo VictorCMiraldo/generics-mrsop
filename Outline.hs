@@ -47,6 +47,16 @@ instance Show (NP p '[]) where
 instance (Show (p x), Show (NP p xs)) => Show (NP p (x : xs)) where
   showsPrec p (v :* vs)  = showParen (p > 5) $ showsPrec 5 v . showString " :* " . showsPrec 5 vs
 
+instance Eq (NP p '[]) where
+  _ == _ = True
+instance (Eq (p x), Eq (NP p xs)) => Eq (NP p (x : xs)) where
+  (x :* xs) == (y :* ys) = x == y && xs == ys
+
+eqNP :: (forall x. p x -> p x -> Bool)
+     -> NP p xs -> NP p xs -> Bool
+eqNP _ NP0       NP0       = True
+eqNP p (x :* xs) (y :* ys) = p x y && eqNP p xs ys
+
 data NS :: (k -> *) -> [k] -> * where
   There :: NS p xs -> NS p (x : xs)
   Here  :: p x     -> NS p (x : xs)
@@ -57,6 +67,19 @@ instance (Show (p x), Show (NS p xs)) => Show (NS p (x : xs)) where
   show (There r) = 'T' : show r
   show (Here  x) = "H (" ++ show x ++ ")"
 
+instance Eq (NS p '[]) where
+  _ == _ = error "This code is unreachable"
+instance (Eq (p x), Eq (NS p xs)) => Eq (NS p (x : xs)) where
+  There x == There y = x == y
+  Here  x == Here  y = x == y
+  _       == _       = False
+
+eqNS :: (forall x. p x -> p x -> Bool)
+     -> NS p xs -> NS p xs -> Bool
+eqNS p (There u) (There v) = eqNS p u v
+eqNS p (Here  u) (Here  v) = p u v
+eqNS _ _         _         = False
+
 data NA  :: (kon -> *) -> (Nat -> *) -> Atom kon -> * where
   NA_I :: fam k -> NA ki fam (I k) 
   NA_K :: ki  k -> NA ki fam (K k)
@@ -66,6 +89,17 @@ instance (Show (fam k)) => Show (NA ki fam (I k)) where
   showsPrec p (NA_I v) = showParen (p > 10) $ showString "I-" . showsPrec 11 v
 instance (Show (ki  k)) => Show (NA ki fam (K k)) where
   showsPrec p (NA_K v) = showParen (p > 10) $ showString "K " . showsPrec 11 v
+
+instance Eq (fam k) => Eq (NA ki fam (I k)) where
+  NA_I x == NA_I y = x == y
+instance Eq (ki  k) => Eq (NA ki fam (K k)) where
+  NA_K x == NA_K y = x == y
+
+eqNA :: (forall k.  ki  k  -> ki  k  -> Bool)
+     -> (forall ix. fam ix -> fam ix -> Bool)
+     -> NA ki fam l -> NA ki fam l -> Bool
+eqNA kp _  (NA_K u) (NA_K v) = kp u v
+eqNA _  fp (NA_I u) (NA_I v) = fp u v
 
 type Rep (ki :: kon -> *) (fam :: Nat -> *) = NS (Poa ki fam)
 type Poa (ki :: kon -> *) (fam :: Nat -> *) = NP (NA  ki fam)
@@ -123,23 +157,35 @@ newtype Fix (ki :: kon -> *) (fam :: Family(kon)) (n :: Nat)
 instance Show (Rep ki (Fix ki fam) (Lkup n fam)) => Show (Fix ki fam n) where
   show (Fix x) = show x
 
+deriving instance Eq (Rep ki (Fix ki fam) (Lkup n fam)) => Eq (Fix ki fam n)
+
+eqFix :: (forall k. ki k -> ki k -> Bool)
+      -> Fix ki fam ix -> Fix ki fam ix -> Bool
+eqFix p (Fix u) (Fix v) = eqNS (eqNP (eqNA p (eqFix p))) u v
+
 -- * Cannonical Example
 
 data R a = a :>: [R a] deriving Show
 
-value :: R Int
-value = 1 :>: [2 :>: [], 3 :>: []]
+value1, value2 :: R Int
+value1 = 1 :>: [2 :>: [], 3 :>: []]
+value2 = 1 :>: [2 :>: []]
 
 type List = '[ '[] , '[I (S Z) , I Z] ]
 type RT   = '[ '[K KInt , I Z] ]
 
-data Kon = KInt
+data Kon = KInt | KFloat
          deriving (Eq, Show)
 
 data Singl (kon :: Kon) where
-  SInt :: Int -> Singl KInt
+  SInt   :: Int   -> Singl KInt
+  SFloat :: Float -> Singl KFloat
 
-deriving instance Show (Singl KInt)
+deriving instance Show (Singl k)
+deriving instance Eq   (Singl k)
+
+eqSingl :: Singl k -> Singl k -> Bool
+eqSingl = (==)
 
 type Rose = '[List , RT]
 
