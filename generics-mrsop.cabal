@@ -52,7 +52,10 @@ library
     Generics.MRSOP.Base.Internal.NS,
     Generics.MRSOP.Base.Internal.NP,
     Generics.MRSOP.Base.Universe,
-    Generics.MRSOP.Util
+    Generics.MRSOP.Base.Class,
+    Generics.MRSOP.Konstants,
+    Generics.MRSOP.Util,
+    Generics.MRSOP.Examples.RoseTree
   
   -- Modules included in this library but not exported.
   -- other-modules:       
