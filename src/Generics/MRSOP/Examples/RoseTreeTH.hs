@@ -34,4 +34,5 @@ value1, value2 :: Rose Int
 value1 = 1 :>: [2 :>: [], 3 :>: []]
 value2 = 1 :>: [2 :>: []]
 
-deriveFamily [t| Rose Int |]
+-- deriveFamily [t| Rose Int |]
+magic ''[]

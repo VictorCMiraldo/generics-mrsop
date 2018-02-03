@@ -10,7 +10,7 @@
 --   We are borrowing a lot of code from generic-sop
 --   ( https://hackage.haskell.org/package/generics-sop-0.3.2.0/docs/src/Generics-SOP-TH.html )
 --
-module Generics.MRSOP.TH (deriveFamily) where
+module Generics.MRSOP.TH (deriveFamily, magic) where
 
 import Control.Arrow ((***))
 import Control.Monad
@@ -35,6 +35,9 @@ deriveFamily t
   = do res <- t
        [d| ty :: String
            ty = $( liftString (show res) ) |]
+
+magic :: Name -> Q [Dec]
+magic name = reify name >>= \res -> [d| ty = $( liftString (show res) ) |]
 
 -- Sketch;
 --
@@ -68,6 +71,121 @@ deriveFamily t
 --         been registered; hence they become: [I Z , I (S Z)]
 --
 
+-- * Data Structures
+
+type DataName  = Name
+type ConName   = Name
+type FieldName = Name
+type Args      = [Name]
+
+-- |Datatype information, parametrized by the type of Type-expressions
+--  that appear on the fields of the constructors.
+data DTI ty
+  = ADT DataName Args [ CI ty ]
+  | New DataName Args (CI ty)
+  deriving (Eq , Show , Functor)
+
+-- |Constructor information
+data CI ty
+  = Normal ConName [ty]
+  | Infix  ConName ty ty
+  | Record ConName [ (FieldName , ty) ]
+  deriving (Eq , Show , Functor)
+
+-- ** Monadic Maps
+
+ciMapM :: (Monad m) => (ty -> m tw) -> CI ty -> m (CI tw)
+ciMapM f (Normal name tys) = Normal name <$> mapM f tys
+ciMapM f (Infix name l r)  = Infix name <$> f l <*> f r
+ciMapM f (Record name tys) = Record name <$> mapM (rstr . (id *** f)) tys
+  where
+    rstr (a , b) = b >>= return . (a,)
+
+dtiMapM :: (Monad m) => (ty -> m tw) -> DTI ty -> m (DTI tw)
+dtiMapM f (ADT name args ci) = ADT name args <$> mapM (ciMapM f) ci
+dtiMapM f (New name args ci) = New name args <$> ciMapM f ci
+
+-- * Simpler STy Language
+
+-- A Simplified version of Language.Haskell.TH
+data STy
+  = AppST STy STy
+  | VarST Name
+  | ConST Name
+  deriving (Eq , Show, Ord)
+
+-- ** Back and Forth conversion
+
+convertType :: (Monad m) => Type -> m STy
+convertType (AppT a b)  = AppST <$> convertType a <*> convertType b
+convertType (SigT t _)  = convertType t
+convertType (VarT n)    = return (VarST n)
+convertType (ConT n)    = return (ConST n)
+convertType (ParensT t) = convertType t
+convertType _           = fail "convertType: Unsupported Type"
+
+trevnocType :: STy -> Type
+trevnocType (AppST a b) = AppT (trevnocType a) (trevnocType b)
+trevnocType (VarST n)   = VarT n
+trevnocType (ConST n)   = ConT n
+
+-- |Handy substitution function.
+--
+--  @stySubst t m n@ substitutes m for n within t, that is: t[m/n]
+stySubst :: STy -> Name -> STy -> STy
+stySubst (AppST a b) m n = AppST (stySubst a m n) (stySubst b m n)
+stySubst (ConST a)   m n = ConST a
+stySubst (VarST x)   m n
+  | x == m    = n
+  | otherwise = VarST x
+
+-- * Monad
+--
+-- Keeks the (M.Map STy (Int , DTI Sty)) in a state.
+
+data Idxs 
+  = Idxs { idxsNext :: Int
+         , idxsMap  :: M.Map STy (Int , Maybe (DTI STy))
+         }
+
+onMap :: (M.Map STy (Int , Maybe (DTI STy)) -> M.Map STy (Int , Maybe (DTI STy)))
+      -> Idxs -> Idxs
+onMap f (Idxs n m) = Idxs n (f m)
+
+type IdxsM = StateT Idxs
+
+runIdxsM :: (Monad m) => IdxsM m a -> m a
+runIdxsM = flip evalStateT (Idxs 0 M.empty)
+
+-- |The actual monad we need to run all of this;
+type M = IdxsM Q
+
+-- |Returns the index of a "Name" within the family.
+--  If this name has not been registered yet, returns
+--  a fresh index.
+indexOf :: (Monad m) => STy -> IdxsM m Int
+indexOf name
+  = do st <- get
+       case M.lookup name (idxsMap st) of
+         Just i  -> return (fst i)
+         Nothing -> let i = idxsNext st
+                     in put (Idxs (i + 1) (M.insert name (i , Nothing) (idxsMap st)))
+                     >> return i
+
+-- |Register some Datatype Information for a given STy
+register :: (Monad m) => STy -> DTI STy -> IdxsM m ()
+register ty info = indexOf ty -- the call to indexOf guarantees the
+                              -- adjust will do something;
+                >> modify (onMap $ M.adjust (id *** const (Just info)) ty) 
+
+-- |A more rigorous follow up of our sketch up there.
+process :: STy -> M ()
+process ty
+  = do ix <- indexOf ty
+       _
+
+
+
 -- OLD COLD CODE:
 
 ---------------
@@ -82,82 +200,11 @@ reifyDec name =
      case info of TyConI dec -> return dec
                   _          -> fail "Info must be type declaration type."
 
--- Our data structure
-
-type DataName  = Name
-type ConName   = Name
-type FieldName = Name
-type Args      = [Name]
-
--- Datatype info:
-data DTI ty
-  = ADT DataName Args [ CI ty ]
-  | New DataName Args (CI ty)
-  deriving (Eq , Show , Functor)
-
--- Constructor info is parametrised by the type of 'Types'.
--- We start by reifing declarations and producing a map of
--- (CI Type), later we translate them to (CI KorI)
-data CI ty
-  = Normal ConName [ty]
-  | Infix  ConName ty ty
-  | Record ConName [ (FieldName , ty) ]
-  deriving (Eq , Show , Functor)
-
-ciMapM :: (Monad m) => (ty -> m tw) -> CI ty -> m (CI tw)
-ciMapM f (Normal name tys) = Normal name <$> mapM f tys
-ciMapM f (Infix name l r)  = Infix name <$> f l <*> f r
-ciMapM f (Record name tys) = Record name <$> mapM (rstr . (id *** f)) tys
-  where
-    rstr (a , b) = b >>= return . (a,)
-
-dtiMapM :: (Monad m) => (ty -> m tw) -> DTI ty -> m (DTI tw)
-dtiMapM f (ADT name args ci) = ADT name args <$> mapM (ciMapM f) ci
-dtiMapM f (New name args ci) = New name args <$> ciMapM f ci
-
--- A Simplified version of Language.Haskell.TH
-data STy
-  = AppST STy STy
-  | VarST Name
-  | ConST Name
-  | KonST Name
-  deriving (Eq , Show, Ord)
-
 -- We shall need to keep track of the indexes of the types
 -- we explore.
 
-data Idxs idx
-  = Idxs { idxsNext :: Int
-         , idxsMap  :: M.Map idx (Int , Maybe (DTI STy))
-         }
-
-type IdxsM idx = StateT (Idxs idx)
-
--- |The actual monad we need to run all of this;
-type M = IdxsM STy Q
-
--- |Returns the index of a "Name" within the family.
---  If this name has not been registered yet, returns
---  a fresh index.
-indexOf :: (Ord idx, Monad m) => idx -> IdxsM idx m Int
-indexOf name
-  = do st <- get
-       case M.lookup name (idxsMap st) of
-         Just i  -> return (fst i)
-         Nothing -> let i = idxsNext st
-                     in put (Idxs (i + 1) (M.insert name (i , Nothing) (idxsMap st)))
-                     >> return i
-
 -- Now, we start processing by extracting a (DTI STy) from
 -- a Haskell Declaration.
-
-convertType :: Type -> M STy
-convertType (AppT a b)  = AppST <$> convertType a <*> convertType b
-convertType (SigT t _)  = convertType t
-convertType (VarT n)    = return (VarST n)
-convertType (ConT n)    = return (ConST n)
-convertType (ParensT t) = convertType t
-convertType _           = fail "convertType: Unsupported Type"
 
 argInfo :: TyVarBndr -> Name
 argInfo (PlainTV  n)   = n
@@ -192,8 +239,6 @@ testDec = [d| data RoseTree = Fork Int (List RoseTree)
             |]
 
 
-runIdxsM :: (Ord idx, Monad m) => IdxsM idx m a -> m a
-runIdxsM = flip evalStateT (Idxs 0 M.empty)
 
 main :: Dec -> Q [Dec]
 main start
