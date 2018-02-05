@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# OPTIONS_GHC -cpp         #-}
@@ -10,11 +11,12 @@
 --   We are borrowing a lot of code from generic-sop
 --   ( https://hackage.haskell.org/package/generics-sop-0.3.2.0/docs/src/Generics-SOP-TH.html )
 --
-module Generics.MRSOP.TH (deriveFamily, magic) where
+module Generics.MRSOP.TH (deriveFamily) where
 
-import Control.Arrow ((***))
+import Control.Arrow ((***), (&&&))
 import Control.Monad
 import Control.Monad.State
+import Control.Monad.Writer
 import Control.Monad.Identity
 
 import Language.Haskell.TH
@@ -32,12 +34,24 @@ import qualified Data.Map as M
 --    TODO: 4. Metadada information for each of the datatypes involved
 deriveFamily :: Q Type -> Q [Dec]
 deriveFamily t
-  = do res <- t
-       [d| ty :: String
-           ty = $( liftString (show res) ) |]
+  = do sty              <- t >>= convertType 
+       (_ , (Idxs _ m)) <- runIdxsM (reifySTy sty)
+       let 
+       concat <$> mapM genDec (M.toList m)
+  where
+    genDec :: (STy , (Int , Maybe (DTI IK))) -> Q [Dec]
+    genDec (sty , (ix , Nothing)) = fail $ show sty ++ " has no info"
+    genDec (sty , (ix , Just dti))
+      = [d| $( genPat ix ) = $(mkBody dti) |]
 
-magic :: Name -> Q [Dec]
-magic name = reify name >>= \res -> [d| ty = $( liftString (show res) ) |]
+    mkBody :: DTI IK -> Q Exp
+    mkBody dti = [e| $(liftString $ show dti) |]
+
+    genPat :: Int -> Q Pat
+    genPat n = genName n >>= \name -> return (VarP name)
+
+    genName :: Int -> Q Name
+    genName n = return (mkName $ "tyInfo_" ++ show n)
 
 -- Sketch;
 --
@@ -114,6 +128,15 @@ data STy
   | ConST Name
   deriving (Eq , Show, Ord)
 
+styFold :: (a -> a -> a) -> (Name -> a) -> (Name -> a) -> STy -> a
+styFold app var con (AppST a b) = app (styFold app var con a) (styFold app var con b)
+styFold app var con (VarST n)   = var n
+styFold app var con (ConST n)   = con n
+
+-- |Does a STy have a varible name?
+isClosed :: STy -> Bool
+isClosed = styFold (&&) (const False) (const True)
+
 -- ** Back and Forth conversion
 
 convertType :: (Monad m) => Type -> m STy
@@ -122,7 +145,8 @@ convertType (SigT t _)  = convertType t
 convertType (VarT n)    = return (VarST n)
 convertType (ConT n)    = return (ConST n)
 convertType (ParensT t) = convertType t
-convertType _           = fail "convertType: Unsupported Type"
+convertType ListT       = return (ConST (mkName "[]"))
+convertType t           = fail ("convertType: Unsupported Type: " ++ show t)
 
 trevnocType :: STy -> Type
 trevnocType (AppST a b) = AppT (trevnocType a) (trevnocType b)
@@ -139,23 +163,89 @@ stySubst (VarST x)   m n
   | x == m    = n
   | otherwise = VarST x
 
+-- |Just like subst, but applies a list of substitutions
+styReduce :: [(Name , STy)] -> STy -> STy
+styReduce parms t = foldr (\(n , m) ty -> stySubst ty n m) t parms
+
+-- |Flattens an application into a list of arguments;
+--
+--  @styFlatten (AppST (AppST Tree A) B) == (Tree , [A , B])@
+styFlatten :: STy -> (STy , [STy])
+styFlatten (AppST a b) = id *** (++ [b]) $ styFlatten a
+styFlatten sty         = (sty , [])
+
+-- * Parsing Haskell's AST
+
+reifyDec :: Name -> Q Dec
+reifyDec name =
+  do info <- reify name
+     case info of TyConI dec -> return dec
+                  _          -> fail $ show name ++ " is not a declaration"
+
+argInfo :: TyVarBndr -> Name
+argInfo (PlainTV  n)   = n
+argInfo (KindedTV n _) = n
+
+-- Extracts a DTI from a Dec
+decInfo :: Dec -> Q (DTI STy)
+decInfo (TySynD     name args      ty)     = fail "Type Synonyms not supported"
+decInfo (DataD    _ name args    _ cons _) = ADT name (map argInfo args) <$> mapM conInfo cons
+decInfo (NewtypeD _ name args    _ con _)  = New name (map argInfo args) <$> conInfo con
+decInfo _                                  = fail "Only type declarations are supported"
+
+-- Extracts a CI from a Con
+conInfo :: Con -> Q (CI STy)
+conInfo (NormalC  name ty) = Normal name <$> mapM (convertType . snd) ty
+conInfo (RecC     name ty) = Record name <$> mapM (\(s , _ , t) -> (s,) <$> convertType t) ty
+conInfo (InfixC l name r)
+  = do info <- reifyFixity name
+       case info of
+         -- TODO: incorporate fixity information.
+         _ -> Infix name <$> convertType (snd l) <*> convertType (snd r)
+conInfo (ForallC _ _ _) = fail "Existentials not supported"
+#if MIN_VERSION_template_haskell(2,11,0)
+conInfo (GadtC _ _ _)    = fail "GADTs not supported"
+conInfo (RecGadtC _ _ _) = fail "GADTs not supported"
+#endif
+
+-- |Reduces the rhs of a datatype declaration
+--  with some provided arguments. Step (2.a) of our sketch.
+--
+--  Precondition: application is fully saturated;
+--  ie, args and parms have the same length
+--
+dtiReduce :: DTI STy -> [STy] -> DTI STy
+dtiReduce (ADT name args cons) parms
+  = ADT name [] (map (ciReduce (zip args parms)) cons)
+dtiReduce (New name args con)  parms
+  = New name [] (ciReduce (zip args parms) con)
+
+ciReduce :: [(Name , STy)] -> CI STy -> CI STy
+ciReduce parms ci = runIdentity (ciMapM (return . styReduce parms) ci)  
+
 -- * Monad
 --
 -- Keeks the (M.Map STy (Int , DTI Sty)) in a state.
 
+data IK
+  = AtomI Int
+  | AtomK Name
+  deriving (Eq , Show)
+
 data Idxs 
   = Idxs { idxsNext :: Int
-         , idxsMap  :: M.Map STy (Int , Maybe (DTI STy))
+         , idxsMap  :: M.Map STy (Int , Maybe (DTI IK))
          }
+  deriving (Show)
 
-onMap :: (M.Map STy (Int , Maybe (DTI STy)) -> M.Map STy (Int , Maybe (DTI STy)))
+onMap :: (M.Map STy (Int , Maybe (DTI IK)) -> M.Map STy (Int , Maybe (DTI IK)))
       -> Idxs -> Idxs
 onMap f (Idxs n m) = Idxs n (f m)
 
 type IdxsM = StateT Idxs
 
-runIdxsM :: (Monad m) => IdxsM m a -> m a
-runIdxsM = flip evalStateT (Idxs 0 M.empty)
+runIdxsM :: (Monad m) => IdxsM m a -> m (a , Idxs)
+runIdxsM = flip runStateT (Idxs 0 M.empty)
 
 -- |The actual monad we need to run all of this;
 type M = IdxsM Q
@@ -173,74 +263,68 @@ indexOf name
                      >> return i
 
 -- |Register some Datatype Information for a given STy
-register :: (Monad m) => STy -> DTI STy -> IdxsM m ()
+register :: (Monad m) => STy -> DTI IK -> IdxsM m ()
 register ty info = indexOf ty -- the call to indexOf guarantees the
                               -- adjust will do something;
-                >> modify (onMap $ M.adjust (id *** const (Just info)) ty) 
+                >> modify (onMap $ M.adjust (id *** const (Just info)) ty)
 
--- |A more rigorous follow up of our sketch up there.
-process :: STy -> M ()
-process ty
-  = do ix <- indexOf ty
-       _
+-- | All the necessary lookups:
+lkup :: (Monad m) => STy -> IdxsM m (Maybe (Int , Maybe (DTI IK)))
+lkup ty = M.lookup ty . idxsMap <$> get
 
+lkupInfo :: (Monad m) => STy -> IdxsM m (Maybe Int)
+lkupInfo ty = fmap fst <$> lkup ty
 
+lkupData :: (Monad m) => STy -> IdxsM m (Maybe (DTI IK))
+lkupData ty = join . fmap snd <$> lkup ty
 
--- OLD COLD CODE:
+hasData :: (Monad m) => STy -> IdxsM m Bool
+hasData ty = maybe False (const True) <$> lkupData ty
 
----------------
--- Internals --
----------------
+-- |Performs step 2 of the sketch;
+reifySTy :: STy -> M ()
+reifySTy sty
+  =  indexOf sty
+  >> uncurry go (styFlatten sty)
+  where
+    go :: STy -> [STy] -> M ()
+    go (ConST name) args
+      = do dec <- lift (reifyDec name >>= decInfo)
+           -- TODO: Check that the precondition holds.
+           let res = dtiReduce dec args
+           (final , todo) <- runWriterT $ dtiMapM convertSTy res
+           register sty final
+           mapM_ reifySTy todo
+    
+    -- Convert the STy's in the fields of the constructors;
+    -- tells a list of STy's we still need to process.
+    convertSTy :: STy -> WriterT [STy] M IK
+    convertSTy ty
+      -- We remove sty from the list of todos
+      -- otherwise we get an infinite loop
+      | ty == sty = AtomI <$> lift (indexOf ty)
+      | isClosed ty
+      = case makeCons ty of
+          Just k  -> return (AtomK k)
+          Nothing -> do ix     <- lift (indexOf ty)
+                        hasDti <- lift (hasData ty)
+                        when (not hasDti) (tell [ty])
+                        return (AtomI ix)
+      | otherwise
+      = fail $ "I can't convert type variable " ++ show ty
+              ++ " when converting " ++ show sty
 
--- Utils
+    makeCons :: STy -> Maybe Name
+    makeCons (ConST n) = M.lookup n consTable
+    makeCons _         = Nothing
 
-reifyDec :: Name -> Q Dec
-reifyDec name =
-  do info <- reify name
-     case info of TyConI dec -> return dec
-                  _          -> fail "Info must be type declaration type."
+    consTable = M.fromList . map (id *** mkName)
+      $ [ ( ''Int     , "KInt")
+        , ( ''Char    , "KChar")
+        , ( ''Integer , "KInteger")
+        , ( ''Float   , "KFloat")
+        , ( ''Bool    , "KBool")
+        , ( ''String  , "KString")
+        , ( ''Double  , "KDouble")
+        ]
 
--- We shall need to keep track of the indexes of the types
--- we explore.
-
--- Now, we start processing by extracting a (DTI STy) from
--- a Haskell Declaration.
-
-argInfo :: TyVarBndr -> Name
-argInfo (PlainTV  n)   = n
-argInfo (KindedTV n _) = n
-
--- Extracts a DTI from a Dec
-decInfo :: Dec -> M (DTI Type)
-decInfo (TySynD     name args      ty)     = fail "Type Synonyms not supported"
-decInfo (DataD    _ name args    _ cons _) = ADT name (map argInfo args) <$> mapM conInfo cons
-decInfo (NewtypeD _ name args    _ con _)  = New name (map argInfo args) <$> conInfo con
-decInfo _                                  = fail "Only type declarations are supported"
-
-
--- Extracts a CI from a Con
-conInfo :: Con -> M (CI Type)
-conInfo (NormalC  name ty) = return $ Normal name (map snd ty)
-conInfo (RecC     name ty) = return $ Record name (map (\(s , _ , t) -> (s , t)) ty)
-conInfo (InfixC l name r)
-  = do info <- lift (reifyFixity name)
-       case info of
-         -- TODO: incorporate fixity information.
-         _ -> return $ Infix name (snd l) (snd r)
-conInfo (ForallC _ _ _) = fail "Existentials not supported"
-#if MIN_VERSION_template_haskell(2,11,0)
-conInfo (GadtC _ _ _)    = fail "GADTs not supported"
-conInfo (RecGadtC _ _ _) = fail "GADTs not supported"
-#endif
-
-testDec :: Q [Dec]
-testDec = [d| data RoseTree = Fork Int (List RoseTree)
-              data List a = Nil | Cons a (List a)    
-            |]
-
-
-
-main :: Dec -> Q [Dec]
-main start
-  = do
-    return []
