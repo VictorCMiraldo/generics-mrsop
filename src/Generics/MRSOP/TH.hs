@@ -11,7 +11,7 @@
 --   We are borrowing a lot of code from generic-sop
 --   ( https://hackage.haskell.org/package/generics-sop-0.3.2.0/docs/src/Generics-SOP-TH.html )
 --
-module Generics.MRSOP.TH (deriveFamily) where
+module Generics.MRSOP.TH (deriveFamily, genFamilyDebug) where
 
 import Data.Function (on)
 import Data.List (sortBy)
@@ -43,7 +43,9 @@ deriveFamily t
        -- types
        m' <- mapM extractDTI (M.toList m)
        let final = sortBy (compare `on` second) m' 
-       genFamily sty m'
+       dbg <- genFamilyDebug sty m'
+       res <- genFamily sty m'
+       return (dbg ++ res)
   where
     second (_ , x , _) = x
     
@@ -358,24 +360,32 @@ genFamily first ls
        return (fam:r)
   where
     familyName :: Q Name
-    familyName = return $ mkName "TY"
-    -- return . mkName $ styFold (\a -> (a ++) . ('_':)) show show first
+    familyName = return . mkName
+               $ ("Fam_" ++)
+               $ styFold (\a -> (a ++) . ('_':)) nameBase nameBase first
 
     familyDecl :: Q Dec
     familyDecl = TySynD <$> familyName <*> return [] <*> familyTys
 
     familyTys :: Q Type
-    familyTys = return $ tlListOf dti2Type (map (\(_ , _ , t) -> t) ls) 
+    familyTys = return $ tlListOf_l dti2Type (map (\(_ , _ , t) -> t) ls) 
 
     -- Generates a type-level list of 'a's
-    tlListOf :: (a -> Type) -> [a] -> Type
-    tlListOf f = foldr (\h r -> AppT (AppT PromotedConsT (f h)) r) PromotedNilT
+    tlListOf_l :: (a -> Type) -> [a] -> Type
+    tlListOf_l f = foldl (\r h -> AppT (AppT PromotedConsT (f h)) r) PromotedNilT
+
+    tlListOf_r :: (a -> Type) -> [a] -> Type
+    tlListOf_r f = foldr (\h r -> AppT (AppT PromotedConsT (f h)) r) PromotedNilT
 
     dti2Type :: DTI IK -> Type
-    dti2Type = tlListOf ci2Type . dti2ci
+    dti2Type = tlListOf_r ci2Type . dti2ci
 
     ci2Type :: CI IK -> Type
-    ci2Type = tlListOf ik2Type . ci2ty
+    ci2Type = tlListOf_r ik2Type . ci2ty
+
+    int2Type :: Int -> Type
+    int2Type 0 = tyZ
+    int2Type n = AppT tyS (int2Type (n - 1))
 
     tyS = PromotedT (mkName "S")
     tyZ = PromotedT (mkName "Z")
@@ -383,9 +393,7 @@ genFamily first ls
     tyK = PromotedT (mkName "K")
 
     ik2Type :: IK -> Type
-    ik2Type (AtomI n) = AppT tyI $ foldr (\_ -> AppT tyS) tyZ (ran n)
-      where ran 0 = []
-            ran n = [0..n-1]
+    ik2Type (AtomI n) = AppT tyI $ int2Type n
     ik2Type (AtomK k) = AppT tyK $ PromotedT k
   
 -- |@genElement sty ix dti@ generates the instance
@@ -394,8 +402,8 @@ genElement :: STy -> Int -> DTI IK -> Q [Dec]
 genElement = undefined
 
 -- |Generates a bunch of strings for debug purposes.
-genFamilyDebug :: [(STy , Int , DTI IK)] -> Q [Dec]
-genFamilyDebug ms = concat <$> mapM genDec ms
+genFamilyDebug :: STy -> [(STy , Int , DTI IK)] -> Q [Dec]
+genFamilyDebug _ ms = concat <$> mapM genDec ms
   where
     genDec :: (STy , Int , DTI IK) -> Q [Dec]
     genDec (sty , ix , dti)
