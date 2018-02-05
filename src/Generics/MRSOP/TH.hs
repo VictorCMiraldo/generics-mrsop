@@ -13,6 +13,9 @@
 --
 module Generics.MRSOP.TH (deriveFamily) where
 
+import Data.Function (on)
+import Data.List (sortBy)
+
 import Control.Arrow ((***), (&&&))
 import Control.Monad
 import Control.Monad.State
@@ -36,22 +39,18 @@ deriveFamily :: Q Type -> Q [Dec]
 deriveFamily t
   = do sty              <- t >>= convertType 
        (_ , (Idxs _ m)) <- runIdxsM (reifySTy sty)
-       let 
-       concat <$> mapM genDec (M.toList m)
+       -- Now we make sure we have processed all
+       -- types
+       m' <- mapM extractDTI (M.toList m)
+       let final = sortBy (compare `on` second) m' 
+       genFamily sty m'
   where
-    genDec :: (STy , (Int , Maybe (DTI IK))) -> Q [Dec]
-    genDec (sty , (ix , Nothing)) = fail $ show sty ++ " has no info"
-    genDec (sty , (ix , Just dti))
-      = [d| $( genPat ix ) = $(mkBody dti) |]
-
-    mkBody :: DTI IK -> Q Exp
-    mkBody dti = [e| $(liftString $ show dti) |]
-
-    genPat :: Int -> Q Pat
-    genPat n = genName n >>= \name -> return (VarP name)
-
-    genName :: Int -> Q Name
-    genName n = return (mkName $ "tyInfo_" ++ show n)
+    second (_ , x , _) = x
+    
+    extractDTI (sty , (ix , Nothing))
+      = fail $ "Type " ++ show sty ++ " has no datatype information."
+    extractDTI (sty , (ix , Just dti))
+      = return (sty , ix , dti)
 
 -- Sketch;
 --
@@ -118,6 +117,15 @@ ciMapM f (Record name tys) = Record name <$> mapM (rstr . (id *** f)) tys
 dtiMapM :: (Monad m) => (ty -> m tw) -> DTI ty -> m (DTI tw)
 dtiMapM f (ADT name args ci) = ADT name args <$> mapM (ciMapM f) ci
 dtiMapM f (New name args ci) = New name args <$> ciMapM f ci
+
+dti2ci :: DTI ty -> [CI ty]
+dti2ci (ADT _ _ cis) = cis
+dti2ci (New _ _ ci)  = [ ci ]
+
+ci2ty :: CI ty -> [ty]
+ci2ty (Normal _ tys) = tys
+ci2ty (Infix _ a b)  = [a , b]
+ci2ty (Record _ tys) = map snd tys
 
 -- * Simpler STy Language
 
@@ -281,6 +289,10 @@ lkupData ty = join . fmap snd <$> lkup ty
 hasData :: (Monad m) => STy -> IdxsM m Bool
 hasData ty = maybe False (const True) <$> lkupData ty
 
+----------------------------
+-- * Preprocessing Data * --
+----------------------------
+
 -- |Performs step 2 of the sketch;
 reifySTy :: STy -> M ()
 reifySTy sty
@@ -327,4 +339,74 @@ reifySTy sty
         , ( ''String  , "KString")
         , ( ''Double  , "KDouble")
         ]
+
+-----------------------------
+-- * Generating the Code * --
+-----------------------------
+
+-- |@genFamily init fam@ generates a type-level list
+--  of the codes for the family. It also generates
+--  the necessary 'Element' instances.
+--  TODO: generate the 'HasDatatypeInfo' instances too!
+--
+--  Precondition, input is sorted on second component.
+genFamily :: STy -> [(STy , Int , DTI IK)] -> Q [Dec]  
+genFamily first ls
+  = do fam <- familyDecl
+       r   <- [d| ty :: String
+                  ty = $(liftString $ show fam) |]
+       return (fam:r)
+  where
+    familyName :: Q Name
+    familyName = return $ mkName "TY"
+    -- return . mkName $ styFold (\a -> (a ++) . ('_':)) show show first
+
+    familyDecl :: Q Dec
+    familyDecl = TySynD <$> familyName <*> return [] <*> familyTys
+
+    familyTys :: Q Type
+    familyTys = return $ tlListOf dti2Type (map (\(_ , _ , t) -> t) ls) 
+
+    -- Generates a type-level list of 'a's
+    tlListOf :: (a -> Type) -> [a] -> Type
+    tlListOf f = foldr (\h r -> AppT (AppT PromotedConsT (f h)) r) PromotedNilT
+
+    dti2Type :: DTI IK -> Type
+    dti2Type = tlListOf ci2Type . dti2ci
+
+    ci2Type :: CI IK -> Type
+    ci2Type = tlListOf ik2Type . ci2ty
+
+    tyS = PromotedT (mkName "S")
+    tyZ = PromotedT (mkName "Z")
+    tyI = PromotedT (mkName "I")
+    tyK = PromotedT (mkName "K")
+
+    ik2Type :: IK -> Type
+    ik2Type (AtomI n) = AppT tyI $ foldr (\_ -> AppT tyS) tyZ (ran n)
+      where ran 0 = []
+            ran n = [0..n-1]
+    ik2Type (AtomK k) = AppT tyK $ PromotedT k
+  
+-- |@genElement sty ix dti@ generates the instance
+--  for the 'Element' class.
+genElement :: STy -> Int -> DTI IK -> Q [Dec]
+genElement = undefined
+
+-- |Generates a bunch of strings for debug purposes.
+genFamilyDebug :: [(STy , Int , DTI IK)] -> Q [Dec]
+genFamilyDebug ms = concat <$> mapM genDec ms
+  where
+    genDec :: (STy , Int , DTI IK) -> Q [Dec]
+    genDec (sty , ix , dti)
+      = [d| $( genPat ix ) = $(mkBody dti) |]
+
+    mkBody :: DTI IK -> Q Exp
+    mkBody dti = [e| $(liftString $ show dti) |]
+
+    genPat :: Int -> Q Pat
+    genPat n = genName n >>= \name -> return (VarP name)
+
+    genName :: Int -> Q Name
+    genName n = return (mkName $ "tyInfo_" ++ show n)
 
