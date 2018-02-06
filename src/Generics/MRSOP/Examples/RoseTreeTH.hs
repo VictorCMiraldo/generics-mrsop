@@ -13,6 +13,7 @@
 {-# LANGUAGE TemplateHaskell         #-}
 module Generics.MRSOP.Examples.RoseTreeTH where
 
+{-# OPTIONS_GHC -ddump-splices #-}
 import Data.Function (on)
 
 import Generics.MRSOP.Base.Internal.NS
@@ -34,5 +35,9 @@ value1, value2 :: Rose Int
 value1 = 1 :>: [2 :>: [], 3 :>: []]
 value2 = 1 :>: [2 :>: []]
 
-deriveFamily [t| Rose String |]
+deriveFamily [t| Rose Int |]
 
+instance Eq (Rose Int) where
+  (==) = geq eqSingl
+
+correct = value1 == value1 && value1 /= value2

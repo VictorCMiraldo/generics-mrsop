@@ -25,6 +25,11 @@ import Control.Monad.Identity
 import Language.Haskell.TH
 import Language.Haskell.TH.Syntax (liftString)
 
+import Generics.MRSOP.Konstants
+import Generics.MRSOP.Base.Class
+import Generics.MRSOP.Base.Internal.NS
+import Generics.MRSOP.Base.Internal.NP
+import Generics.MRSOP.Base.Universe
 
 import qualified Data.Map as M
 
@@ -129,6 +134,16 @@ ci2ty (Normal _ tys) = tys
 ci2ty (Infix _ a b)  = [a , b]
 ci2ty (Record _ tys) = map snd tys
 
+ciName :: CI ty -> Name
+ciName (Normal n _)  = n
+ciName (Infix n _ _) = n
+ciName (Record n _)  = n
+
+ci2Pat :: CI ty -> Q ([Name] , Pat)
+ci2Pat ci
+  = do ns <- mapM (const (newName "x")) (ci2ty ci)
+       return (ns , (ConP (ciName ci) (map VarP ns)))
+
 -- * Simpler STy Language
 
 -- A Simplified version of Language.Haskell.TH
@@ -161,7 +176,9 @@ convertType t           = fail ("convertType: Unsupported Type: " ++ show t)
 trevnocType :: STy -> Type
 trevnocType (AppST a b) = AppT (trevnocType a) (trevnocType b)
 trevnocType (VarST n)   = VarT n
-trevnocType (ConST n)   = ConT n
+trevnocType (ConST n)
+  | n == mkName "[]" = ListT
+  | otherwise        = ConT n
 
 -- |Handy substitution function.
 --
@@ -357,7 +374,10 @@ genFamily first ls
   = do fam <- familyDecl
        r   <- [d| ty :: String
                   ty = $(liftString $ show fam) |]
-       return (fam:r)
+       name <- familyName
+       els  <- concat <$> mapM (\(sty , ix , dti) -> genElement name sty ix dti) ls 
+       return (fam:r ++ els)
+       
   where
     familyName :: Q Name
     familyName = return . mkName
@@ -370,36 +390,67 @@ genFamily first ls
     familyTys :: Q Type
     familyTys = return $ tlListOf_l dti2Type (map (\(_ , _ , t) -> t) ls) 
 
-    -- Generates a type-level list of 'a's
-    tlListOf_l :: (a -> Type) -> [a] -> Type
-    tlListOf_l f = foldl (\r h -> AppT (AppT PromotedConsT (f h)) r) PromotedNilT
+-- Generates a type-level list of 'a's
+tlListOf_l :: (a -> Type) -> [a] -> Type
+tlListOf_l f = foldl (\r h -> AppT (AppT PromotedConsT (f h)) r) PromotedNilT
 
-    tlListOf_r :: (a -> Type) -> [a] -> Type
-    tlListOf_r f = foldr (\h r -> AppT (AppT PromotedConsT (f h)) r) PromotedNilT
+tlListOf_r :: (a -> Type) -> [a] -> Type
+tlListOf_r f = foldr (\h r -> AppT (AppT PromotedConsT (f h)) r) PromotedNilT
 
-    dti2Type :: DTI IK -> Type
-    dti2Type = tlListOf_r ci2Type . dti2ci
+dti2Type :: DTI IK -> Type
+dti2Type = tlListOf_r ci2Type . dti2ci
 
-    ci2Type :: CI IK -> Type
-    ci2Type = tlListOf_r ik2Type . ci2ty
+ci2Type :: CI IK -> Type
+ci2Type = tlListOf_r ik2Type . ci2ty
 
-    int2Type :: Int -> Type
-    int2Type 0 = tyZ
-    int2Type n = AppT tyS (int2Type (n - 1))
+int2Type :: Int -> Type
+int2Type 0 = tyZ
+int2Type n = AppT tyS (int2Type (n - 1))
 
-    tyS = PromotedT (mkName "S")
-    tyZ = PromotedT (mkName "Z")
-    tyI = PromotedT (mkName "I")
-    tyK = PromotedT (mkName "K")
+tyS = PromotedT (mkName "S")
+tyZ = PromotedT (mkName "Z")
+tyI = PromotedT (mkName "I")
+tyK = PromotedT (mkName "K")
 
-    ik2Type :: IK -> Type
-    ik2Type (AtomI n) = AppT tyI $ int2Type n
-    ik2Type (AtomK k) = AppT tyK $ PromotedT k
-  
+ik2Type :: IK -> Type
+ik2Type (AtomI n) = AppT tyI $ int2Type n
+ik2Type (AtomK k) = AppT tyK $ PromotedT k
+
 -- |@genElement sty ix dti@ generates the instance
 --  for the 'Element' class.
-genElement :: STy -> Int -> DTI IK -> Q [Dec]
-genElement = undefined
+genElement :: Name -> STy -> Int -> DTI IK -> Q [Dec]
+genElement fam sty ix dti
+  = [d| instance Element Singl
+                         $(return (ConT fam))
+                         $(return $ int2Type ix)
+                         $(return (trevnocType sty))
+          where
+            from = $(genFrom dti)
+            to   = $(genTo dti)
+      |]                       
+  where
+    genFrom :: DTI IK -> Q Exp
+    genFrom dti = LamCaseE <$> mapM (uncurry genFromMatch) (zip [0..] (dti2ci dti))
+
+    genFromMatch :: Int -> CI IK -> Q Match
+    genFromMatch ni ci
+      = do (vars , pat) <- ci2Pat ci
+           bdy <- [e| Fix (Rep $(genFromExp ni (zip vars (ci2ty ci)))) |]
+           return (Match pat (NormalB bdy) [])
+
+    genFromExp :: Int -> [(Name , IK)] -> Q Exp
+    genFromExp 0 ns = [e| Here $(go ns) |]
+      where
+        go []                   = [e| NP0 |]
+        go (x : xs)             = [e| $(mkHead x) :* ( $(go xs) ) |]
+
+        mkHead (x , AtomI _) = [e| NA_I (from $(return (VarE x))) |]
+        mkHead (x , AtomK k) = [e| NA_K $(return (AppE (ConE (mkK k)) (VarE x))) |]
+
+        mkK k = mkName $ 'S':tail (nameBase k)
+    genFromExp n ns = [e| There $(genFromExp (n-1) ns) |]
+
+    genTo   dti = [e| undefined |]
 
 -- |Generates a bunch of strings for debug purposes.
 genFamilyDebug :: STy -> [(STy , Int , DTI IK)] -> Q [Dec]
@@ -418,3 +469,6 @@ genFamilyDebug _ ms = concat <$> mapM genDec ms
     genName :: Int -> Q Name
     genName n = return (mkName $ "tyInfo_" ++ show n)
 
+test = [e| case l of
+             []        -> 0
+             ((:) x y) -> 1 |]
