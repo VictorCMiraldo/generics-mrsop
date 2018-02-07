@@ -501,7 +501,3 @@ genFamilyDebug _ ms = concat <$> mapM genDec ms
 
     genName :: Int -> Q Name
     genName n = return (mkName $ "tyInfo_" ++ show n)
-
-test = [e| case l of
-             []        -> 0
-             ((:) x y) -> 1 |]

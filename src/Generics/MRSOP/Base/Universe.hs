@@ -12,6 +12,7 @@
 module Generics.MRSOP.Base.Universe where
 
 import Data.Function (on)
+import Data.Type.Equality
 import Data.Proxy
 
 import Generics.MRSOP.Base.Internal.NS
@@ -142,3 +143,7 @@ eqFix :: (forall k. ki k -> ki k -> Bool)
       -> Fix ki fam ix -> Fix ki fam ix -> Bool
 eqFix p = eqRep p (eqFix p) `on` unFix
 
+-- |Compare two indexes of two fixpoints
+heqFixIx :: (IsNat ix , IsNat ix')
+         => Fix ki fam ix -> Fix ki fam ix' -> Maybe (ix :~: ix')
+heqFixIx fa fb = testEquality getSNat getSNat
