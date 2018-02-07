@@ -1,9 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TupleSections     #-}
 {-# LANGUAGE DeriveTraversable #-}
-{-# OPTIONS_GHC -cpp         #-}
-{-# LANGUAGE DeriveFunctor   #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE DeriveFunctor     #-}
+{-# LANGUAGE TemplateHaskell   #-}
+{-# OPTIONS_GHC -cpp           #-}
 -- | Provides a simple way for the end-user deriving
 --   the mechanical, yet long, Element instances
 --   for a family.
@@ -432,6 +432,8 @@ genElement fam sty ix dti
     genFrom :: DTI IK -> Q Exp
     genFrom dti = LamCaseE <$> mapM (uncurry genFromMatch) (zip [0..] (dti2ci dti))
 
+    -- the Int represents the number of the constructos,
+    -- letting us know how many 'There's before the 'Here'
     genFromMatch :: Int -> CI IK -> Q Match
     genFromMatch ni ci
       = do (vars , pat) <- ci2Pat ci
@@ -450,7 +452,38 @@ genElement fam sty ix dti
         mkK k = mkName $ 'S':tail (nameBase k)
     genFromExp n ns = [e| There $(genFromExp (n-1) ns) |]
 
-    genTo   dti = [e| undefined |]
+    genTo :: DTI IK -> Q Exp
+    genTo dti = LamCaseE <$> mapM (uncurry genToMatch) (zip [0..] (dti2ci dti))
+
+    genToMatch :: Int -> CI IK -> Q Match
+    genToMatch ni ci
+      = do vars <- mapM (const (newName "y")) (ci2ty ci)
+           pat  <- [p| Fix (Rep $(genToPat ni (zip vars (ci2ty ci)))) |]
+           bdy  <- genToExp (ciName ci) (zip vars $ ci2ty ci)
+           return (Match pat (NormalB bdy) [])
+
+    genToPat :: Int -> [(Name , IK)] -> Q Pat
+    genToPat 0 ns = [p| Here $(go ns) |]
+      where
+        go []                   = [p| NP0 |]
+        go (x : xs)             = [p| $(mkHead x) :* ( $(go xs) ) |]
+
+        mkHead (x , AtomI _) = [p| NA_I $(return (VarP x)) |]
+        mkHead (x , AtomK k) = [p| NA_K $(return (ConP (mkK k) [VarP x])) |]
+
+        mkK k = mkName $ 'S':tail (nameBase k)
+    genToPat n ns = [p| There $(genToPat (n-1) ns) |]
+
+    genToExp :: Name -> [(Name , IK)] -> Q Exp
+    genToExp con []     = return (ConE con)
+    genToExp con (n:ns) = return $ go (AppE (ConE con) (mkE n)) ns
+      where
+        mkE :: (Name , IK) -> Exp
+        mkE (n , AtomK _) = VarE n
+        mkE (n , AtomI _) = AppE (VarE (mkName "to")) (VarE n)
+
+        go acc []     = acc
+        go acc (n:ns) = go (AppE acc (mkE n)) ns
 
 -- |Generates a bunch of strings for debug purposes.
 genFamilyDebug :: STy -> [(STy , Int , DTI IK)] -> Q [Dec]
