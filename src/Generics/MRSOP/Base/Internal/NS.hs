@@ -24,8 +24,12 @@ instance (Show (p x), Show (NS p xs)) => Show (NS p (x : xs)) where
 -- * Map and Elim
 
 mapNS :: f :-> g -> NS f ks -> NS g ks
-mapNS f (Here p)  = Here (f p)
+mapNS f (Here  p) = Here (f p)
 mapNS f (There p) = There (mapNS f p)
+
+mapMNS :: (Monad m) => (forall x . f x -> m (g x)) -> NS f ks -> m (NS g ks)
+mapMNS f (Here  p) = Here  <$> f p
+mapMNS f (There p) = There <$> mapMNS f p
 
 elimNS :: (forall x . f x -> a) -> NS f ks -> a
 elimNS f (Here p)  = f p

@@ -28,6 +28,10 @@ mapNP :: f :-> g -> NP f ks -> NP g ks
 mapNP f NP0       = NP0
 mapNP f (k :* ks) = f k :* mapNP f ks
 
+mapMNP :: (Monad m) => (forall x . f x -> m (g x)) -> NP f ks -> m (NP g ks)
+mapMNP f NP0       = return NP0
+mapMNP f (k :* ks) = (:*) <$> f k <*> mapMNP f ks
+
 elimNP :: (forall x . f x -> a) -> NP f ks -> [a]
 elimNP f NP0       = []
 elimNP f (k :* ks) = f k : elimNP f ks

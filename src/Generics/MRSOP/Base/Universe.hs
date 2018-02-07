@@ -147,3 +147,12 @@ eqFix p = eqRep p (eqFix p) `on` unFix
 heqFixIx :: (IsNat ix , IsNat ix')
          => Fix ki fam ix -> Fix ki fam ix' -> Maybe (ix :~: ix')
 heqFixIx fa fb = testEquality getSNat getSNat
+
+-- |Crush a value by traversing it and applying the
+--  provided morphism.
+crushM :: (Monad m)
+       => (forall iy . NA ki (Fix ki fam) iy -> m a)
+       -> ([a] -> m a)
+       -> Fix ki fam ix -> m a
+crushM alg cat (Fix (Rep ns))
+  = elimNS ((>>= cat) . sequence . elimNP alg) ns
