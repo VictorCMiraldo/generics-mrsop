@@ -54,10 +54,10 @@ correct = value1 == value1 && value1 /= value2
 countEven :: Rose Int -> Int
 countEven = runIdentity . gcountEven . from' @Singl
   where
-    gcountEven :: Fix Singl Fam_Rose_Int ix -> Identity Int
+    gcountEven :: FAM ix -> Identity Int
     gcountEven = crushM gcountEvenA (return . sum)
 
-    gcountEvenA :: NA Singl (Fix Singl Fam_Rose_Int) ix -> Identity Int
+    gcountEvenA :: NA Singl FAM ix -> Identity Int
     gcountEvenA (NA_I i)        = gcountEven i
     gcountEvenA (NA_K (SInt n))
       | even n    = return 1

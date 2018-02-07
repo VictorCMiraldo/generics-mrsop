@@ -372,11 +372,10 @@ reifySTy sty
 genFamily :: STy -> [(STy , Int , DTI IK)] -> Q [Dec]  
 genFamily first ls
   = do fam <- familyDecl
-       r   <- [d| ty :: String
-                  ty = $(liftString $ show fam) |]
        name <- familyName
+       syn  <- [d| type FAM = Fix Singl $(ConT <$> familyName) |]
        els  <- concat <$> mapM (\(sty , ix , dti) -> genElement name sty ix dti) ls 
-       return (fam:r ++ els)
+       return (fam:syn ++ els)
        
   where
     familyName :: Q Name
