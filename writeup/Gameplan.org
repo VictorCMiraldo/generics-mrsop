@@ -1,0 +1,75 @@
+#+TITLE: Super Cool Generic Paper!
+
+* Target Conferences and Dates
+** Sure dates!
+  - ICFP         (submission deadline: 16 March; response: 2 May)
+** Taken from 2017:
+  - Haskell Symp (submission deadline: 13 March ; notify 1 may)
+  - TyDe         (submission deadline: 20 May)
+
+** Conclusion
+  Get something ready by first week of March.
+
+* Skeleton
+** Intro
+*** Multirec and generics-sop are not enough!
+  Find a great example!
+    - Explicit least-fixedpoints
+    - Explicit SOP structure
+
+  Seems like Lambda+Let is a good start;
+  We can then augment that later and show the def's
+  don't change.
+
+*** Find witnesses of why Multirec kinda sucks 
+  Encode Lambda+Let in Multirec;
+
+  Generic definitions are made by instances.
+    #+BEGIN_CODE Haskell
+      instance F a where
+        f :: a -> Whatever
+        default f :: (Generic a , GF (Rep a))
+        f x = gf (from x)
+
+      instance (GF a , GF b) => GF (a :+: b) where 
+        ...
+    #+END_CODE
+
+  We write them by combinators!
+  Write some ugly Multirec for Lambda+Let;
+  then write it in generics-mrsop.
+*** Summary
+  - With a very sane choice of extensions!
+** Under the Hood
+*** Show generics-sop way (no explicit Fix)
+*** Add explicit fix (codes for constants and I)
+  - Fixed set of constants
+  - crush is catamorphism! show it!
+*** Add mutually recursive types by adding a index!
+  - Family becomes [ [ [ Atom ] ] ]
+
+*** Combinators!
+  - crush? what else?
+** Driving in Manual
+*** Show Element class
+  - Discuss alternatives (moving parameters to type families)
+  - Discuss FunDep 
+*** Write one instance by hand
+  - It is not an insane amount of work! Yay for us!
+
+
+ 
+  
+** Autopilot
+*** Describe template Haskell stuff
+  - Non trivial, the interface is nice!
+  - reduction on the type level
+
+** Going Places
+*** Equality, generically with a crush.
+  - Abstract our generic equality away. Whats the
+    general pattern? It's kind of like a crush,
+    but binary!
+*** Possibilities:
+  - Configurable Arbitrary?
+  - 
