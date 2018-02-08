@@ -26,7 +26,6 @@ import Generics.MRSOP.Util
 import Generics.MRSOP.TH
 
 import Control.Monad
-import Control.Monad.Identity
 
 
 -- * Haskell first-order RoseTrees
@@ -52,13 +51,9 @@ instance Eq (Rose Int) where
 correct = value1 == value1 && value1 /= value2
 
 countEven :: Rose Int -> Int
-countEven = runIdentity . gcountEven . from' @Singl
+countEven = crush countSingl sum . from' @Singl
   where
-    gcountEven :: FAM ix -> Identity Int
-    gcountEven = crushM gcountEvenA (return . sum)
-
-    gcountEvenA :: NA Singl FAM ix -> Identity Int
-    gcountEvenA (NA_I i)        = gcountEven i
-    gcountEvenA (NA_K (SInt n))
-      | even n    = return 1
-      | otherwise = return 0 
+    countSingl :: Singl k -> Int
+    countSingl (SInt n)
+      | even n    = 1
+      | otherwise = 0 

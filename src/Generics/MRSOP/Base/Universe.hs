@@ -15,6 +15,8 @@ import Data.Function (on)
 import Data.Type.Equality
 import Data.Proxy
 
+import Control.Monad.Identity
+
 import Generics.MRSOP.Base.Internal.NS
 import Generics.MRSOP.Base.Internal.NP
 import Generics.MRSOP.Util
@@ -148,11 +150,29 @@ heqFixIx :: (IsNat ix , IsNat ix')
          => Fix ki fam ix -> Fix ki fam ix' -> Maybe (ix :~: ix')
 heqFixIx fa fb = testEquality getSNat getSNat
 
--- |Crush a value by traversing it and applying the
+-- |Crush the first layer of a value by traversing it and applying the
 --  provided morphism.
-crushM :: (Monad m)
-       => (forall iy . NA ki (Fix ki fam) iy -> m a)
+--  ATTENTION: Not recursive!
+crush1M :: (Monad m)
+        => (forall iy . NA ki (Fix ki fam) iy -> m a)
+        -> ([a] -> m a)
+        -> Fix ki fam ix -> m a
+crush1M alg cat (Fix (Rep ns))
+  = elimNS ((>>= cat) . sequence . elimNP alg) ns
+
+-- |Crushes the whole value by recursing on type-variables.
+crushM :: forall m a ki fam ix . (Monad m)
+       => (forall k . ki k -> m a)
        -> ([a] -> m a)
        -> Fix ki fam ix -> m a
-crushM alg cat (Fix (Rep ns))
-  = elimNS ((>>= cat) . sequence . elimNP alg) ns
+crushM f cat = crush1M go cat
+  where
+    go :: (Monad m) => NA ki (Fix ki fam) iy -> m a
+    go (NA_I i) = crushM f cat i
+    go (NA_K x) = f x
+
+-- |Pure variant of 'crush'
+crush :: (forall k . ki k -> a)
+      -> ([a] -> a)
+      -> Fix ki fam ix -> a
+crush f cat = runIdentity . crushM (return . f) (return . cat)
