@@ -30,9 +30,9 @@ import Control.Monad
 
 -- * Haskell first-order RoseTrees
 
-data Rose a = a :>: [Rose a]
+data Rose a b = a :>: [Rose a b]
   deriving Show
-
+{-
 value1, value2 :: Rose Int
 value1 = 1 :>: [2 :>: [], 3 :>: []]
 value2 = 1 :>: [2 :>: []]
@@ -42,9 +42,9 @@ value3 = [value1 , value2]
 
 value4 :: Rose Int
 value4 = 12 :>: (value3 ++ value3)
-
-deriveFamily [t| Rose Int |]
-
+-}
+deriveFamily [t| Rose Int Bool |]
+{-
 instance Eq (Rose Int) where
   (==) = geq eqSingl
 
@@ -57,3 +57,4 @@ countEven = crush countSingl sum . from' @Singl
     countSingl (SInt n)
       | even n    = 1
       | otherwise = 0 
+-}
