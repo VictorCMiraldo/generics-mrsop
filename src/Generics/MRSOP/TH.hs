@@ -48,8 +48,8 @@ deriveFamily t
        -- types
        m' <- mapM extractDTI (M.toList m)
        let final = sortBy (compare `on` second) m' 
-       dbg <- genFamilyDebug sty m'
-       res <- genFamily sty m'
+       dbg <- genFamilyDebug sty final
+       res <- genFamily sty final 
        return (dbg ++ res)
   where
     second (_ , x , _) = x
@@ -315,8 +315,8 @@ hasData ty = maybe False (const True) <$> lkupData ty
 -- |Performs step 2 of the sketch;
 reifySTy :: STy -> M ()
 reifySTy sty
-  =  indexOf sty
-  >> uncurry go (styFlatten sty)
+  = do ix <- indexOf sty
+       uncurry go (styFlatten sty)
   where
     go :: STy -> [STy] -> M ()
     go (ConST name) args
@@ -387,20 +387,17 @@ genFamily first ls
     familyDecl = TySynD <$> familyName <*> return [] <*> familyTys
 
     familyTys :: Q Type
-    familyTys = return $ tlListOf_l dti2Type (map (\(_ , _ , t) -> t) ls) 
+    familyTys = return $ tlListOf dti2Type (map (\(_ , _ , t) -> t) ls) 
 
 -- Generates a type-level list of 'a's
-tlListOf_l :: (a -> Type) -> [a] -> Type
-tlListOf_l f = foldl (\r h -> AppT (AppT PromotedConsT (f h)) r) PromotedNilT
-
-tlListOf_r :: (a -> Type) -> [a] -> Type
-tlListOf_r f = foldr (\h r -> AppT (AppT PromotedConsT (f h)) r) PromotedNilT
+tlListOf :: (a -> Type) -> [a] -> Type
+tlListOf f = foldr (\h r -> AppT (AppT PromotedConsT (f h)) r) PromotedNilT
 
 dti2Type :: DTI IK -> Type
-dti2Type = tlListOf_r ci2Type . dti2ci
+dti2Type = tlListOf ci2Type . dti2ci
 
 ci2Type :: CI IK -> Type
-ci2Type = tlListOf_r ik2Type . ci2ty
+ci2Type = tlListOf ik2Type . ci2ty
 
 int2Type :: Int -> Type
 int2Type 0 = tyZ
