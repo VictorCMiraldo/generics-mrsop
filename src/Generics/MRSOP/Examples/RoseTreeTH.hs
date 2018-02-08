@@ -11,6 +11,7 @@
 {-# LANGUAGE ScopedTypeVariables     #-}
 {-# LANGUAGE FunctionalDependencies  #-}
 {-# LANGUAGE TemplateHaskell         #-}
+{-# LANGUAGE LambdaCase              #-}
 module Generics.MRSOP.Examples.RoseTreeTH where
 
 {-# OPTIONS_GHC -ddump-splices #-}
@@ -30,7 +31,7 @@ import Control.Monad
 
 -- * Haskell first-order RoseTrees
 
-data Rose a = a :>: [Rose a]
+data Rose a = a :>: [Rose a ]
   deriving Show
 
 value1, value2 :: Rose Int
@@ -42,6 +43,7 @@ value3 = [value1 , value2]
 
 value4 :: Rose Int
 value4 = 12 :>: (value3 ++ value3)
+
 
 deriveFamily [t| Rose Int |]
 
@@ -56,4 +58,5 @@ countEven = crush countSingl sum . from' @Singl
     countSingl :: Singl k -> Int
     countSingl (SInt n)
       | even n    = 1
-      | otherwise = 0 
+      | otherwise = 0
+

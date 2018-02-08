@@ -55,7 +55,9 @@ library
     Generics.MRSOP.Base.Class,
     Generics.MRSOP.Konstants,
     Generics.MRSOP.Util,
-    Generics.MRSOP.Examples.RoseTree
+    Generics.MRSOP.TH,
+    Generics.MRSOP.Examples.RoseTree,
+    Generics.MRSOP.Examples.RoseTreeTH
   
   -- Modules included in this library but not exported.
   -- other-modules:       
