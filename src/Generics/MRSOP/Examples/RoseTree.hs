@@ -1,5 +1,4 @@
 {-# LANGUAGE TypeApplications        #-}
-{-# LANGUAGE UndecidableInstances    #-}
 {-# LANGUAGE RankNTypes              #-}
 {-# LANGUAGE FlexibleContexts        #-}
 {-# LANGUAGE FlexibleInstances       #-}

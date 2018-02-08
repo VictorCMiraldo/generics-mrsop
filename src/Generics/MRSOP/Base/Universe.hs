@@ -1,4 +1,3 @@
-{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE RankNTypes           #-}
 {-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE FlexibleInstances    #-}
@@ -68,9 +67,14 @@ mapNA nat (NA_K i) = NA_K i
 -- |Representation of codes.
 newtype Rep (ki :: kon -> *) (phi :: Nat -> *) (code :: [[Atom kon]])
   = Rep { unRep :: NS (PoA ki phi) code }
+{-
+
+TODO:
+This needs undecidable instances. We don't like undecidable instances
 
 instance Show (NS (PoA ki phi) code) => Show (Rep ki phi code) where
   show (Rep x) = show x
+-}
 
 -- |Product of Atoms is a handy synonym to have.
 type PoA (ki :: kon -> *) (phi :: Nat -> *) = NP (NA ki phi)
@@ -137,8 +141,11 @@ sop = go . unRep
 newtype Fix (ki :: kon -> *) (fam :: [[[ Atom kon ]]]) (n :: Nat)
   = Fix { unFix :: Rep ki (Fix ki fam) (Lkup n fam) }
 
+{-
+undecidable instances
 instance Show (Rep ki (Fix ki fam) (Lkup n fam)) => Show (Fix ki fam n) where
   show (Fix x) = show x
+-}
 
 -- |Compare two values of a same fixpoint for equality.
 eqFix :: (forall k. ki k -> ki k -> Bool)
