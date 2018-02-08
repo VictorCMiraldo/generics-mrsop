@@ -11,7 +11,7 @@
   Get something ready by first week of March.
 
 * Skeleton
-** Intro
+** Intro (A)
 *** Multirec and generics-sop are not enough!
   Find a great example!
     - Explicit least-fixedpoints
@@ -21,7 +21,7 @@
   We can then augment that later and show the def's
   don't change.
 
-*** Find witnesses of why Multirec kinda sucks 
+*** (V first) Find witnesses of why Multirec kinda sucks 
   Encode Lambda+Let in Multirec;
 
   Generic definitions are made by instances.
@@ -40,7 +40,7 @@
   then write it in generics-mrsop.
 *** Summary
   - With a very sane choice of extensions!
-** Under the Hood
+** Under the Hood (V)
 *** Show generics-sop way (no explicit Fix)
 *** Add explicit fix (codes for constants and I)
   - Fixed set of constants
@@ -50,7 +50,7 @@
 
 *** Combinators!
   - crush? what else?
-** Driving in Manual
+** Driving in Manual (A)
 *** Show Element class
   - Discuss alternatives (moving parameters to type families)
   - Discuss FunDep 
@@ -60,12 +60,12 @@
 
  
   
-** Autopilot
+** Driving in Auto (V)
 *** Describe template Haskell stuff
   - Non trivial, the interface is nice!
   - reduction on the type level
 
-** Going Places
+** Going Places (A + V later)
 *** Equality, generically with a crush.
   - Abstract our generic equality away. Whats the
     general pattern? It's kind of like a crush,
