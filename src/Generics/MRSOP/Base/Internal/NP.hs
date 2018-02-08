@@ -36,6 +36,10 @@ elimNP :: (forall x . f x -> a) -> NP f ks -> [a]
 elimNP f NP0       = []
 elimNP f (k :* ks) = f k : elimNP f ks
 
+zipNP :: NP f xs -> NP g xs -> NP (f :*: g) xs
+zipNP NP0       NP0       = NP0
+zipNP (f :* fs) (g :* gs) = (f :*: g) :* zipNP fs gs
+
 -- * Catamorphism
 
 cataNP :: (forall x xs . f x  -> r xs -> r (x : xs))
@@ -48,6 +52,5 @@ cataNP fCons fNil (k :* ks) = fCons k (cataNP fCons fNil ks)
 
 eqNP :: (forall x. p x -> p x -> Bool)
      -> NP p xs -> NP p xs -> Bool
-eqNP _ NP0       NP0       = True
-eqNP p (x :* xs) (y :* ys) = p x y && eqNP p xs ys
+eqNP p x = and . elimNP (uncurry' p) . zipNP x
 

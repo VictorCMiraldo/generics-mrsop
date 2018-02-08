@@ -38,8 +38,8 @@ data Atom kon
 --  using either @ki@ or @phi@ to interpret the type variable
 --  or opaque type.
 data NA  :: (kon -> *) -> (Nat -> *) -> Atom kon -> * where
-  NA_I :: phi k -> NA ki phi (I k) 
-  NA_K :: ki  k -> NA ki phi (K k)
+  NA_I :: (IsNat k) => phi k -> NA ki phi (I k) 
+  NA_K ::              ki  k -> NA ki phi (K k)
 
 -- https://stackoverflow.com/questions/9082642/implementing-the-show-class
 instance (Show (fam k)) => Show (NA ki fam (I k)) where
@@ -141,6 +141,9 @@ sop = go . unRep
 newtype Fix (ki :: kon -> *) (fam :: [[[ Atom kon ]]]) (n :: Nat)
   = Fix { unFix :: Rep ki (Fix ki fam) (Lkup n fam) }
 
+proxyFixIdx :: Fix ki fam ix -> Proxy ix
+proxyFixIdx _ = Proxy
+
 {-
 undecidable instances
 instance Show (Rep ki (Fix ki fam) (Lkup n fam)) => Show (Fix ki fam n) where
@@ -155,7 +158,7 @@ eqFix p = eqRep p (eqFix p) `on` unFix
 -- |Compare two indexes of two fixpoints
 heqFixIx :: (IsNat ix , IsNat ix')
          => Fix ki fam ix -> Fix ki fam ix' -> Maybe (ix :~: ix')
-heqFixIx fa fb = testEquality getSNat getSNat
+heqFixIx fa fb = testEquality (getSNat Proxy) (getSNat Proxy)
 
 -- |Crush the first layer of a value by traversing it and applying the
 --  provided morphism.

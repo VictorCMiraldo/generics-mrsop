@@ -9,6 +9,7 @@
 -- | Standard representation of n-ary sums.
 module Generics.MRSOP.Base.Internal.NS where
 
+import Control.Monad
 import Generics.MRSOP.Util
 
 data NS :: (k -> *) -> [k] -> * where
@@ -35,6 +36,11 @@ elimNS :: (forall x . f x -> a) -> NS f ks -> a
 elimNS f (Here p)  = f p
 elimNS f (There p) = elimNS f p
 
+zipNS :: (MonadPlus m) => NS k xs -> NS k xs -> m (NS (k :*: k) xs)
+zipNS (Here  p) (Here  q) = return (Here (p :*: q))
+zipNS (There p) (There q) = There <$> zipNS p q
+zipNS _         _         = mzero
+
 -- * Catamorphism
 
 cataNS :: (forall x xs . f x  -> r (x ': xs))
@@ -47,7 +53,5 @@ cataNS fHere fThere (There x) = fThere (cataNS fHere fThere x)
 
 eqNS :: (forall x. p x -> p x -> Bool)
      -> NS p xs -> NS p xs -> Bool
-eqNS p (There u) (There v) = eqNS p u v
-eqNS p (Here  u) (Here  v) = p u v
-eqNS _ _         _         = False
+eqNS p x = maybe False (elimNS $ uncurry' p) . zipNS x
 

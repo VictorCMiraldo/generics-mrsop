@@ -11,6 +11,18 @@ import Data.Proxy
 import Data.Type.Equality
 import GHC.TypeLits (TypeError , ErrorMessage(..))
 
+-- |Poly-kind-indexed product
+data (:*:) (f :: k -> *) (g :: k -> *) (x :: k)
+  = f x :*: g x
+
+-- |Lifted curry
+curry' :: ((f :*: g) x -> a) -> f x -> g x -> a
+curry' f fx gx = f (fx :*: gx)
+
+-- |Lifted uncurry
+uncurry' :: (f x -> g x -> a) -> (f :*: g) x -> a
+uncurry' f (fx :*: gx) = f fx gx
+
 -- |Natural transformations
 type f :-> g = forall n . f n -> g n
 
@@ -18,23 +30,28 @@ type f :-> g = forall n . f n -> g n
 data Nat = S Nat | Z
   deriving (Eq , Show)
 
+proxyUnsuc :: Proxy (S n) -> Proxy n
+proxyUnsuc _ = Proxy
+
 -- |Singleton Term-level natural
 data SNat :: Nat -> * where
   SZ ::           SNat Z
   SS :: SNat n -> SNat (S n)
 
+snat2int :: SNat n -> Integer
+snat2int SZ     = 0
+snat2int (SS n) = 1 + snat2int n
+
 -- |And their conversion to term-level integers.
 class IsNat (n :: Nat) where
-  getNat  :: Proxy n -> Integer
-  getSNat :: SNat n
+  getSNat :: Proxy n -> SNat n
 instance IsNat Z where
-  getNat p = 0
-  getSNat  = SZ
+  getSNat p = SZ
 instance IsNat n => IsNat (S n) where
-  getNat p = 1 + getNat (unsuc p)
-    where unsuc :: Proxy (S n) -> Proxy n
-          unsuc _ = Proxy
-  getSNat  = SS getSNat
+  getSNat p = SS (getSNat $ proxyUnsuc p)
+
+getNat :: (IsNat n) => Proxy n -> Integer
+getNat = snat2int . getSNat
 
 instance TestEquality SNat where
   testEquality SZ     SZ     = Just Refl
