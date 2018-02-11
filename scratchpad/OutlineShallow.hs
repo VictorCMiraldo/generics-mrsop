@@ -50,10 +50,10 @@ type family Lkup (n :: Nat) (ks :: [k]) :: k where
   Lkup _     '[]      = TypeError (Text "Lkup index too big")
 
 -- |Also list lookup, but for kind * only.
-data El :: Nat -> [*] -> * where
-  EZ :: x       -> El Z     (x ': xs) 
-  ES :: El n xs -> El (S n) (x ': xs) 
-
+data El :: [*] -> Nat -> * where
+  EZ :: x       -> El (x ': xs) Z 
+  ES :: El xs n -> El (x ': xs) (S n)
+{-
 class IsElem (tys :: [*]) (ix :: Nat)  where
   projEl :: El ix tys   -> Lkup ix tys 
   injEl  :: Lkup ix tys -> El ix tys 
@@ -64,7 +64,7 @@ instance (IsElem tys n) => (IsElem (tw : tys) (S n)) where
   projEl (ES x) = projEl x
   injEl x       = ES (injEl x)
 -- instance (TypeError (Text "Empty list has no elements")) => IsElem '[] n
-
+-}
 
 -- * Codes
 
@@ -78,7 +78,7 @@ data Atom kon
 -- https://ghc.haskell.org/trac/ghc/wiki/GhcKinds#Kindsynonymsfromtypesynonympromotion
 #define Prod(kon)   [Atom kon]
 #define Sum(kon)    [Prod(kon)]
-#define Family(kon) [Sum(kon)]
+#define Phiily(kon) [Sum(kon)]
 
 -- * Interpretation of Codes
 
@@ -102,24 +102,25 @@ eqNS p (There u) (There v) = eqNS p u v
 eqNS p (Here  u) (Here  v) = p u v
 eqNS _ _         _         = False
 
-data NA  :: (kon -> *) -> [*] -> Atom kon -> * where
-  NA_I :: (IsNat k) => El k fam -> NA ki fam (I k) 
-  NA_K :: ki  k    -> NA ki fam (K k)
+data NA  :: (kon -> *) -> (Nat -> *) -> Atom kon -> * where
+  NA_I :: (IsNat k) => phi k -> NA ki phi (I k) 
+  NA_K ::              ki  k -> NA ki phi (K k)
 
 eqNA :: (forall k.  ki  k  -> ki  k  -> Bool)
-     -> (forall ix. El ix fam -> El ix fam -> Bool)
-     -> NA ki fam l -> NA ki fam l -> Bool
+     -> (forall ix. phi ix -> phi ix -> Bool)
+     -> NA ki phi l -> NA ki phi l -> Bool
 eqNA kp _  (NA_K u) (NA_K v) = kp u v
 eqNA _  fp (NA_I u) (NA_I v) = fp u v
 
-type Rep (ki :: kon -> *) (fam :: [*]) = NS (Poa ki fam)
-type Poa (ki :: kon -> *) (fam :: [*]) = NP (NA  ki fam)
+-- TODO: Make rep into a newtype; this should resolve the problem
+--       when unifying ki's
+type Rep (ki :: kon -> *) (phi :: Nat -> *) = NS (Poa ki phi)
+type Poa (ki :: kon -> *) (phi :: Nat -> *) = NP (NA  ki phi)
 
 type f :-> g = forall n . f n -> g n
 
 
-hmapNA :: (forall ix . IsNat ix => El ix f -> El ix g)
-       -> NA ki f a -> NA ki g a
+hmapNA :: (forall ix . IsNat ix => f ix -> g ix) -> NA ki f a -> NA ki g a
 hmapNA nat (NA_I f) = NA_I (nat f)
 hmapNA nat (NA_K i) = NA_K i
 
@@ -131,28 +132,27 @@ hmapNS :: f :-> g -> NS f ks -> NS g ks
 hmapNS f (Here p) = Here (f p)
 hmapNS f (There p) = There (hmapNS f p)
 
-hmapRep :: (forall ix . IsNat ix => El ix f -> El ix g) -> Rep ki f c -> Rep ki g c
+hmapRep :: (forall ix . IsNat ix => f ix -> g ix) -> Rep ki f c -> Rep ki g c
 hmapRep f = hmapNS (hmapNP (hmapNA f))
 
-class Family ki (fam :: [*]) where
+class Family (ki :: kon -> *) (fam :: [*]) where
   type family Codes fam :: [[[Atom kon]]]
 
-  from :: (IsNat ix) => El ix fam -> Rep ki fam (Lkup ix (Codes fam))
+  from :: (IsNat ix) => El fam ix -> Rep ki (El fam) (Lkup ix (Codes fam))
+  to   :: (IsNat ix) => Rep ki (El fam) (Lkup ix (Codes fam)) -> El fam ix
+  to   = to' (getSNat (Proxy :: Proxy ix))
 
-  to'  :: SNat ix -> Rep ki fam (Lkup ix (Codes fam)) -> El ix fam
-
-  to   :: (IsNat ix) => Rep ki fam (Lkup ix (Codes fam)) -> El ix fam
-  to = to' (getSNat (Proxy :: Proxy ix))
+  to'  :: SNat ix -> Rep ki (El fam) (Lkup ix (Codes fam)) -> El fam ix
 
 from' :: forall fam ix ki . (Family ki fam , IsNat ix)
-      => El ix fam -> Rep ki fam (Lkup ix (Codes fam))
+      => El fam ix -> Rep ki (El fam) (Lkup ix (Codes fam))
 from' = from
 
 -- We can define our version of compos.
 compos :: forall fam ix ki . (Family ki fam, IsNat ix)
        => Proxy ki
-       -> (forall ix . (IsNat ix) => El ix fam -> El ix fam)
-       -> El ix fam -> El ix fam
+       -> (forall ix . IsNat ix => El fam ix -> El fam ix)
+       -> El fam ix -> El fam ix
 compos pki f = to . hmapRep f . from' @fam @ix @ki
 
 -- * Cannonical Example
@@ -205,7 +205,7 @@ instance Family Singl FamRose where
 
 
 -- * SOP functionality
-
+{-
 -- Constr n l === Fin (length l)
 --
 data Constr :: Nat -> [k] -> * where
@@ -225,21 +225,21 @@ sop :: Rep ki fam sum -> View ki fam sum
 sop (Here  poa) = Tag CZ poa
 sop (There s)   = case sop s of
                     Tag c poa -> Tag (CS c) poa
-
+-}
 -- * Equality changes significantly!
 
 type family All (f :: k -> Constraint) (tys :: [k]) :: Constraint where
   All f '[]       = ()
   All f (x ': xs) = (f x , All f xs)
-
-eqRep :: (All Eq fam)
+{-
+eqRep ::(Family ki fam)
       => (forall k . ki k -> ki k -> Bool)
-      -> Rep ki fam c -> Rep ki fam c -> Bool
-eqRep kp t u = eqNS (eqNP (eqNA kp go)) t u
+      -> Rep ki (El fam) c -> Rep ki (El fam) c -> Bool
+eqRep kp t u = eqNS (eqNP (eqNA kp (go (Proxy :: Proxy ki)))) t u
   where
-    go :: (All Eq fam) => El xi fam -> El xi fam -> Bool
-    go (EZ x) (EZ y) = x == y
-    go (ES t) (ES u) = go t u
+    go :: (Family ki fam) => Proxy ki -> El fam xi -> El fam xi -> Bool
+    go p (EZ x) (EZ y) = eqRep kp (from x) (from y)
+    go p (ES t) (ES u) = go p t u
 
 instance Eq (R Int) where
   x == y = eqRep eqSingl (from' @FamRose (ES (EZ x))) (from (ES (EZ y)))
@@ -247,13 +247,15 @@ instance Eq (R Int) where
 test :: Bool
 test = value1 == value1
     && value2 /= value1
-
+-}
 -- Compos works
 
 normalize :: R Int -> R Int
-normalize = projEl . go . (ES . EZ) 
+normalize = unEl . go . (ES . EZ) 
   where
-    go :: (IsNat ix) => El ix FamRose -> El ix FamRose
+    go :: (IsNat ix) => El FamRose ix -> El FamRose ix
     go (ES (EZ (Leaf a))) = (ES (EZ (a :>: [])))
     go x                  = compos (Proxy :: Proxy Singl) go x
-  
+
+    unEl :: El FamRose (S Z) -> R Int
+    unEl (ES (EZ x)) = x
