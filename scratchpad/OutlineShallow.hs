@@ -53,18 +53,6 @@ type family Lkup (n :: Nat) (ks :: [k]) :: k where
 data El :: [*] -> Nat -> * where
   EZ :: x       -> El (x ': xs) Z 
   ES :: El xs n -> El (x ': xs) (S n)
-{-
-class IsElem (tys :: [*]) (ix :: Nat)  where
-  projEl :: El ix tys   -> Lkup ix tys 
-  injEl  :: Lkup ix tys -> El ix tys 
-instance IsElem (ty : tys) Z where
-  projEl (EZ x) = x
-  injEl x       = EZ x
-instance (IsElem tys n) => (IsElem (tw : tys) (S n)) where
-  projEl (ES x) = projEl x
-  injEl x       = ES (injEl x)
--- instance (TypeError (Text "Empty list has no elements")) => IsElem '[] n
--}
 
 -- * Codes
 
@@ -114,11 +102,9 @@ eqNA _  fp (NA_I u) (NA_I v) = fp u v
 
 -- TODO: Make rep into a newtype; this should resolve the problem
 --       when unifying ki's
-type Rep (ki :: kon -> *) (phi :: Nat -> *) = NS (Poa ki phi)
 type Poa (ki :: kon -> *) (phi :: Nat -> *) = NP (NA  ki phi)
 
 type f :-> g = forall n . f n -> g n
-
 
 hmapNA :: (forall ix . IsNat ix => f ix -> g ix) -> NA ki f a -> NA ki g a
 hmapNA nat (NA_I f) = NA_I (nat f)
@@ -132,28 +118,31 @@ hmapNS :: f :-> g -> NS f ks -> NS g ks
 hmapNS f (Here p) = Here (f p)
 hmapNS f (There p) = There (hmapNS f p)
 
+newtype Rep (ki :: kon -> *) (phi :: Nat -> *) (c :: [[Atom kon]])
+  = Rep { unRep :: NS (Poa ki phi) c }
+
 hmapRep :: (forall ix . IsNat ix => f ix -> g ix) -> Rep ki f c -> Rep ki g c
-hmapRep f = hmapNS (hmapNP (hmapNA f))
+hmapRep f = Rep . hmapNS (hmapNP (hmapNA f)) . unRep
 
 class Family (ki :: kon -> *) (fam :: [*]) where
   type family Codes fam :: [[[Atom kon]]]
 
-  from :: (IsNat ix) => El fam ix -> Rep ki (El fam) (Lkup ix (Codes fam))
-  to   :: (IsNat ix) => Rep ki (El fam) (Lkup ix (Codes fam)) -> El fam ix
-  to   = to' (getSNat (Proxy :: Proxy ix))
+  ffrom :: (IsNat ix) => El fam ix -> Rep ki (El fam) (Lkup ix (Codes fam))
+  fto   :: (IsNat ix) => Rep ki (El fam) (Lkup ix (Codes fam)) -> El fam ix
+  fto   = fto' (getSNat (Proxy :: Proxy ix))
 
-  to'  :: SNat ix -> Rep ki (El fam) (Lkup ix (Codes fam)) -> El fam ix
+  fto'  :: SNat ix -> Rep ki (El fam) (Lkup ix (Codes fam)) -> El fam ix
 
-from' :: forall fam ix ki . (Family ki fam , IsNat ix)
+ffrom' :: forall ki fam ix . (Family ki fam , IsNat ix)
       => El fam ix -> Rep ki (El fam) (Lkup ix (Codes fam))
-from' = from
+ffrom' = ffrom
 
 -- We can define our version of compos.
-compos :: forall fam ix ki . (Family ki fam, IsNat ix)
-       => Proxy ki
-       -> (forall ix . IsNat ix => El fam ix -> El fam ix)
-       -> El fam ix -> El fam ix
-compos pki f = to . hmapRep f . from' @fam @ix @ki
+fcompos :: forall ki fam ix . (Family ki fam , IsNat ix)
+        => Proxy ki
+        -> (forall iy . (IsNat iy) => El fam iy -> El fam iy)
+        -> El fam ix -> El fam ix
+fcompos pki f = fto . hmapRep f . ffrom' @ki @fam
 
 -- * Cannonical Example
 
@@ -189,20 +178,19 @@ type FamRose = '[ [R Int] , R Int]
 instance Family Singl FamRose where
   type Codes FamRose = CodesRose
   
-  from (ES (EZ (a :>: as))) = Here (NA_K (SInt a) :* NA_I (EZ as) :* NP0)
-  from (ES (EZ (Leaf a)))   = There (Here (NA_K (SInt a) :* NP0))
-  from (EZ [])              = Here NP0
-  from (EZ (x:xs))          = There (Here (NA_I (ES (EZ x)) :* NA_I (EZ xs) :* NP0))
+  ffrom (ES (EZ (a :>: as))) = Rep $ Here (NA_K (SInt a) :* NA_I (EZ as) :* NP0)
+  ffrom (ES (EZ (Leaf a)))   = Rep $ There (Here (NA_K (SInt a) :* NP0))
+  ffrom (EZ [])              = Rep $ Here NP0
+  ffrom (EZ (x:xs))          = Rep $ There (Here (NA_I (ES (EZ x)) :* NA_I (EZ xs) :* NP0))
   
-  to' SZ (Here NP0)
+  fto' SZ (Rep (Here NP0))
     = EZ []
-  to' SZ (There (Here (NA_I (ES (EZ x)) :* NA_I (EZ xs) :* NP0)))
+  fto' SZ (Rep (There (Here (NA_I (ES (EZ x)) :* NA_I (EZ xs) :* NP0))))
     = EZ (x : xs)
-  to' (SS SZ) (Here (NA_K (SInt a) :* NA_I (EZ as) :* NP0))
+  fto' (SS SZ) (Rep (Here (NA_K (SInt a) :* NA_I (EZ as) :* NP0)))
     = ES (EZ (a :>: as))
-  to' (SS SZ) (There (Here (NA_K (SInt a) :* NP0)))
+  fto' (SS SZ) (Rep (There (Here (NA_K (SInt a) :* NP0))))
     = ES (EZ (Leaf a))
-
 
 -- * SOP functionality
 {-
@@ -249,13 +237,24 @@ test = value1 == value1
     && value2 /= value1
 -}
 -- Compos works
+class IsElem (tys :: [*]) (ix :: Nat) where
+  projEl :: El tys ix   -> Lkup ix tys 
+  injEl  :: Lkup ix tys -> El tys ix 
+instance IsElem (ty : tys) Z where
+  projEl (EZ x) = x
+  injEl x       = EZ x
+instance (IsElem tys n) => (IsElem (tw : tys) (S n)) where
+  projEl (ES x) = projEl x
+  injEl x       = ES (injEl x)
+-- instance (TypeError (Text "Empty list has no elements")) => IsElem '[] n
+
+onEl :: (IsElem tys ix) => SNat ix -> (El tys ix -> El tys ix) -> Lkup ix tys -> Lkup ix tys
+onEl _ f = projEl . f . injEl
 
 normalize :: R Int -> R Int
-normalize = unEl . go . (ES . EZ) 
+normalize = onEl (SS SZ) go
   where
     go :: (IsNat ix) => El FamRose ix -> El FamRose ix
-    go (ES (EZ (Leaf a))) = (ES (EZ (a :>: [])))
-    go x                  = compos (Proxy :: Proxy Singl) go x
+    go (ES (EZ (Leaf a))) = injEl (a :>: [])
+    go x                  = fcompos (Proxy :: Proxy Singl) go x
 
-    unEl :: El FamRose (S Z) -> R Int
-    unEl (ES (EZ x)) = x
