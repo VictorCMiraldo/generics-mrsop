@@ -81,6 +81,15 @@ eqNP :: (forall x. p x -> p x -> Bool)
 eqNP _ NP0       NP0       = True
 eqNP p (x :* xs) (y :* ys) = p x y && eqNP p xs ys
 
+crushNP :: forall r p xs. 
+           (forall x. p x -> r)
+        -> ([r] -> r)
+        -> NP p xs -> r
+crushNP step combine = combine . listify
+  where listify :: forall ys. NP p ys -> [r]
+        listify NP0 = []
+        listify (x :* xs) = step x : listify xs
+
 data NS :: (k -> *) -> [k] -> * where
   There :: NS p xs -> NS p (x : xs)
   Here  :: p x     -> NS p (x : xs)
@@ -91,6 +100,11 @@ eqNS p (There u) (There v) = eqNS p u v
 eqNS p (Here  u) (Here  v) = p u v
 eqNS _ _         _         = False
 
+crushNS :: (forall x. p x -> r)
+        -> NS p xs -> r
+crushNS step (There u) = crushNS step u
+crushNS step (Here  u) = step u
+
 data NA  :: (kon -> *) -> (Nat -> *) -> Atom kon -> * where
   NA_I :: (IsNat k) => phi k -> NA ki phi (I k) 
   NA_K ::              ki  k -> NA ki phi (K k)
@@ -100,6 +114,12 @@ eqNA :: (forall k.  ki  k  -> ki  k  -> Bool)
      -> NA ki phi l -> NA ki phi l -> Bool
 eqNA kp _  (NA_K u) (NA_K v) = kp u v
 eqNA _  fp (NA_I u) (NA_I v) = fp u v
+
+crushNA :: (forall k. ki k -> r)
+        -> (forall x. p  x -> r)
+        -> NA ki p l -> r
+crushNA kstep _ (NA_K v) = kstep v
+crushNA _ pstep (NA_I v) = pstep v
 
 -- TODO: Make rep into a newtype; this should resolve the problem
 --       when unifying ki's
@@ -122,12 +142,20 @@ hmapNS f (There p) = There (hmapNS f p)
 newtype Rep (ki :: kon -> *) (phi :: Nat -> *) (c :: [[Atom kon]])
   = Rep { unRep :: NS (Poa ki phi) c }
 
-
 hmapRep :: (forall ix . IsNat ix => f ix -> g ix) -> Rep ki f c -> Rep ki g c
 hmapRep f = Rep . hmapNS (hmapNP (hmapNA f)) . unRep
 
+crushRep :: (forall k. ki k -> r)
+         -> (forall x. f  x -> r)
+         -> ([r] -> r) -> Rep ki f c -> r
+crushRep kstep fstep combine = crushNS (crushNP (crushNA kstep fstep) combine) . unRep
+
 newtype Fix (ki :: kon -> *) (codes :: [[[Atom kon]]]) (n :: Nat)
   = Fix { unFix :: Rep ki (Fix ki codes) (Lkup n codes) }
+
+crushFix :: forall ki codes ix r. (forall k. ki k -> r) -> ([r] -> r)
+         -> Fix ki codes ix -> r
+crushFix kstep combine = crushRep kstep (crushFix kstep combine) combine . unFix
 
 class Family (ki :: kon -> *) (fam :: [*]) (codes :: [[[Atom kon]]])
   | fam -> ki codes, ki codes -> fam where
@@ -180,6 +208,14 @@ deep :: forall fam ty ki codes ix
          ix ~ Idx ty fam, Lkup ix fam ~ ty, IsNat ix)
      => ty -> Rep ki (Fix ki codes) (Lkup ix codes)
 deep = dto . into
+
+crush :: forall fam ty ki codes ix r
+      . (Family ki fam codes,
+         ix ~ Idx ty fam, Lkup ix fam ~ ty, IsNat ix)
+     => Proxy fam
+     -> (forall k. ki k -> r) -> ([r] -> r)
+     -> ty -> r
+crush _ kstep combine = crushFix @ki @codes @ix kstep combine . Fix . deep @fam
 
 -- * Cannonical Example
 
@@ -248,6 +284,11 @@ instance Eq (R Int) where
 test :: Bool
 test = value1 == value1
     && value2 /= value1
+
+sumTree :: R Int -> Int
+sumTree = crush (Proxy :: Proxy FamRose) k sum
+  where k :: Singl x -> Int
+        k (SInt n) = n
 
 {-
 {-
