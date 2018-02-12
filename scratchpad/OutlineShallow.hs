@@ -1,10 +1,8 @@
-{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeSynonymInstances #-}
-{-# OPTIONS_GHC -cpp #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -14,11 +12,9 @@
 {-# LANGUAGE GADTs     #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE UndecidableSuperClasses #-}
 module OutlineShallow where
 
 import Data.Proxy
-#define P Proxy :: Proxy
 import GHC.TypeLits (TypeError , ErrorMessage(..))
 import GHC.Exts (Constraint)
 
@@ -72,13 +68,6 @@ data Atom kon
   = K kon
   | I Nat
   deriving (Eq, Show)
-
--- can't use type synonyms as they are
--- not promoted to kinds with -XDataKinds yet.
--- https://ghc.haskell.org/trac/ghc/wiki/GhcKinds#Kindsynonymsfromtypesynonympromotion
-#define Prod(kon)   [Atom kon]
-#define Sum(kon)    [Prod(kon)]
-#define Phiily(kon) [Sum(kon)]
 
 -- * Interpretation of Codes
 
