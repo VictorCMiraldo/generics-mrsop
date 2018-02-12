@@ -52,6 +52,12 @@ type family Lkup (n :: Nat) (ks :: [k]) :: k where
   Lkup (S n) (k : ks) = Lkup n ks
   Lkup _     '[]      = TypeError (Text "Lkup index too big")
 
+-- |Type-level list index
+type family Idx (ty :: k) (xs :: [k]) :: Nat where
+  Idx x (x ': ys) = Z
+  Idx x (y ': ys) = S (Idx x ys)
+  Idx x '[]       = TypeError (Text "Element not found")
+
 -- |Also list lookup, but for kind * only.
 data El :: [*] -> Nat -> * where
   El :: IsNat ix => {unEl :: Lkup ix fam} -> El fam ix
@@ -140,12 +146,12 @@ class Family (ki :: kon -> *) (fam :: [*]) (codes :: [[[Atom kon]]])
   sto'   :: SNat ix -> El fam ix -> Rep ki (El fam) (Lkup ix codes)
   sfrom' :: SNat ix -> Rep ki (El fam) (Lkup ix codes) -> El fam ix
 
-sto :: forall ki fam codes ix
+sto :: forall fam ki codes ix
      . (Family ki fam codes)
     => El fam ix -> Rep ki (El fam) (Lkup ix codes)
 sto el = sto' (getElSNat el) el
 
-sfrom :: forall ki fam codes ix
+sfrom :: forall fam ki codes ix
        . (Family ki fam codes , IsNat ix)
       => Rep ki (El fam) (Lkup ix codes) -> El fam ix  
 sfrom el = sfrom' (getSNat' @ix) el
@@ -156,15 +162,35 @@ dto :: forall ix ki fam codes
      . (Family ki fam codes)
     => El fam ix
     -> Rep ki (Fix ki codes) (Lkup ix codes)
-dto = hmapRep (Fix . dto) . sto @ki @fam @codes 
+dto = hmapRep (Fix . dto) . sto @fam
 
 compos :: forall ki fam codes ix
         . (Family ki fam codes, IsNat ix)
        => (forall iy . IsNat iy => SNat iy -> El fam iy -> El fam iy)
        -> El fam ix -> El fam ix
-compos f = sfrom @ki @fam @codes @ix
+compos f = sfrom @fam
          . hmapRep (\x -> f (getElSNat x) x)
-         . sto @ki @fam @codes
+         . sto @fam
+
+-- |Smart injectors
+
+into :: forall fam ty ki codes ix
+      . (Family ki fam codes,
+         ix ~ Idx ty fam, Lkup ix fam ~ ty, IsNat ix)
+     => ty -> El fam ix
+into = El
+
+shallow :: forall fam ty ki codes ix
+         . (Family ki fam codes,
+           ix ~ Idx ty fam, Lkup ix fam ~ ty, IsNat ix)
+        => ty -> Rep ki (El fam) (Lkup ix codes)
+shallow = sto . into
+
+deep :: forall fam ty ki codes ix
+      . (Family ki fam codes,
+         ix ~ Idx ty fam, Lkup ix fam ~ ty, IsNat ix)
+     => ty -> Rep ki (Fix ki codes) (Lkup ix codes)
+deep = dto . into
 
 -- * Cannonical Example
 
@@ -213,7 +239,7 @@ instance Family Singl FamRose CodesRose where
     = El (Leaf a)
 
 normalize :: R Int -> R Int
-normalize = unEl . go (SS SZ) . El
+normalize = unEl . go (SS SZ) . into
   where
     go :: forall iy. (IsNat iy) => SNat iy -> El FamRose iy -> El FamRose iy
     go (SS SZ) (El (Leaf a)) = El (a :>: [])
@@ -228,8 +254,7 @@ eqRep kp (Rep t) (Rep u) = eqNS (eqNP (eqNA kp go)) t u
     go (Fix u) (Fix v) = eqRep kp u v
 
 instance Eq (R Int) where
-  x == y = eqRep eqSingl (dto @(S Z) @Singl @FamRose (El x))
-                         (dto @(S Z) @Singl @FamRose (El y))
+  x == y = eqRep eqSingl (deep @FamRose x) (deep @FamRose y)
 
 test :: Bool
 test = value1 == value1
