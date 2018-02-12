@@ -36,12 +36,13 @@ instance IsNat Z where
 instance IsNat n => IsNat (S n) where
   getSNat p = SS (getSNat $ proxyUnsuc p)
 
+getSNat' :: forall (n :: Nat). IsNat n => SNat n
+getSNat' = getSNat (Proxy :: Proxy n)
+
 -- |Singleton Term-level natural
 data SNat :: Nat -> * where
   SZ ::           SNat Z
   SS :: SNat n -> SNat (S n)
-
-
 
 -- |Type-level list lookup
 type family Lkup (n :: Nat) (ks :: [k]) :: k where
@@ -51,8 +52,7 @@ type family Lkup (n :: Nat) (ks :: [k]) :: k where
 
 -- |Also list lookup, but for kind * only.
 data El :: [*] -> Nat -> * where
-  EZ :: x       -> El (x ': xs) Z 
-  ES :: El xs n -> El (x ': xs) (S n)
+  El :: IsNat ix => Lkup ix fam -> El fam ix
 
 -- * Codes
 
@@ -121,51 +121,61 @@ hmapNS f (There p) = There (hmapNS f p)
 newtype Rep (ki :: kon -> *) (phi :: Nat -> *) (c :: [[Atom kon]])
   = Rep { unRep :: NS (Poa ki phi) c }
 
+newtype Fix (ki :: kon -> *) (codes :: [[[Atom kon]]]) (n :: Nat)
+  = Fix { unFix :: Rep ki (Fix ki codes) (Lkup n codes) }
+
 hmapRep :: (forall ix . IsNat ix => f ix -> g ix) -> Rep ki f c -> Rep ki g c
 hmapRep f = Rep . hmapNS (hmapNP (hmapNA f)) . unRep
 
-class Family (ki :: kon -> *) (fam :: [*]) 
-    | fam -> ki where
-  type family Code fam :: [[[Atom kon]]]
-
-  injEl  :: (IsNat ix) => SNat ix -> Lkup ix fam -> El fam ix
-  projEl :: (IsNat ix) => SNat ix -> El fam ix -> Lkup ix fam
+class Family (ki :: kon -> *) (fam :: [*]) (codes :: [[[Atom kon]]])
+  | fam -> ki codes, ki codes -> fam where
   
-  ffrom :: (IsNat ix) => SNat ix -> Lkup ix fam -> Rep ki (El fam) (Lkup ix (Code fam))
+  sto'   :: SNat ix -> Lkup ix fam -> Rep ki (El fam) (Lkup ix codes)
+  sfrom' :: SNat ix -> Rep ki (El fam) (Lkup ix codes) -> Lkup ix fam
 
-  fto   :: (IsNat ix) => SNat ix -> Rep ki (El fam) (Lkup ix (Code fam)) -> Lkup ix fam
-{-
-  fto   = fto' (getSNat (Proxy :: Proxy ix))
+  dto' :: SNat ix -> Lkup ix fam -> Rep ki (Fix ki codes) (Lkup ix codes)
 
-  fto'  :: SNat ix -> Rep ki (El fam) (Lkup ix (Codes fam)) -> El fam ix
--}
-ffrom' :: forall ki fam ix ty . (Family ki fam, IsNat ix)
-      =>  (IsNat ix) => SNat ix -> Lkup ix fam -> Rep ki (El fam) (Lkup ix (Code fam))
-ffrom' = ffrom
+class (Family ki fam codes, Lkup ix fam ~ ty, IsNat ix)
+      => Element (ki :: kon -> *) (fam :: [*]) (codes :: [[[Atom kon]]]) (ix :: Nat) (ty :: *)
+      | ty -> ki fam codes ix where
 
-fto' :: forall ki fam ix ty . (Family ki fam, IsNat ix)
-     => (IsNat ix) => SNat ix -> Rep ki (El fam) (Lkup ix (Code fam)) -> Lkup ix fam
-fto' = fto
+sto :: forall ki fam codes ix ty.
+       Element ki fam codes ix ty
+    => ty -> Rep ki (El fam) (Lkup ix codes)
+sto = sto' (getSNat' @ix)
 
-elIxProxy :: El fam ix -> Proxy ix
-elIxProxy x = Proxy
+sfrom :: forall ki fam codes ix ty.
+         Element ki fam codes ix ty
+      => Rep ki (El fam) (Lkup ix codes) -> ty
+sfrom = sfrom' (getSNat' @ix)
 
-elNat :: (IsNat ix) => El fam ix -> SNat ix
-elNat x = getSNat $ elIxProxy x
+elLift' :: forall ki fam codes ix.
+           (Family ki fam codes, IsNat ix)
+        => (Lkup ix fam -> Lkup ix fam)
+        -> El fam ix -> El fam ix
+elLift' f (El x) = El (f x)
 
-elLift :: (Family ki fam , IsNat ix)
-       => (SNat ix -> Lkup ix fam -> Lkup ix fam) -> El fam ix -> El fam ix
-elLift f x = let iy = elNat x
-              in injEl iy (f iy (projEl iy x))
+elLiftS :: forall ki fam codes ix.
+           (Family ki fam codes, IsNat ix)
+        => (SNat ix -> Lkup ix fam -> Lkup ix fam)
+        -> El fam ix -> El fam ix
+elLiftS f (El x) = El (f (getSNat' @ix) x)
 
--- We can define our version of compos.
-fcompos :: forall ki fam ix ty . (Family ki fam , IsNat ix)
-        => Proxy ki -> Proxy fam
-        -> (forall iy    . (IsNat iy) => SNat iy -> Lkup iy fam -> Lkup iy fam)
-        -> SNat ix -> Lkup ix fam -> Lkup ix fam
-fcompos pki pfam g ix = fto' @ki @fam ix
-                      . hmapRep (elLift g)
-                      . ffrom' @ki @fam ix
+elLift :: (Element ki fam codes ix ty, IsNat ix)
+       => (ty -> ty) -> El fam ix -> El fam ix
+elLift = elLift'
+
+elLiftSS :: forall ki fam codes ix ty. (Element ki fam codes ix ty, IsNat ix)
+         => (SNat ix -> ty -> ty) -> El fam ix -> El fam ix
+elLiftSS f (El x) = El (f (getSNat' @ix) x)
+
+compos :: forall ki fam codes ix ty.
+          (Element ki fam codes ix ty, IsNat ix)
+       => (forall iy. (Element ki fam codes iy (Lkup iy fam)) => SNat iy -> Lkup iy fam -> Lkup iy fam)
+       -> Lkup ix fam -> Lkup ix fam
+compos g = sfrom @ki @fam @codes @ix @ty
+         . hmapRep (elLiftSS g)
+         . sto @ki @fam @codes @ix @ty
 
 -- * Cannonical Example
 
@@ -198,32 +208,35 @@ type CodesRose = '[List , RT]
 
 type FamRose = '[ [R Int] , R Int] 
 
-instance Family Singl FamRose where
-  type Code FamRose = CodesRose
+instance Family Singl FamRose CodesRose where
 
-  injEl (SS SZ) x = ES (EZ x)
-  injEl SZ      x = EZ x
+  sto' (SS SZ) (a :>: as) = Rep $ Here (NA_K (SInt a) :* NA_I (El as) :* NP0)
+  sto' (SS SZ) (Leaf a)   = Rep $ There (Here (NA_K (SInt a) :* NP0))
+  sto' SZ []              = Rep $ Here NP0
+  sto' SZ (x:xs)          = Rep $ There (Here (NA_I (El x) :* NA_I (El xs) :* NP0))
 
-  projEl (SS SZ) (ES (EZ x)) = x
-  projEl SZ      (EZ x)      = x
-  
-
-  ffrom (SS SZ) (a :>: as) = Rep $ Here (NA_K (SInt a) :* NA_I (EZ as) :* NP0)
-  ffrom (SS SZ) (Leaf a)   = Rep $ There (Here (NA_K (SInt a) :* NP0))
-  ffrom SZ []              = Rep $ Here NP0
-  ffrom SZ (x:xs)          = Rep $ There (Here (NA_I (ES (EZ x)) :* NA_I (EZ xs) :* NP0))
-
-  fto SZ (Rep (Here NP0))
+  sfrom' SZ (Rep (Here NP0))
     = []
-  fto SZ (Rep (There (Here (NA_I (ES (EZ x)) :* NA_I (EZ xs) :* NP0))))
+  sfrom' SZ (Rep (There (Here (NA_I (El x) :* NA_I (El xs) :* NP0))))
     = (x : xs)
-  fto (SS SZ) (Rep (Here (NA_K (SInt a) :* NA_I (EZ as) :* NP0)))
+  sfrom' (SS SZ) (Rep (Here (NA_K (SInt a) :* NA_I (El as) :* NP0)))
     = (a :>: as)
-  fto (SS SZ) (Rep (There (Here (NA_K (SInt a) :* NP0))))
+  sfrom' (SS SZ) (Rep (There (Here (NA_K (SInt a) :* NP0))))
     = (Leaf a)
 
--- * SOP functionality
+instance Element Singl FamRose CodesRose Z [R Int] where
+instance Element Singl FamRose CodesRose (S Z) (R Int) where
+
+
+normalize :: R Int -> R Int
+normalize = go (SS SZ)
+  where
+    go :: forall iy. SNat iy -> Lkup iy FamRose -> Lkup iy FamRose
+    go (SS SZ) (Leaf a) = (a :>: [])
+    go iy      x        = compos @_ @FamRose @_ @iy go x
+
 {-
+-- * SOP functionality
 -- Constr n l === Fin (length l)
 --
 data Constr :: Nat -> [k] -> * where
@@ -236,7 +249,7 @@ inj :: Constr n sum -> Poa ki fam (Lkup n sum) -> Rep ki fam sum
 inj CZ     poa = Here poa
 inj (CS c) poa = There (inj c poa)
 
-data View :: (kon -> *) -> [*] -> Sum(kon) -> * where
+data View :: (kon -> *) -> (Nat -> *) -> Sum(kon) -> * where
   Tag :: Constr n sum -> Poa ki fam (Lkup n sum) -> View ki fam sum
 
 sop :: Rep ki fam sum -> View ki fam sum
@@ -244,8 +257,9 @@ sop (Here  poa) = Tag CZ poa
 sop (There s)   = case sop s of
                     Tag c poa -> Tag (CS c) poa
 -}
--- * Equality changes significantly!
 
+-- * Equality changes significantly!
+{-
 type family All (f :: k -> Constraint) (tys :: [k]) :: Constraint where
   All f '[]       = ()
   All f (x ': xs) = (f x , All f xs)
@@ -256,6 +270,7 @@ elLift2a :: (Family ki fam)
          -> (forall ix . IsNat ix => El fam ix -> El fam ix -> a)
 elLift2a f x y = let iy = elNat x
               in f iy (projEl iy x) (projEl iy y)
+-}
 {-
 eqRep :: forall ki fam c . (Family ki fam)
       => (forall k . ki k -> ki k -> Bool)
@@ -273,12 +288,14 @@ eqRep kp (Rep t) (Rep u) = eqNS (eqNP (eqNA kp (elLift2a go))) t u
 -}
 -}
 
+{-
 instance Eq (R Int) where
   x == y = eqRep eqSingl (ffrom' @Singl @FamRose (SS SZ) x) (ffrom (SS SZ) y)
 
 test :: Bool
 test = value1 == value1
     && value2 /= value1
+-}
 
 -- Compos works
 {-
@@ -296,10 +313,3 @@ instance (IsElem tys n) => (IsElem (tw : tys) (S n)) where
 onEl :: (IsElem tys ix) => SNat ix -> (El tys ix -> El tys ix) -> Lkup ix tys -> Lkup ix tys
 onEl _ f = projEl . f . injEl
 -}
-normalize :: R Int -> R Int
-normalize = go (SS SZ)
-  where
-    go :: (IsNat iy) => SNat iy -> Lkup iy FamRose -> Lkup iy FamRose
-    go (SS SZ) (Leaf a) = (a :>: [])
-    go iy      x        = fcompos (Proxy :: Proxy Singl) (Proxy :: Proxy FamRose)
-                                  go iy x
