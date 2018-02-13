@@ -10,7 +10,7 @@ name:                generics-mrsop
 -- PVP summary:      +-+------- breaking API changes
 --                   | | +----- non-breaking API additions
 --                   | | | +--- code changes with no API change
-version:             0.0.0.0
+version:             1.0.0.0
 
 -- A short (one-line) description of the package.
 -- synopsis:            
@@ -49,10 +49,12 @@ cabal-version:       >=1.10
 library
   -- Modules exported by the library.
   exposed-modules: 
-    Generics.MRSOP.Base.Internal.NS,
-    Generics.MRSOP.Base.Internal.NP,
+    Generics.MRSOP.Base.NS,
+    Generics.MRSOP.Base.NP,
     Generics.MRSOP.Base.Universe,
     Generics.MRSOP.Base.Class,
+    Generics.MRSOP.Base.Combinators,
+    Generics.MRSOP.Base,
     Generics.MRSOP.Konstants,
     Generics.MRSOP.Util,
     Generics.MRSOP.TH,
@@ -69,17 +71,14 @@ library
     FlexibleContexts,
     TypeSynonymInstances,
     RankNTypes,
-    StandaloneDeriving,
     TypeFamilies,
     TypeOperators,
     DataKinds,
     PolyKinds,
     GADTs,
-    UndecidableInstances,
     TypeApplications,
     ConstraintKinds,
     FunctionalDependencies,
-    DefaultSignatures,
     ScopedTypeVariables
   
   -- Other library packages from which modules are imported.
