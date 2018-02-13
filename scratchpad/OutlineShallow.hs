@@ -191,9 +191,8 @@ compos f = sfrom @fam
 
 -- |Smart injectors
 
-into :: forall fam ty ki codes ix
-      . (Family ki fam codes,
-         ix ~ Idx ty fam, Lkup ix fam ~ ty, IsNat ix)
+into :: forall fam ty ix
+      . (ix ~ Idx ty fam , Lkup ix fam ~ ty , IsNat ix)
      => ty -> El fam ix
 into = El
 
