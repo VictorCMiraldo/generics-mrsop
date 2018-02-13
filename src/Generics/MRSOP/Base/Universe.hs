@@ -1,4 +1,3 @@
-{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE RankNTypes           #-}
 {-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE FlexibleInstances    #-}
@@ -15,10 +14,10 @@ import Data.Function (on)
 import Data.Type.Equality
 import Data.Proxy
 
-import Control.Monad.Identity
+import Control.Monad
 
-import Generics.MRSOP.Base.Internal.NS
-import Generics.MRSOP.Base.Internal.NP
+import Generics.MRSOP.Base.NS
+import Generics.MRSOP.Base.NP
 import Generics.MRSOP.Util
 
 -- * Universe of Codes
@@ -39,26 +38,42 @@ data Atom kon
 --  using either @ki@ or @phi@ to interpret the type variable
 --  or opaque type.
 data NA  :: (kon -> *) -> (Nat -> *) -> Atom kon -> * where
-  NA_I :: phi k -> NA ki phi (I k) 
-  NA_K :: ki  k -> NA ki phi (K k)
+  NA_I :: (IsNat k) => phi k -> NA ki phi (I k) 
+  NA_K ::              ki  k -> NA ki phi (K k)
 
--- https://stackoverflow.com/questions/9082642/implementing-the-show-class
-instance (Show (fam k)) => Show (NA ki fam (I k)) where
-  showsPrec p (NA_I v) = showParen (p > 10) $ showString "I-" . showsPrec 11 v
-instance (Show (ki  k)) => Show (NA ki fam (K k)) where
-  showsPrec p (NA_K v) = showParen (p > 10) $ showString "K " . showsPrec 11 v
+-- ** Map, Elim and Zip
 
--- ** Equality and Map
+-- |Maps a natural transformation over an atom interpretation
+mapNA :: (forall ix . IsNat ix => f ix -> g ix)
+      -> NA ki f a -> NA ki g a
+mapNA nat (NA_I f) = NA_I (nat f)
+mapNA nat (NA_K i) = NA_K i
 
+-- |Maps a monadic natural transformation over an atom interpretation
+mapMNA :: (Monad m)
+       => (forall ix . IsNat ix => f ix -> m (g ix))
+       -> NA ki f a -> m (NA ki g a)
+mapMNA nat (NA_K i) = return (NA_K i)
+mapMNA nat (NA_I f) = NA_I <$> nat f
+
+-- |Eliminates an atom interpretation
+elimNA :: (forall k . ki  k -> b)
+       -> (forall k . phi k -> b)
+       -> NA ki phi a -> b
+elimNA kp fp (NA_I x) = fp x
+elimNA kp fp (NA_K x) = kp x
+
+-- |Combines two atoms into one
+zipNA :: NA ki f a -> NA kj g a -> NA (ki :*: kj) (f :*: g) a
+zipNA (NA_I fk) (NA_I gk) = NA_I (fk :*: gk)
+zipNA (NA_K ki) (NA_K kj) = NA_K (ki :*: kj)
+
+-- |Compares atoms provided we know how to compare
+--  the leaves, both recursive and constant.
 eqNA :: (forall k  . ki  k  -> ki  k  -> Bool)
      -> (forall ix . fam ix -> fam ix -> Bool)
      -> NA ki fam l -> NA ki fam l -> Bool
-eqNA kp _  (NA_K u) (NA_K v) = kp u v
-eqNA _  fp (NA_I u) (NA_I v) = fp u v
-
-mapNA :: f :-> g -> NA ki f a -> NA ki g a
-mapNA nat (NA_I f) = NA_I (nat f)
-mapNA nat (NA_K i) = NA_K i
+eqNA kp fp x = elimNA (uncurry' kp) (uncurry' fp) . zipNA x
 
 -- * Representation of Codes
 --
@@ -69,23 +84,42 @@ mapNA nat (NA_K i) = NA_K i
 newtype Rep (ki :: kon -> *) (phi :: Nat -> *) (code :: [[Atom kon]])
   = Rep { unRep :: NS (PoA ki phi) code }
 
-instance Show (NS (PoA ki phi) code) => Show (Rep ki phi code) where
-  show (Rep x) = show x
-
 -- |Product of Atoms is a handy synonym to have.
 type PoA (ki :: kon -> *) (phi :: Nat -> *) = NP (NA ki phi)
 
--- ** Equality and Map
+-- ** Map, Elim and Zip
+--
+-- Just like for 'NS', 'NP' and 'NA', we provide
+-- a couple convenient functions working over
+-- a 'Rep'. These are just the cannonical combination
+-- of their homonym versions in 'NS', 'NP' or 'NA'.
 
--- |We can map over representations
-hmapRep :: f :-> g -> Rep ki f c -> Rep ki g c
-hmapRep f = Rep . mapNS (mapNP (mapNA f)) . unRep
+mapRep :: (forall ix . IsNat ix => f ix -> g ix)
+       -> Rep ki f c -> Rep ki g c
+mapRep f = Rep . mapNS (mapNP (mapNA f)) . unRep
 
--- |And compare them for equality
+mapMRep :: (Monad m)
+        => (forall ix . IsNat ix => f ix -> m (g ix))
+        -> Rep ki f c -> m (Rep ki g c)
+mapMRep f = (Rep <$>) . mapMNS (mapMNP (mapMNA f)) . unRep
+
+zipRep :: (MonadPlus m)
+       => Rep ki f c -> Rep kj g c
+       -> m (Rep (ki :*: kj) (f :*: g) c)
+zipRep (Rep t) (Rep u)
+  = Rep . mapNS (mapNP (uncurry' zipNA) . uncurry' zipNP) <$> zipNS t u
+
+elimRep :: (forall k . ki k -> a)
+        -> (forall k . f  k -> a)
+        -> ([a] -> b)
+        -> Rep ki f c -> b
+elimRep kp fp cat = elimNS (cat . elimNP (elimNA kp fp)) . unRep
+
 eqRep :: (forall k  . ki  k  -> ki  k  -> Bool)
       -> (forall ix . fam ix -> fam ix -> Bool)
       -> Rep ki fam c -> Rep ki fam c -> Bool
-eqRep kp fp = eqNS (eqNP $ eqNA kp fp) `on` unRep
+eqRep kp fp t = maybe False (elimRep (uncurry' kp) (uncurry' fp) and)
+              . zipRep t 
 
 -- * SOP functionality
 --
@@ -134,11 +168,11 @@ sop = go . unRep
 -- the representation of the code indexed by ix
 
 -- |Indexed least fixpoints
-newtype Fix (ki :: kon -> *) (fam :: [[[ Atom kon ]]]) (n :: Nat)
-  = Fix { unFix :: Rep ki (Fix ki fam) (Lkup n fam) }
+newtype Fix (ki :: kon -> *) (codes :: [[[ Atom kon ]]]) (n :: Nat)
+  = Fix { unFix :: Rep ki (Fix ki codes) (Lkup n codes) }
 
-instance Show (Rep ki (Fix ki fam) (Lkup n fam)) => Show (Fix ki fam n) where
-  show (Fix x) = show x
+proxyFixIdx :: Fix ki fam ix -> Proxy ix
+proxyFixIdx _ = Proxy
 
 -- |Compare two values of a same fixpoint for equality.
 eqFix :: (forall k. ki k -> ki k -> Bool)
@@ -148,7 +182,9 @@ eqFix p = eqRep p (eqFix p) `on` unFix
 -- |Compare two indexes of two fixpoints
 heqFixIx :: (IsNat ix , IsNat ix')
          => Fix ki fam ix -> Fix ki fam ix' -> Maybe (ix :~: ix')
-heqFixIx fa fb = testEquality getSNat getSNat
+heqFixIx fa fb = testEquality (getSNat Proxy) (getSNat Proxy)
+
+{-
 
 -- |Crush the first layer of a value by traversing it and applying the
 --  provided morphism.
@@ -176,3 +212,4 @@ crush :: (forall k . ki k -> a)
       -> ([a] -> a)
       -> Fix ki fam ix -> a
 crush f cat = runIdentity . crushM (return . f) (return . cat)
+-}

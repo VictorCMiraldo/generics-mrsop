@@ -2,7 +2,6 @@
 {-# LANGUAGE RankNTypes              #-}
 {-# LANGUAGE FlexibleContexts        #-}
 {-# LANGUAGE FlexibleInstances       #-}
-{-# LANGUAGE FlexibleInstances       #-}
 {-# LANGUAGE GADTs                   #-}
 {-# LANGUAGE TypeOperators           #-}
 {-# LANGUAGE DataKinds               #-}
@@ -11,9 +10,8 @@
 {-# LANGUAGE FunctionalDependencies  #-}
 {-# LANGUAGE TemplateHaskell         #-}
 {-# LANGUAGE LambdaCase              #-}
-module Generics.MRSOP.Examples.RoseTreeTH where
+module Generics.MRSOP.Examples.Lambda.Let where
 
-{-# OPTIONS_GHC -ddump-splices #-}
 import Data.Function (on)
 
 import Generics.MRSOP.Base.Internal.NS
@@ -27,35 +25,24 @@ import Generics.MRSOP.TH
 
 import Control.Monad
 
+-- * Lambda Terms:
 
--- * Haskell first-order RoseTrees
+data Term var
+  = Var var
+  | Let [Binding var]
+  | App (Term var) (Term var)
+  | Abs var (Term var)
+  deriving (Eq , Show)
 
-data Rose a = a :>: [Rose a ]
-  deriving Show
+data Binding var
+  = Bind var (Term var)
+  deriving (Eq , Show)
 
-value1, value2 :: Rose Int
-value1 = 1 :>: [2 :>: [], 3 :>: []]
-value2 = 1 :>: [2 :>: []]
+deriveFamily [t| Term String |]
 
-value3 :: [Rose Int]
-value3 = [value1 , value2]
-
-value4 :: Rose Int
-value4 = 12 :>: (value3 ++ value3)
-
-
-deriveFamily [t| Rose Int |]
-
-instance Eq (Rose Int) where
-  (==) = geq eqSingl
-
-correct = value1 == value1 && value1 /= value2
-
-countEven :: Rose Int -> Int
-countEven = crush countSingl sum . from' @Singl
+alphaEq :: Term String -> Term String -> Bool
+alphaEq t1 t2 = galphaEq (from' @Singl t1) (from t2)
   where
-    countSingl :: Singl k -> Int
-    countSingl (SInt n)
-      | even n    = 1
-      | otherwise = 0
-
+    galphaEq :: FAM ix -> FAM ix -> Bool
+    galphaEq (Fix (Rep t)) (Fix (Rep u))
+      = undefined

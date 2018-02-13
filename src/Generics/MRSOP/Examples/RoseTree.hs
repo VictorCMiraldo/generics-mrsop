@@ -1,5 +1,4 @@
 {-# LANGUAGE TypeApplications        #-}
-{-# LANGUAGE UndecidableInstances    #-}
 {-# LANGUAGE RankNTypes              #-}
 {-# LANGUAGE FlexibleContexts        #-}
 {-# LANGUAGE FlexibleInstances       #-}
@@ -14,65 +13,70 @@ module Generics.MRSOP.Examples.RoseTree where
 
 import Data.Function (on)
 
-import Generics.MRSOP.Base.Internal.NS
-import Generics.MRSOP.Base.Internal.NP
-import Generics.MRSOP.Base.Universe
-import Generics.MRSOP.Base.Class
+import Generics.MRSOP.Base
 import Generics.MRSOP.Konstants
 import Generics.MRSOP.Util
 
+-- * Standard Rose-Tree datatype
 
--- * Haskell first-order RoseTrees
+data R a = a :>: [R a]
+         | Leaf a
+         deriving Show
 
-data RoseTree = Int :>: [RoseTree]
-  deriving Show
-
-value1, value2 :: RoseTree
+value1, value2 :: R Int
 value1 = 1 :>: [2 :>: [], 3 :>: []]
-value2 = 1 :>: [2 :>: []]
+value2 = 1 :>: [2 :>: [] , Leaf 12]
+value3 = 3 :>: [Leaf 23 , value1 , value2]
 
--- * Generic SOP RoseTrees
+-- ** Family Structure
 
--- Sum-of-products of both the List and RoseTree types
-type ListS     = '[ '[] , '[I (S Z) , I Z] ]
-type RoseTreeS = '[ '[K KInt , I Z] ]
-type RoseFam   = '[ ListS , RoseTreeS ]
+type ListCode = '[ '[] , '[I (S Z) , I Z] ]
+type RTCode   = '[ '[K KInt , I Z] , '[K KInt] ]
 
-type GRoseTree = Fix Singl RoseFam (S Z)
-type GList     = Fix Singl RoseFam Z
+type CodesRose = '[ListCode , RTCode]
+type FamRose   = '[ [R Int] , R Int] 
 
-nil :: GList
-nil = Fix $ Rep (Here NP0)
+-- ** Instance Decl
 
-cons :: GRoseTree -> GList -> GList
-cons x xs = Fix $ Rep (There $ Here (NA_I x :* NA_I xs :* NP0))
+instance Family Singl FamRose CodesRose where
+  sfrom' (SS SZ) (El (a :>: as)) = Rep $ Here (NA_K (SInt a) :* NA_I (El as) :* NP0)
+  sfrom' (SS SZ) (El (Leaf a))   = Rep $ There (Here (NA_K (SInt a) :* NP0))
+  sfrom' SZ (El [])              = Rep $ Here NP0
+  sfrom' SZ (El (x:xs))          = Rep $ There (Here (NA_I (El x) :* NA_I (El xs) :* NP0))
 
-fork :: Int -> GList -> GRoseTree
-fork x xs = Fix $ Rep (Here (NA_K (SInt x) :* NA_I xs :* NP0))
+  sto' SZ (Rep (Here NP0))
+    = El []
+  sto' SZ (Rep (There (Here (NA_I (El x) :* NA_I (El xs) :* NP0))))
+    = El (x : xs)
+  sto' (SS SZ) (Rep (Here (NA_K (SInt a) :* NA_I (El as) :* NP0)))
+    = El (a :>: as)
+  sto' (SS SZ) (Rep (There (Here (NA_K (SInt a) :* NP0))))
+    = El (Leaf a)
 
--- ** Proof of membership
---
--- GRoseTree and GList belong in the family.
+-- * Eq Instance
 
-instance Element Singl RoseFam Z [RoseTree] where
-  from []     = nil 
-  from (x:xs) = cons (from x) (from xs)
+instance Eq (R Int) where
+  (==) = geq eqSingl `on` (into @FamRose)
 
-  to (Fix x) = case sop x of
-                    Tag CZ p -> []
-                    Tag (CS CZ) (NA_I vx :* NA_I vxs :* NP0)
-                       -> (to vx : to vxs)
+testEq :: Bool
+testEq = value1 == value1
+      && value2 /= value1
 
-instance Element Singl RoseFam (S Z) RoseTree where
-  from (i :>: is) = fork i (from is)
-  to (Fix (Rep (Here (NA_K (SInt i) :* NA_I xs :* NP0))))
-    = i :>: to xs
+-- * Compos test
 
--- * Eq instance
+normalize :: R Int -> R Int
+normalize = unEl . go (SS SZ) . into
+  where
+    go :: forall iy. (IsNat iy) => SNat iy -> El FamRose iy -> El FamRose iy
+    go (SS SZ) (El (Leaf a)) = El (a :>: [])
+    go _       x             = compos go x
 
-instance Eq RoseTree where
-  (==) = geq eqSingl
+-- * Crush test
 
-correct :: Bool
-correct = value1 == value1
-       && value2 /= value1
+sumTree :: R Int -> Int
+sumTree = crush k sum . (into @FamRose)
+  where k :: Singl x -> Int
+        k (SInt n) = n
+
+testSum :: Bool
+testSum = sumTree value3 == sumTree (normalize value3)
