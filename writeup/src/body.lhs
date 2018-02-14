@@ -1,14 +1,35 @@
+\section{Introduction}
+\label{sec:introduction}
 
-Fibonacci in Haskell!! 
+\victor{We can talk dierctly here}
 
-\begin{code}
-fib :: Int -> Int
-fib n = fib' 0 1 n
-  where
-    fib' a b 0 = a
-    fib' a b n = fib' b (a+b) (n-1)
-\end{code}
+\alejandro{Like this}
 
-And here is a citation~\cite{deVries2014}, and another~\cite{Yakushev2009}!
+\warnme{this requires attention}
 
-LaTeX is setup!
+\TODO{this will be done}
+
+\tmp{this will be removed}
+
+\section{Generic Programming in Haskell}
+\label{sec:genericprog}
+
+
+\victor{%
+\begin{itemize}
+  \item Show \texttt{generics-sop} way of doing things.
+  \item argue for SoP representation instead of pattern-functors
+  \item Add explicit fixpoints.
+  \item Add mutually recursive types
+  \item show generic equality or compos.
+\end{itemize}}
+
+\section{Encoding a Mutually Recursive Family}
+\label{sec:family}
+
+\alejandro{Driving in Manual from Gameplan}
+
+\section{Deriving a Mutually Recursive Family}
+\label{sec:templatehaskell}
+
+\victor{Driving in Auto from Gameplan}

@@ -2,9 +2,6 @@
 TGT=index
 LATEX=pdflatex -shell-escape -output-directory=dist
 
-## No need to lose our tex files
-.PRECIOUS: %.tex
-
 %.tex: %.lhs
 	lhs2TeX -o $@ $< 
 
@@ -12,6 +9,7 @@ default : src/$(TGT).tex
 	@mkdir -p dist
 	export TEXMFHOME=".:$(TEXMFHOME)" && \
 	$(LATEX) src/$(TGT).tex 
+	rm src/index.tex
 
 dist/$(TGT).aux: default
 
