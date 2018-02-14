@@ -27,7 +27,7 @@
 
 \begin{myhs}
 \begin{code}
-  PF (Bin a) = K1 R a :+: (K1 R (Bin a) :*: K1 R (Bin a))
+  REP (Bin a) = K1 R a :+: (K1 R (Bin a) :*: K1 R (Bin a))
 \end{code}
 \end{myhs}
 
@@ -48,14 +48,14 @@ for values in kind |*|:
 \begin{code}
 class Size (a :: *) where
   size :: a -> Int
-  default size  :: (Generic a , GSize (PF a))
+  default size  :: (Generic a , GSize (Rep a))
                 => a -> Int
   size = gsize . from
 \end{code}
 \end{myhs}
 
   The default keyword instructs Haskell to use the provided
-implementation whenever the constraint |(Generic a , GSize (PF a))| 
+implementation whenever the constraint |(Generic a , GSize (Rep a))| 
 can be satisfied. In a nutshell, we are saying that if Haskell
 is aware of a generic representation for values of type |a|,
 it can use the generic size function. This generic size function
@@ -65,8 +65,8 @@ induction on the structure of the type:
 
 \begin{myhs}
 \begin{code}
-class GSize (pf :: * -> *) where
-  gsize :: pf x -> Int
+class GSize (rep :: * -> *) where
+  gsize :: rep x -> Int
 instance GSize V1 where gsize _ = 0
 instance GSize U1 where gsize _ = 1
 instance (GSize f , GSize g) => GSize (f :*: g) where
@@ -131,6 +131,27 @@ compute |size (Bin (Leaf 1) (Leaf 2))|:
 
 \subsection{Explicit Sums of Products}
 \label{sec:explicitsop}
+
+\victor{With \texttt{generics-sop}~\cite{deVries2014} we can write
+seomthing in the lines of the code below. Much more interesting}
+
+\begin{myhs}
+\begin{code}
+gsize :: (Generic a , All2 Size (Code a)) => a -> Int
+gsize  = sum
+       . elim (map size)
+       . from
+\end{code}
+\end{myhs}
+
+\begin{itemize}
+  \item No need for |GSize| class; clear combinator-based |gsize| function.
+  \item Still need |Size| class.
+  \item Still no explicit recursion.
+\end{itemize}
+
+\TODO{What are we going to do once we put explicit recursion
+in the mix?}
 
 \subsection{Explicit Least Fixpoints}
 \label{sec:explicitfix}
