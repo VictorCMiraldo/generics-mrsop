@@ -13,6 +13,8 @@
 %%
 %% Our defs
 
+%% Logistic Stuff
+
 \definecolor{C1}{RGB}{0,153,204}
 \definecolor{C2}{RGB}{89,0,179}
 
@@ -34,6 +36,12 @@
 {\color{C1} \refstepcounter{commentctr} \textbf{$[$ (\thecommentctr) Alejandro: } #1 \textbf{$]$}}}
 \newcommand{\victor}[1]{%
 {\color{C2} \refstepcounter{commentctr} \textbf{$[$ (\thecommentctr) Victor: } #1 \textbf{$]$}}}
+
+%% LaTeX stuff
+
+\newenvironment{myhs}%
+{\vspace{0.6em}\hspace{1em}}%
+{\vspace{0.6em}}
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

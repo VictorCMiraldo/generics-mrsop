@@ -17,15 +17,19 @@
 \victor{where should we add the following:\\
   The generic representation of
 
+\begin{myhs}
 \begin{code}
   data Bin a = Leaf a | Bin (Bin a) (Bin a)
 \end{code}
+\end{myhs}
 
   is
 
+\begin{myhs}
 \begin{code}
   PF (Bin a) = K1 R a :+: (K1 R (Bin a) :*: K1 R (Bin a))
 \end{code}
+\end{myhs}
 
   which is isomorphic to |Either a (Bin a , Bin a)|
 
@@ -40,6 +44,7 @@ that provides a measure of the value in question is done in two
 steps. First, we define a class that exposes a |size| function
 for values in kind |*|:
 
+\begin{myhs}
 \begin{code}
 class Size (a :: *) where
   size :: a -> Int
@@ -47,16 +52,18 @@ class Size (a :: *) where
                 => a -> Int
   size = gsize . from
 \end{code}
+\end{myhs}
 
   The default keyword instructs Haskell to use the provided
-  implementation whenever the constraint |(Generic a , GSize (PF a))| 
-  can be satisfied. In a nutshell, we are saying that if Haskell
-  is aware of a generic representation for values of type |a|,
-  it can use the generic size function. This generic size function
-  is, in fact, the second piece we need to define. We will
-  need another class and will use the instance mechanism to encode
-  induction on the structure of the type:
+implementation whenever the constraint |(Generic a , GSize (PF a))| 
+can be satisfied. In a nutshell, we are saying that if Haskell
+is aware of a generic representation for values of type |a|,
+it can use the generic size function. This generic size function
+is, in fact, the second piece we need to define. We will
+need another class and will use the instance mechanism to encode
+induction on the structure of the type:
 
+\begin{myhs}
 \begin{code}
 class GSize (pf :: * -> *) where
   gsize :: pf x -> Int
@@ -68,21 +75,24 @@ instance (GSize f , GSize g) => GSize (f :+: g) where
   gsize (L1 f) = gsize f
   gsize (R1 g) = gsize g
 \end{code}
+\end{myhs}
 
   We still have to handle the base case for when 
   we might have an arbitrary type in a position. If we require
   this type to be an instance of |Size| we can sucessfully tie
   the recursive knot.
 
+\begin{myhs}
 \begin{code}
 instance (Size a) => GSize (K1 R a) where
   gsize (K1 a) = size a
 \end{code}
+\end{myhs}
 
   In order to have a fully usable generic size function, one only
-  needs to provide a couple of instances of |Size| for some builtin 
-  Haskell types to act as a base case. We can see this if we try to
-  compute |size (Bin (Leaf 1) (Leaf 2))|:
+needs to provide a couple of instances of |Size| for some builtin 
+Haskell types to act as a base case. We can see this if we try to
+compute |size (Bin (Leaf 1) (Leaf 2))|:
 
 \begin{align*}
   |size (Bin (Leaf 1) (Leaf 2))| 
@@ -97,9 +107,18 @@ instance (Size a) => GSize (K1 R a) where
 
   Were we a compiler, we would hapilly issue a \texttt{No instance for (Size Int)} error
   message at this point. Nevertheless, the literals of type |Int| illustrate what
-  we call the opaque or konstant types: those types for which we require explicit
-  base cases. 
-  \victor{I prefer the 'opaque' denomination, it does not require a typo. $\ddot\smile$}
+  we call \emph{opaque types}: those types that constitute the base of the universe.
+
+  Upon reflecting on our generic |size| function we see a number of issues. Most
+  notably is the amount of boilerplate to simply sum up all the sizes
+  of the fields of whatever constructors make up the value. This is a direct
+  consequence of not having access to the \emph{sum-of-products} structure
+  that Haskell's |data| declarations follow. We will see how one could tackle that
+  in Section~\ref{sec:explicitsop}. More worying, perhaps, is the fact that
+  the generic representation does not carry any information about the
+  recursive structure of the type. We are relying on the instance search
+  mechanism to figure out that the recursive arguments can be treated
+  with the default |size| function.
 
 \TODO{%
 \begin{itemize}
@@ -109,6 +128,15 @@ instance (Size a) => GSize (K1 R a) where
         we encode mutual recursion. \texttt{Multirec} doesn't cut it because of
         definition by induction.
 \end{itemize}}
+
+\subsection{Explicit Sums of Products}
+\label{sec:explicitsop}
+
+\subsection{Explicit Least Fixpoints}
+\label{sec:explicitfix}
+
+\subsection{Mutually Recursive Sums of Products}
+\label{sec:mrsop}
 
 \victor{show generic equality or compos.}
 

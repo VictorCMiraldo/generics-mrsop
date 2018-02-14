@@ -85,7 +85,8 @@ library
   build-depends:       base,
                        containers,
                        template-haskell,
-                       mtl
+                       mtl,
+                       generics-sop
   
   -- Directories containing source files.
   hs-source-dirs:      src
