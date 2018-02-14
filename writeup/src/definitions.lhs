@@ -28,7 +28,7 @@
 {\color{purple} \textbf{$[$ TODO: } #1 \textbf{$]$}}}
 
 \newcommand{\tmp}[1]{%
-{\color{gray} \textit #1 }}
+{\color{gray} \textit{#1} }}
 
 \newcommand{\alejandro}[1]{%
 {\color{C1} \refstepcounter{commentctr} \textbf{$[$ (\thecommentctr) Alejandro: } #1 \textbf{$]$}}}
