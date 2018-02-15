@@ -40,12 +40,15 @@
 %% LaTeX stuff
 
 \newenvironment{myhs}%
-{\vspace{0.6em}\hspace{1em}}%
+{\vspace{0.6em}\hspace{1em}} 
 {\vspace{0.6em}}
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
 %% lhs2TeX Formatting Rules
+%%
+%include stylish.lhs
+%%
 
 %format fib = "\mathcal{F}"

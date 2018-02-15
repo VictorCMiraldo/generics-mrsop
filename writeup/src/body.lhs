@@ -1,17 +1,10 @@
 \section{Introduction}
 \label{sec:introduction}
 
-\victor{We can talk dierctly here}
+\victor{Mention that \texttt{Multirec} exists, but falls short just like \texttt{GHC.Generic}.
+Mention we will only show the \texttt{GHC.Generics} example to keep it simple}
 
-\alejandro{Like this}
-
-\warnme{this requires attention}
-
-\TODO{this will be done}
-
-\tmp{this will be removed}
-
-\section{Generic Programming in Haskell}
+\section{Background}
 \label{sec:genericprog}
 
 \victor{where should we add the following:\\
@@ -63,6 +56,8 @@ is, in fact, the second piece we need to define. We will
 need another class and will use the instance mechanism to encode
 induction on the structure of the type:
 
+%format :*: = ":\!*\!:"
+%format :+: = ":\!+\!:"
 \begin{myhs}
 \begin{code}
 class GSize (rep :: * -> *) where
@@ -94,6 +89,7 @@ needs to provide a couple of instances of |Size| for some builtin
 Haskell types to act as a base case. We can see this if we try to
 compute |size (Bin (Leaf 1) (Leaf 2))|:
 
+\victor{mention shallow encoding!!}
 \begin{align*}
   |size (Bin (Leaf 1) (Leaf 2))| 
     &= |gsize (from (Bin (Leaf 1) (Leaf 2)))| \\
@@ -146,27 +142,32 @@ gsize  = sum
 
 \begin{itemize}
   \item No need for |GSize| class; clear combinator-based |gsize| function.
-  \item Still need |Size| class.
+  \item Still need |Size| class. Consequence of shallow encoding!
   \item Still no explicit recursion.
 \end{itemize}
 
 \TODO{What are we going to do once we put explicit recursion
 in the mix?}
 
-\subsection{Explicit Least Fixpoints}
+\section{Explicit Fix: Deep and Shallow for free}
 \label{sec:explicitfix}
 
-\subsection{Mutually Recursive Sums of Products}
-\label{sec:mrsop}
+\victor{check out \texttt{Fixplate}}
 
+
+\TODO{Talk about how do we get both a deep and a shallow
+encoding with only one type variable}
 \victor{show generic equality or compos.}
 
-\section{Encoding a Mutually Recursive Family}
+\section{Mutual Recursion}
 \label{sec:family}
+ 
 
-\alejandro{Driving in Manual from Gameplan}
-
-\section{Deriving a Mutually Recursive Family}
+\section{Template Haskell}
 \label{sec:templatehaskell}
 
 \victor{Driving in Auto from Gameplan}
+
+\section{Conclusion}
+
+the usual stuff...
