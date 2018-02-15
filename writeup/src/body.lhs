@@ -17,11 +17,15 @@ Mention we will only show the \texttt{GHC.Generics} example to keep it simple}
   is
 \begin{myhs}
 \begin{code}
-  REP (Bin a) = K1 R a :+: (K1 R (Bin a) :*: K1 R (Bin a))
+  RepGen (Bin a) = K1 R a :+: (K1 R (Bin a) :*: K1 R (Bin a))
 \end{code}
 \end{myhs}
   which is isomorphic to |Either a (Bin a , Bin a)|
 }
+
+\victor[victor:codes]{In \texttt{GHC.Generics}, the representation has NO CODE;
+in fact, that's why we need instance search to perform induction on it.
+I need to mention this somehow }
 
   Since version $7.2$, GHC supports some basic generic
 programming using \texttt{GHC.Generics}~\cite{Magalhaes2010}, 
@@ -55,8 +59,6 @@ is, in fact, the second piece we need to define. We will
 need another class and will use the instance mechanism to encode
 induction on the structure of the type:
 
-%format :*: = ":\!*\!:"
-%format :+: = ":\!+\!:"
 \begin{myhs}
 \begin{code}
 class GSize (rep :: * -> *) where
@@ -140,7 +142,7 @@ does precisely that. It could let us write the (simplified) |gsize| functions as
 
 \begin{myhs}
 \begin{code}
-gsize :: (Generic a) => a -> Int
+gsize :: (Generics.SOP.Generic a) => a -> Int
 gsize  = sum . elim (map size) . from
 \end{code}
 \end{myhs}
@@ -158,19 +160,19 @@ constructors of a type, and will be interpreted as a $n$-ary sum, whereas
 the inner lists are interepreted as the fields of the respective constructors,
 interpreted as $n$-ary products.
 
-%format (P (a)) = "\HSSym{''}" a
 \begin{myhs}
 \begin{code}
-type family    Code (a :: *) :: P ([ (P [*]) ])
+type family    CodeSOP (a :: *) :: P ([ (P [*]) ])
 
-type instance  Code (Bin a) = P ([ P [a] , P ([Bin a , Bin a]) ])
+type instance  CodeSOP (Bin a) = P ([ P [a] , P ([Bin a , Bin a]) ])
 \end{code}
 \end{myhs}
 
-%format dots = "\HSSym{\cdots}"
+\victor{Now we have codes (see \ref{victor:codes})! We can do induction on them} 
+
   We then intrepret these |Code|s using $n$-ary sums of $n$-ary products of
-atoms. An $n$-ary sum |NS f [k1 , k2 , dots]|
-is isomorphic to |Either (f k1) (Either (f k2) dots)|, it can easily be defined using a
+atoms. An $n$-ary sum |NS f [k_1 , k_2 , dots]|
+is isomorphic to |Either (f k_1) (Either (f k_2) dots)|, it can easily be defined using a
 GADT~\cite{Xi2003}:
 
 \begin{myhs}
@@ -182,9 +184,8 @@ data NS :: (k -> *) -> [k] -> * where
 \end{myhs}
 
   The $n$-ary products on the other hand resemble an heterogeneous list. Here,
-|NP f [k1 , k2 , dots]| is isomorphic to |(f k1 , f k2 , dots)|. 
+|NP f [k_1 , k_2 , dots]| is isomorphic to |(f k_1 , f k_2 , dots)|. 
 
-%format :* = "\HSCon{\times}"
 \begin{myhs}
 \begin{code}
 data NP :: (k -> *) -> [k] -> * where
@@ -199,14 +200,12 @@ of values of a type |a| under the \emph{SOP} view:
 
 \begin{myhs}
 \begin{code}
-type Rep a = NS (NP I) (Code a)
+type RepSOP a = NS (NP I) (CodeSOP a)
 
 newtype I (a :: *) = I { unI :: a }
 \end{code}
 \end{myhs}
 
-%format forall = "\HSSym{\forall}"
-%format dot    = "\HSSym{.}"
   Revisiting the |gsize| example above we see that the |map| we used has
 type |(forall k dot f k -> a) -> NP f ks -> [a]|, and can be defined
 analogously to the the sum eliminator |elim|:
@@ -234,14 +233,14 @@ write with \texttt{generics-sop} is:
 
 \begin{myhs}
 \begin{code}
-gsize :: (Generic a , All2 Size (Code a)) => a -> Int
+gsize :: (Generic a , All2 Size (CodeSOP a)) => a -> Int
 gsize = sum . hcollapse . hcmap (Proxy :: Proxy Size) (mapIK size) . from
 \end{code}
 \end{myhs}
 
-  The |All2 Size (Code a)| constraint tells the Haskell compiler that
-all of the types serving as atoms for |Code a| are an instance of |Size|.
-In our case, |All2 Size (Code (Bin a))| expands to |(Size a , Size (Bin a))|.
+  The |All2 Size (CodeSOP a)| constraint tells the Haskell compiler that
+all of the types serving as atoms for |CodeSOP a| are an instance of |Size|.
+In our case, |All2 Size (CodeSOP (Bin a))| expands to |(Size a , Size (Bin a))|.
 The |Size| constraint also has to be passed around with a |Proxy| for the
 eliminator of the $n$-ary sum. This is a direct consequence of a \emph{shallow}
 encoding: since we only unfold one layer of recursion at a time, we have to 
@@ -251,6 +250,51 @@ least fixpoints to our universe.
 
 \section{Explicit Fix: Deep and Shallow for free}
 \label{sec:explicitfix}
+
+  Introducing information about the recursive positions in a type
+is done by changing the type of atoms in the universe. In Section~\ref{sec:explicitsop}
+we had |CodeFix :: * -> (P [ (P [*])])|, that is, the atoms of the universe were
+Haskell types. If instead we create a new kind |Atom|, we can record wether or not
+a constructor field is a recursive position or an opaque type.
+
+\begin{myhs}
+\begin{code}
+data Atom = I | KInt
+
+type family CodeFix (a :: *) :: P [ P [Atom] ]
+
+type instance CodeFix (Bin Int) = P [ P [KInt] , P [I , I] ]
+\end{code}
+\end{myhs}
+
+  Here we are considering that an |Atom| is either a recursive
+position or an opaque type, in this case, an |Int|. Favoring the simplicity of the presentation,
+we will stick with a hardcoded |Int| as the only opaque type in the universe. It is simple to
+parametrize the whole development to whatever the user requires, as we have done 
+in the actual implementation. 
+
+  The most notable difference is that our code now is not polymorphic. 
+Back in Section~\ref{sec:explicitsop} we have defined |CodeSOP (Bin a)|, and this
+would work for any |a|. This might seen like a disadvantage, but it is in fact 
+quite the opposite. This allows us to provide a deep conversion for free, given
+a shallow conversion. Beyond doubt one needs to have access to the |CodeSOP a|
+when converting a |Bin a| to its (deep) representation. By specifying the types
+involved beforehand, we are able to get by without having to carry all
+of the constraints we needed in Section~\ref{sec:explicitsop}.
+
+  The representation of our codes now requires a functor with type |Atom -> *|, this
+can be achieved by the means of another GADT.
+
+\begin{myhs}
+\begin{code}
+data NA :: * -> Atom -> * where
+  NA_I :: x    -> NA x I
+  NA_K :: Int  -> NA x KInt
+
+type RepFix a = NS (NP (NA a)) (Code a)
+\end{code}
+\end{myhs}
+
 
 \victor{check out \texttt{Fixplate}}
 \victor{Mention how without a |Fix| combinator, it is impossible to have a deep encoding}
