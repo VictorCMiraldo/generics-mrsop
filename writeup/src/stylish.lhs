@@ -8,7 +8,7 @@
 \definecolor{hsblack}{RGB}{45,32,3}
 \definecolor{hsgold1}{RGB}{179,169,149}
 \definecolor{hsgold2}{RGB}{177,149,90}
-\definecolor{hsgold3}{RGB}{132,97,19}
+\definecolor{hsgold3}{RGB}{190,106,13}%{192,96,4}%{132,97,19}
 \definecolor{hsblue1}{RGB}{173,176,182}
 \definecolor{hsblue2}{RGB}{113,142,205}
 \definecolor{hsblue3}{RGB}{0,33,132}
@@ -17,15 +17,28 @@
 \definecolor{hsred2}{RGB}{191,121,103}
 \definecolor{hsred3}{RGB}{171,72,46}
 
-\newcommand{\HSKeyword}[1]{\textcolor{hsgold3}{\textbf{#1}}}
-\newcommand{\HSNumeral}[1]{\textcolor{hsred3}{#1}}
-\newcommand{\HSChar}[1]{\textcolor{hsred2}{#1}}
-\newcommand{\HSString}[1]{\textcolor{hsred2}{#1}}
-\newcommand{\HSSpecial}[1]{\textcolor{hsblue4}{#1}}
-\newcommand{\HSSym}[1]{\,\textcolor{hsblue4}{#1}\,}
-\newcommand{\HSManualSym}[1]{\,\textcolor{hsblue4}{#1}\,}
-\newcommand{\HSCon}[1]{\textcolor{hsblue3}{#1}}
-\newcommand{\HSVar}[1]{\textcolor{hsblue5}{#1}}
+%% LaTeX Kerning nastiness. By using curly braces to delimit color group,
+%% it breaks spacing. The following seems to work:
+%%
+%% https://tex.stackexchange.com/questions/85033/colored-symbols/85035#85035
+%%
+\newcommand*{\mathcolor}{}
+\def\mathcolor#1#{\mathcoloraux{#1}}
+\newcommand*{\mathcoloraux}[3]{%
+  \protect\leavevmode
+  \begingroup
+    \color#1{#2}#3%
+  \endgroup
+}
+\newcommand{\HSKeyword}[1]{\mathcolor{hsgold3}{\textbf{#1}}}
+\newcommand{\HSNumeral}[1]{\mathcolor{hsred3}{#1}}
+\newcommand{\HSChar}[1]{\mathcolor{hsred2}{#1}}
+\newcommand{\HSString}[1]{\mathcolor{hsred2}{#1}}
+\newcommand{\HSSpecial}[1]{\mathcolor{hsblue4}{#1}}
+\newcommand{\HSSym}[1]{\mathcolor{hsblue4}{#1}}
+\newcommand{\HSManualSym}[1]{\mathcolor{hsblue4}{#1}}
+\newcommand{\HSCon}[1]{\mathcolor{hsblue3}{#1}}
+\newcommand{\HSVar}[1]{\mathcolor{hsblue5}{#1}}
 
 %subst keyword a = "\HSKeyword{" a "}"
 %subst conid a   = "\HSCon{" a "}"
@@ -37,6 +50,7 @@
 %subst string a  = "\HSString{``" a "\char34 }"
 %subst special a = "\HSSpecial{" a "}"
 
+%format family     = "\HSKeyword{family}"
 %format _          = "\HSManualSym{\anonymous} "
 %format ->         = "\HSManualSym{\to} "
 %format <-         = "\HSManualSym{\leftarrow} "

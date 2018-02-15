@@ -39,12 +39,11 @@
 
 %% LaTeX stuff
 
-\newenvironment{myhs}%
-{\vspace{0.6em}\hspace{1em}} 
-{\vspace{0.6em}}
+\newenvironment{myhs}{}{}
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
 %% lhs2TeX Formatting Rules
 %%

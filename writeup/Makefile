@@ -2,14 +2,11 @@
 TGT=index
 LATEX=pdflatex -shell-escape -output-directory=dist
 
-%.tex: %.lhs
-	lhs2TeX -o $@ $< 
-
-default : src/$(TGT).tex
+default : src/index.lhs src/body.lhs src/definitions.lhs src/stylish.lhs
 	@mkdir -p dist
+	lhs2TeX -o src/$(TGT).tex src/$(TGT).lhs
 	export TEXMFHOME=".:$(TEXMFHOME)" && \
 	$(LATEX) src/$(TGT).tex 
-	rm src/index.tex
 
 dist/$(TGT).aux: default
 
