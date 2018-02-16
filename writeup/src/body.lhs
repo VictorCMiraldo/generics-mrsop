@@ -30,8 +30,8 @@ I need to mention this somehow }
   Since version $7.2$, GHC supports some basic generic
 programming using \texttt{GHC.Generics}~\cite{Magalhaes2010}, 
 which exposes the \emph{pattern functor} of a datatype. This
-allows one to define a function for any datatype by induction
-on \emph{pattern functors}. 
+allows one to define a function for \emph{any} datatype by induction
+on the structure of its representation.
 
 \victor{Do I have to explain pattern-functors here?}
 
@@ -245,7 +245,7 @@ The |Size| constraint also has to be passed around with a |Proxy| for the
 eliminator of the $n$-ary sum. This is a direct consequence of a \emph{shallow}
 encoding: since we only unfold one layer of recursion at a time, we have to 
 carry proofs that the recursive arguments can also be translated to
-a generic representation. We can get rid of this if we add explicit 
+a generic representation. We can relief this burden by adding explicit 
 least fixpoints to our universe.
 
 \section{Explicit Fix: Deep and Shallow for free}
@@ -282,8 +282,12 @@ when converting a |Bin a| to its (deep) representation. By specifying the types
 involved beforehand, we are able to get by without having to carry all
 of the constraints we needed in Section~\ref{sec:explicitsop}.
 
-  The representation of our codes now requires a functor with type |Atom -> *|, this
-can be achieved by the means of another GADT.
+  The representation of our codes now requires a functor that map |Atom|s into
+Haskell values, that is, |Atom -> *|. The representation |RepFix| is remarkably 
+similar to |RepSOP|, but since we now know the recursive positions, we are
+able to lift the representation to a functor. In fact, it is a nice exercise to
+write the |Functor (RepFix a)| instance. We are using a |newtype| here so
+we can partially apply |RepFix|.
 
 \begin{myhs}
 \begin{code}
@@ -291,9 +295,84 @@ data NA :: * -> Atom -> * where
   NA_I :: x    -> NA x I
   NA_K :: Int  -> NA x KInt
 
-type RepFix a = NS (NP (NA a)) (Code a)
+newtype RepFix a x = Rep { unRep :: NS (NP (NA x)) (Code a) }
 \end{code}
 \end{myhs}
+
+  Let us create an interface to unify the vocabulary for types that
+can be translated to some generic representation. In fact, we just
+need these types to have an associated |Code| and a function to and from
+the interpretation of their |Code|. These functions witness an isomorphism.
+
+\begin{myhs}
+\begin{code}
+class Generic a where
+  from  :: a -> RepFix a a
+  to    :: RepFix a a -> a
+\end{code}
+\end{myhs}
+
+  The instance for |Generic (Bin Int)| is quite straight forward, then.
+
+\begin{myhs}
+\begin{code}
+type instance CodeFix (Bin Int) = P [ P [KInt] , P [I , I] ]
+instance Generic (Bin Int) where
+  from (Leaf x)   = Rep (Here (NA_K x :* NP0))
+  from (Bin l r)  = Rep (There (Here (NA_I l :* NA_I r :* NP0)))
+\end{code}
+\end{myhs}
+
+  Note how |RepFix| still is a shallow representation. But by
+constructing the least fixpoint of |RepFix a| we can obtain the deep
+encoding for free, by simply recursively translating each
+layer of the shallow encoding.
+
+\begin{myhs}
+\begin{code}
+newtype Fix f = Fix { unFix :: f (Fix f) }
+
+deepFrom :: (Generic a) -> a -> Fix (RepFix a)
+deepFrom = Fix . fmap deepFrom . from
+\end{code}
+\end{myhs}
+
+  Besides the usual combinators, like compos:
+
+\begin{myhs}
+\begin{code}
+compos :: (Generic a) => (a -> a) -> a -> a
+compos f = to . fmap f . from
+\end{code}
+\end{myhs}
+
+  we are also able to expoit the \emph{sum-of-products} structure
+to write expressive combinators, such as |crush|, that consumes opaque
+types and combine the results of the products into a single result.
+
+\begin{myhs}
+\begin{code}
+crush :: (Generic a) => (forall x dot Atom KInt x -> b) -> ([b] -> b) -> a -> b
+crush k cat = crushFix . deepFrom
+  where
+    crushFix :: Fix (RepFix a) -> b
+    crushFix = cat . elimNS (elimNP go) . unFix
+
+    go (NA_I x) = crushFix x
+    go (NA_K i) = k i
+\end{code}
+\end{myhs}
+
+  Finally, we can revisit our |gsize| example and write the simplest |gsize| so far:
+
+\begin{myhs}
+\begin{code}
+gsize :: (Generic a) => a -> Int
+gsize = crush (const 1) sum
+\end{code}
+\end{myhs}
+
+  \victor{No need for any typeclass; no need for any constraint; simple and straight forward definition}
 
 
 \victor{check out \texttt{Fixplate}}
@@ -306,6 +385,9 @@ encoding with only one type variable}
 
 \section{Mutual Recursion}
 \label{sec:family}
+
+\victor{Turns out that chapter 2 of the Multirec paper already mentions this
+deep vs shallow drama}
  
 \TODO{|El| is \textbf{the} trick, everything else follows}
 
