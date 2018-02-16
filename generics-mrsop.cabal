@@ -55,7 +55,7 @@ library
     Generics.MRSOP.Base.Class,
     Generics.MRSOP.Base.Combinators,
     Generics.MRSOP.Base,
-    Generics.MRSOP.Konstants,
+    Generics.MRSOP.Opaque,
     Generics.MRSOP.Util,
     Generics.MRSOP.TH,
     Generics.MRSOP.Examples.RoseTree,

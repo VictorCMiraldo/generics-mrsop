@@ -25,10 +25,10 @@ import Control.Monad.Identity
 import Language.Haskell.TH
 import Language.Haskell.TH.Syntax (liftString)
 
-import Generics.MRSOP.Konstants
+import Generics.MRSOP.Opaque
 import Generics.MRSOP.Base.Class
-import Generics.MRSOP.Base.Internal.NS
-import Generics.MRSOP.Base.Internal.NP
+import Generics.MRSOP.Base.NS
+import Generics.MRSOP.Base.NP
 import Generics.MRSOP.Base.Universe
 
 import qualified Data.Map as M
@@ -363,12 +363,167 @@ reifySTy sty
 -- * Generating the Code * --
 -----------------------------
 
+-- Code generation happens in a few separate parts.
+-- Given a datatype:
+-- 
+-- > data R a = a :>: [R a]
+-- >          | Leaf a
+-- >          deriving Show
+--
+-- We need to generate:
+--
+-- 1. The Family and the codes
+-- 1.1 > type FamRose   = '[ [R Int] , R Int ]
+-- 1.2 > type CodesRose = '[ '[ '[] , '[I (S Z) , I Z] ]
+--     >                   , '[ '[K KInt , I Z] , '[K KInt] ]
+--     >                   ]
+--
+-- 2. The index of each type in the family.
+-- > elListRInt :: SNat Z
+-- > elRInt     :: SNat (S Z)
+--
+-- 3. The instance:
+-- > instance Family Singl FamRose CodesRose where
+--
+-- 3.1. for each type in (1)
+-- >   sfrom' (SS SZ) (El (a :>: as))
+-- >     = Rep $ Here (NA_K (SInt a) :* NA_I (El as) :* NP0)
+-- >   sfrom' (SS SZ) (El (Leaf a))
+-- >     = Rep $ There (Here (NA_K (SInt a) :* NP0))
+--
+-- 3.2.
+-- >   sfrom' SZ (El [])
+-- >     = Rep $ Here NP0
+-- >   sfrom' SZ (El (x:xs))
+-- >     = Rep $ There (Here (NA_I (El x) :* NA_I (El xs) :* NP0))
+-- > 
+-- >   sto' SZ (Rep (Here NP0))
+-- >     = El []
+-- >   sto' SZ (Rep (There (Here (NA_I (El x) :* NA_I (El xs) :* NP0))))
+-- >     = El (x : xs)
+-- >   sto' (SS SZ) (Rep (Here (NA_K (SInt a) :* NA_I (El as) :* NP0)))
+-- >     = El (a :>: as)
+-- >   sto' (SS SZ) (Rep (There (Here (NA_K (SInt a) :* NP0))))
+-- >     = El (Leaf a)
+
+-- |Note that the patterns in the 'sfrom' and
+--  expressions in sto are very similar. We
+--  could benefit from a common language and a translation.
+data ExpPat name
+  = VarEP name
+  | ConEP name
+  | AppEP (ExpPat name) (ExpPat name)
+  deriving (Functor , Eq , Show)
+
+epFromExp :: Exp -> ExpPat Name
+epFromExp (VarE n)   = VarEP n
+epFromExp (ConE n)   = ConEP n
+epFromExp (AppE t u) = AppEP (epFromExp t) (epFromExp u)
+epFromExp e          = error $ "epFromExp: unsupported: " ++ show e
+
+epToExp :: ExpPat Name -> Exp
+epToExp (VarEP n)   = VarE n
+epToExp (ConEP n)   = ConE n
+epToExp (AppEP t u) = AppE (epToExp t) (epToExp u)
+
+epToPat :: ExpPat Name -> Pat
+epToPat (VarEP n)   = VarP n
+epToPat (ConEP n)   = ConP n []
+epToPat (AppEP t u) = trLeft [u] t
+  where
+    trLeft aux (AppEP l r) = trLeft (r:aux) l
+    trLeft aux (ConEP n)   = ConP n (map epToPat aux)
+
+-- |The input data for the generation is an ordered list
+--  (on the second component of the tuple) of STy's and
+--  their datatype info.
+type Input = [(STy , Int , DTI IK)]
+
+-- Generates a type-level list of 'a's
+tlListOf :: (a -> Type) -> [a] -> Type
+tlListOf f = foldr (\h r -> AppT (AppT PromotedConsT (f h)) r) PromotedNilT
+
+-- generate a type-level Nat
+int2Type :: Int -> Type
+int2Type 0 = tyZ
+int2Type n = AppT tyS (int2Type (n - 1))
+
+-- Our promoted type constructors
+tyS = PromotedT (mkName "S")
+tyZ = PromotedT (mkName "Z")
+tyI = PromotedT (mkName "I")
+tyK = PromotedT (mkName "K")
+
+-- Generate rhs of piece (1.2)
+inputToCodes :: Input -> Q Type
+inputToCodes = return . tlListOf dti2Type . map third
+  where
+    third (_ , _ , x) = x
+
+    dti2Type :: DTI IK -> Type
+    dti2Type = tlListOf ci2Type . dti2ci
+
+    ci2Type :: CI IK -> Type
+    ci2Type = tlListOf ik2Type . ci2ty
+
+    ik2Type :: IK -> Type
+    ik2Type (AtomI n) = AppT tyI $ int2Type n
+    ik2Type (AtomK k) = AppT tyK $ PromotedT k
+
+-- generates rhs of pieve (1.1)
+inputToFam :: Input -> Q Type
+inputToFam = return . tlListOf trevnocType . map first
+  where
+    first (x , _ , _) = x
+
+-- | @styToName "List (R Int)" == "ListRInt"@
+styToName :: STy -> Name
+styToName = mkName . styFold (++) nameBase nameBase
+
+onBaseName :: (String -> String) -> Name -> Name
+onBaseName f = mkName . f . nameBase
+
+codesName :: STy -> Q Name
+codesName = return . onBaseName ("Codes" ++) . styToName
+
+familyName :: STy -> Q Name
+familyName = return . onBaseName ("Fam" ++) . styToName
+
+genPiece1 :: STy -> Input -> Q (Dec , Dec)
+genPiece1 first ls
+  = do codes <- TySynD <$> codesName first
+                       <*> return []
+                       <*> inputToCodes ls
+       fam   <- TySynD <$> familyName first
+                       <*> return []
+                       <*> inputToFam ls
+       return (fam , codes)
+
+genPiece3 :: STy -> Input -> Q Dec
+genPiece3 first ls
+  = head <$> [d| instance Family Singl
+                                 $(ConT <$> familyName first)
+                                 $(ConT <$> codesName first)
+                   where sfrom' = $(genPiece3_1 ls)
+                         sto'   = $(genPiece3_2 ls) |]
+
+genPiece3_1 :: Input -> Q Exp
+genPiece3_1 = undefined
+
+genPiece3_2 :: Input -> Q Exp
+genPiece3_2 = undefined
+                    
+
 -- |@genFamily init fam@ generates a type-level list
 --  of the codes for the family. It also generates
 --  the necessary 'Element' instances.
 --  TODO: generate the 'HasDatatypeInfo' instances too!
 --
 --  Precondition, input is sorted on second component.
+genFamily :: STy -> Input -> Q [Dec]
+genFamily first ls = undefined
+
+                       {-
 genFamily :: STy -> [(STy , Int , DTI IK)] -> Q [Dec]  
 genFamily first ls
   = do fam <- familyDecl
@@ -388,35 +543,15 @@ genFamily first ls
 
     familyTys :: Q Type
     familyTys = return $ tlListOf dti2Type (map (\(_ , _ , t) -> t) ls) 
-
--- Generates a type-level list of 'a's
-tlListOf :: (a -> Type) -> [a] -> Type
-tlListOf f = foldr (\h r -> AppT (AppT PromotedConsT (f h)) r) PromotedNilT
-
-dti2Type :: DTI IK -> Type
-dti2Type = tlListOf ci2Type . dti2ci
-
-ci2Type :: CI IK -> Type
-ci2Type = tlListOf ik2Type . ci2ty
-
-int2Type :: Int -> Type
-int2Type 0 = tyZ
-int2Type n = AppT tyS (int2Type (n - 1))
-
-tyS = PromotedT (mkName "S")
-tyZ = PromotedT (mkName "Z")
-tyI = PromotedT (mkName "I")
-tyK = PromotedT (mkName "K")
-
-ik2Type :: IK -> Type
-ik2Type (AtomI n) = AppT tyI $ int2Type n
-ik2Type (AtomK k) = AppT tyK $ PromotedT k
+-}
 
 -- |@genElement sty ix dti@ generates the instance
 --  for the 'Element' class.
 genElement :: Name -> STy -> Int -> DTI IK -> Q [Dec]
-genElement fam sty ix dti
-  = [d| instance Element Singl
+genElement fam sty ix dti = undefined
+
+{-
+  = [d| instance Family Singl
                          $(return (ConT fam))
                          $(return $ int2Type ix)
                          $(return (trevnocType sty))
@@ -480,10 +615,14 @@ genElement fam sty ix dti
 
         go acc []     = acc
         go acc (n:ns) = go (AppE acc (mkE n)) ns
+-}
 
 -- |Generates a bunch of strings for debug purposes.
 genFamilyDebug :: STy -> [(STy , Int , DTI IK)] -> Q [Dec]
-genFamilyDebug _ ms = concat <$> mapM genDec ms
+genFamilyDebug _ ms = undefined
+
+{-
+  = concat <$> mapM genDec ms
   where
     genDec :: (STy , Int , DTI IK) -> Q [Dec]
     genDec (sty , ix , dti)
@@ -497,3 +636,4 @@ genFamilyDebug _ ms = concat <$> mapM genDec ms
 
     genName :: Int -> Q Name
     genName n = return (mkName $ "tyInfo_" ++ show n)
+-}
