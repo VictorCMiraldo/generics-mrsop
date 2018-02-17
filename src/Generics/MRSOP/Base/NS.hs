@@ -30,9 +30,9 @@ mapNS f (Here  p) = Here (f p)
 mapNS f (There p) = There (mapNS f p)
 
 -- |Maps a monadic function over a sum
-mapMNS :: (Monad m) => (forall x . f x -> m (g x)) -> NS f ks -> m (NS g ks)
-mapMNS f (Here  p) = Here  <$> f p
-mapMNS f (There p) = There <$> mapMNS f p
+mapNSM :: (Monad m) => (forall x . f x -> m (g x)) -> NS f ks -> m (NS g ks)
+mapNSM f (Here  p) = Here  <$> f p
+mapNSM f (There p) = There <$> mapNSM f p
 
 -- |Eliminates a sum
 elimNS :: (forall x . f x -> a) -> NS f ks -> a

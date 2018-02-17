@@ -7,6 +7,7 @@
 {-# LANGUAGE DataKinds            #-}
 {-# LANGUAGE PolyKinds            #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE TypeApplications     #-}
 -- | Our universe representation
 module Generics.MRSOP.Base.Universe where
 
@@ -51,16 +52,16 @@ mapNA fk fi (NA_I f) = NA_I (fi f)
 mapNA fk fi (NA_K k) = NA_K (fk k)
 
 -- |Maps a monadic natural transformation over an atom interpretation
-mapMNA :: (Monad m)
+mapNAM :: (Monad m)
        => (forall k  .             ki k  -> m (kj k))
        -> (forall ix . IsNat ix => f  ix -> m (g  ix))
        -> NA ki f a -> m (NA kj g a)
-mapMNA fk fi (NA_K k) = NA_K <$> fk k
-mapMNA fk fi (NA_I f) = NA_I <$> fi f
+mapNAM fk fi (NA_K k) = NA_K <$> fk k
+mapNAM fk fi (NA_I f) = NA_I <$> fi f
 
 -- |Eliminates an atom interpretation
 elimNA :: (forall k . ki  k -> b)
-       -> (forall k . phi k -> b)
+       -> (forall k . IsNat k => phi k -> b)
        -> NA ki phi a -> b
 elimNA kp fp (NA_I x) = fp x
 elimNA kp fp (NA_K x) = kp x
@@ -100,21 +101,21 @@ mapRep :: (forall ix . IsNat ix => f  ix -> g ix)
        -> Rep ki f c -> Rep ki g c
 mapRep = hmapRep id
 
-mapMRep :: (Monad m)
+mapRepM :: (Monad m)
         => (forall ix . IsNat ix => f  ix -> m (g  ix))
         -> Rep ki f c -> m (Rep ki g c)
-mapMRep = hmapMRep return
+mapRepM = hmapRepM return
 
 hmapRep :: (forall k  .             ki k  -> kj k)
         -> (forall ix . IsNat ix => f  ix -> g ix)
         -> Rep ki f c -> Rep kj g c
 hmapRep fk fi = Rep . mapNS (mapNP (mapNA fk fi)) . unRep
 
-hmapMRep :: (Monad m)
+hmapRepM :: (Monad m)
          => (forall k  .             ki k  -> m (kj k))
          -> (forall ix . IsNat ix => f  ix -> m (g  ix))
          -> Rep ki f c -> m (Rep kj g c)
-hmapMRep fk fi = (Rep <$>) . mapMNS (mapMNP (mapMNA fk fi)) . unRep
+hmapRepM fk fi = (Rep <$>) . mapNSM (mapNPM (mapNAM fk fi)) . unRep
 
 zipRep :: (MonadPlus m)
        => Rep ki f c -> Rep kj g c
@@ -122,11 +123,20 @@ zipRep :: (MonadPlus m)
 zipRep (Rep t) (Rep u)
   = Rep . mapNS (mapNP (uncurry' zipNA) . uncurry' zipNP) <$> zipNS t u
 
+elimRepM :: (Monad m)
+         => (forall k . ki k -> m a)
+         -> (forall k . IsNat k => f  k -> m a)
+         -> ([a] -> m b)
+         -> Rep ki f c -> m b
+elimRepM fk fi cat
+  = cat <.> elimNS (elimNPM (elimNA fk fi)) . unRep
+
 elimRep :: (forall k . ki k -> a)
         -> (forall k . f  k -> a)
         -> ([a] -> b)
         -> Rep ki f c -> b
-elimRep kp fp cat = elimNS (cat . elimNP (elimNA kp fp)) . unRep
+elimRep kp fp cat
+  = elimNS (cat . elimNP (elimNA kp fp)) . unRep
 
 eqRep :: (forall k  . ki  k  -> ki  k  -> Bool)
       -> (forall ix . fam ix -> fam ix -> Bool)
@@ -190,7 +200,7 @@ proxyFixIdx _ = Proxy
 mapMFix :: (Monad m)
         => (forall k . ki k -> m (kj k))
         -> Fix ki fam ix -> m (Fix kj fam ix)
-mapMFix fk = (Fix <$>) . hmapMRep fk (mapMFix fk) . unFix
+mapMFix fk = (Fix <$>) . hmapRepM fk (mapMFix fk) . unFix
 
 -- |Compare two values of a same fixpoint for equality.
 eqFix :: (forall k. ki k -> ki k -> Bool)

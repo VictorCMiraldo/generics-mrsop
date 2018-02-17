@@ -30,14 +30,18 @@ mapNP f NP0       = NP0
 mapNP f (k :* ks) = f k :* mapNP f ks
 
 -- |Maps a monadic natural transformation over a n-ary product
-mapMNP :: (Monad m) => (forall x . f x -> m (g x)) -> NP f ks -> m (NP g ks)
-mapMNP f NP0       = return NP0
-mapMNP f (k :* ks) = (:*) <$> f k <*> mapMNP f ks
+mapNPM :: (Monad m) => (forall x . f x -> m (g x)) -> NP f ks -> m (NP g ks)
+mapNPM f NP0       = return NP0
+mapNPM f (k :* ks) = (:*) <$> f k <*> mapNPM f ks
 
 -- |Eliminates the product using a provided function.
 elimNP :: (forall x . f x -> a) -> NP f ks -> [a]
 elimNP f NP0       = []
 elimNP f (k :* ks) = f k : elimNP f ks
+
+elimNPM :: (Monad m) => (forall x . f x -> m a) -> NP f ks -> m [a]
+elimNPM f NP0       = return []
+elimNPM f (k :* ks) = (:) <$> f k <*> elimNPM f ks
 
 -- |Combines two products into one.
 zipNP :: NP f xs -> NP g xs -> NP (f :*: g) xs

@@ -57,7 +57,7 @@ composM :: forall ki fam codes ix m
         => (forall iy . IsNat iy => SNat iy -> El fam iy -> m (El fam iy))
         -> El fam ix -> m (El fam ix)
 composM f = (sto @fam <$>)
-          . mapMRep (\x -> f (getElSNat x) x)
+          . mapRepM (\x -> f (getElSNat x) x)
           . sfrom @fam
 
 -- |Non monadic version from above.
