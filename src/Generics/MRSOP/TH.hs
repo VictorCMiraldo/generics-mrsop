@@ -8,7 +8,7 @@
 --   the mechanical, yet long, Element instances
 --   for a family.
 --
---   We are borrowing a lot of code from generic-sop
+--   We are borrowing a some code from generic-sop
 --   ( https://hackage.haskell.org/package/generics-sop-0.3.2.0/docs/src/Generics-SOP-TH.html )
 --
 module Generics.MRSOP.TH (deriveFamily, genFamilyDebug) where
@@ -25,10 +25,11 @@ import Control.Monad.Identity
 import Language.Haskell.TH
 import Language.Haskell.TH.Syntax (liftString)
 
-import Generics.MRSOP.Konstants
+import Generics.MRSOP.Util
+import Generics.MRSOP.Opaque
 import Generics.MRSOP.Base.Class
-import Generics.MRSOP.Base.Internal.NS
-import Generics.MRSOP.Base.Internal.NP
+import Generics.MRSOP.Base.NS
+import Generics.MRSOP.Base.NP
 import Generics.MRSOP.Base.Universe
 
 import qualified Data.Map as M
@@ -143,6 +144,11 @@ ci2Pat :: CI ty -> Q ([Name] , Pat)
 ci2Pat ci
   = do ns <- mapM (const (newName "x")) (ci2ty ci)
        return (ns , (ConP (ciName ci) (map VarP ns)))
+
+ci2Exp :: CI ty -> Q ([Name], Exp)
+ci2Exp ci
+  = do ns <- mapM (const (newName "y")) (ci2ty ci)
+       return (ns , foldl (\e n -> AppE e (VarE n)) (ConE (ciName ci)) ns)
 
 -- * Simpler STy Language
 
@@ -363,123 +369,223 @@ reifySTy sty
 -- * Generating the Code * --
 -----------------------------
 
+-- Code generation happens in a few separate parts.
+-- Given a datatype:
+-- 
+-- > data R a = a :>: [R a]
+-- >          | Leaf a
+-- >          deriving Show
+--
+-- We need to generate:
+--
+-- 1. The Family and the codes
+-- 1.1 > type FamRose   = '[ [R Int] , R Int ]
+-- 1.2 > type CodesRose = '[ '[ '[] , '[I (S Z) , I Z] ]
+--     >                   , '[ '[K KInt , I Z] , '[K KInt] ]
+--     >                   ]
+--
+-- 2. The index of each type in the family.
+-- > elListRInt :: SNat Z
+-- > elRInt     :: SNat (S Z)
+--
+-- 3. The instance:
+-- > instance Family Singl FamRose CodesRose where
+--
+-- 3.1. for each type in (1)
+-- >   sfrom' (SS SZ) (El (a :>: as))
+-- >     = Rep $ Here (NA_K (SInt a) :* NA_I (El as) :* NP0)
+-- >   sfrom' (SS SZ) (El (Leaf a))
+-- >     = Rep $ There (Here (NA_K (SInt a) :* NP0))
+--
+-- 3.2.
+-- >   sfrom' SZ (El [])
+-- >     = Rep $ Here NP0
+-- >   sfrom' SZ (El (x:xs))
+-- >     = Rep $ There (Here (NA_I (El x) :* NA_I (El xs) :* NP0))
+-- > 
+-- >   sto' SZ (Rep (Here NP0))
+-- >     = El []
+-- >   sto' SZ (Rep (There (Here (NA_I (El x) :* NA_I (El xs) :* NP0))))
+-- >     = El (x : xs)
+-- >   sto' (SS SZ) (Rep (Here (NA_K (SInt a) :* NA_I (El as) :* NP0)))
+-- >     = El (a :>: as)
+-- >   sto' (SS SZ) (Rep (There (Here (NA_K (SInt a) :* NP0))))
+-- >     = El (Leaf a)
+
+-- |The input data for the generation is an ordered list
+--  (on the second component of the tuple) of STy's and
+--  their datatype info.
+type Input = [(STy , Int , DTI IK)]
+
+-- Generates a type-level list of 'a's
+tlListOf :: (a -> Type) -> [a] -> Type
+tlListOf f = foldr (\h r -> AppT (AppT PromotedConsT (f h)) r) PromotedNilT
+
+-- generate a type-level Nat
+int2Type :: Int -> Type
+int2Type 0 = tyZ
+int2Type n = AppT tyS (int2Type (n - 1))
+
+-- generates a Snat for the given Int
+int2SNatPat :: Int -> Pat
+int2SNatPat 0 = ConP (mkName "SZ") []
+int2SNatPat n = ConP (mkName "SS") [int2SNatPat $ n-1]
+
+-- Our promoted type constructors
+tyS = PromotedT (mkName "S")
+tyZ = PromotedT (mkName "Z")
+tyI = PromotedT (mkName "I")
+tyK = PromotedT (mkName "K")
+
+-- Generate rhs of piece (1.2)
+inputToCodes :: Input -> Q Type
+inputToCodes = return . tlListOf dti2Type . map third
+  where
+    third (_ , _ , x) = x
+
+    dti2Type :: DTI IK -> Type
+    dti2Type = tlListOf ci2Type . dti2ci
+
+    ci2Type :: CI IK -> Type
+    ci2Type = tlListOf ik2Type . ci2ty
+
+    ik2Type :: IK -> Type
+    ik2Type (AtomI n) = AppT tyI $ int2Type n
+    ik2Type (AtomK k) = AppT tyK $ PromotedT k
+
+-- generates rhs of pieve (1.1)
+inputToFam :: Input -> Q Type
+inputToFam = return . tlListOf trevnocType . map first
+  where
+    first (x , _ , _) = x
+
+-- | @styToName "List (R Int)" == "ListRInt"@
+styToName :: STy -> Name
+styToName = mkName . styFold (++) nameBase nameBase
+
+onBaseName :: (String -> String) -> Name -> Name
+onBaseName f = mkName . f . nameBase
+
+codesName :: STy -> Q Name
+codesName = return . onBaseName ("Codes" ++) . styToName
+
+familyName :: STy -> Q Name
+familyName = return . onBaseName ("Fam" ++) . styToName
+
+genPiece1 :: STy -> Input -> Q (Dec , Dec)
+genPiece1 first ls
+  = do codes <- TySynD <$> codesName first
+                       <*> return []
+                       <*> inputToCodes ls
+       fam   <- TySynD <$> familyName first
+                       <*> return []
+                       <*> inputToFam ls
+       return (fam , codes)
+
+genPiece3 :: STy -> Input -> Q Dec
+genPiece3 first ls
+  = head <$> [d| instance Family Singl
+                                 $(ConT <$> familyName first)
+                                 $(ConT <$> codesName first)
+                   where sfrom' = $(genPiece3_1 ls)
+                         sto'   = $(genPiece3_2 ls) |]
+
+-- |Given a datatype information, generates a pattern
+--  and an expression from it. The int here
+--  indicates the number of the constructor.
+--
+--  > ci2PatExp 2 (Normal "Bin" [VarT a , VarT a])
+--  >   = ( El (Bin x_1 x_2)
+--  >     , Rep (There (There (Here (NA_I (El x_1) :* NA_I (El x_2) :* NP0))))
+--  >     )
+ci2PatExp :: Int -> CI IK -> Q (Pat , Exp)
+ci2PatExp ni ci
+  = do (vars , pat) <- ci2Pat ci
+       bdy          <- [e| Rep $(inj ni $ genBdy (zip vars (ci2ty ci))) |]
+       return (ConP (mkName "El") [pat] , bdy)
+  where
+    inj :: Int -> Q Exp -> Q Exp
+    inj 0 e = [e| Here $e              |]
+    inj n e = [e| There $(inj (n-1) e) |]
+    
+    genBdy :: [(Name , IK)] -> Q Exp
+    genBdy []       = [e| NP0 |]
+    genBdy (x : xs) = [e| $(mkHead x) :* ( $(genBdy xs) ) |]
+
+
+    mkHead (x , AtomI _) = [e| NA_I (El $(return (VarE x))) |]
+    mkHead (x , AtomK k) = [e| NA_K $(return (AppE (ConE (mkK k)) (VarE x))) |]
+
+    mkK k = mkName $ 'S':tail (nameBase k)
+
+-- | Just like 'ci2PatExp', but the other way around.
+--
+--  > ci2ExpPat 2 (Normal "Bin" [VarT a , VarT a])
+--  >   = ( Rep (There (There (Here (NA_I (El x_1) :* NA_I (El x_2) :* NP0))))
+--        , El (Bin x_1 x_2)
+--  >     )
+ci2ExpPat :: Int -> CI IK -> Q (Pat , Exp)
+ci2ExpPat ni ci
+  = do (vars , exp) <- ci2Exp ci
+       pat          <- [p| Rep $(inj ni $ genBdy (zip vars (ci2ty ci))) |]
+       return (pat , AppE (ConE $ mkName "El") exp)
+  where
+    inj :: Int -> Q Pat -> Q Pat
+    inj 0 e = [p| Here $e              |]
+    inj n e = [p| There $(inj (n-1) e) |]
+    
+    genBdy :: [(Name , IK)] -> Q Pat
+    genBdy []       = [p| NP0 |]
+    genBdy (x : xs) = [p| $(mkHead x) :* ( $(genBdy xs) ) |]
+
+
+    mkHead (x , AtomI _) = [p| NA_I (El $(return (VarP x))) |]
+    mkHead (x , AtomK k) = [p| NA_K $(return (ConP (mkK k) [VarP x])) |]
+
+    mkK k = mkName $ 'S':tail (nameBase k)
+
+genPiece3_1 :: Input -> Q Exp
+genPiece3_1 input
+  = LamCaseE <$> mapM (\(sty , ix , dti) -> clauseForIx sty ix dti) input
+  where
+    match pat bdy = Match pat (NormalB bdy) []
+    
+    clauseForIx :: STy -> Int -> DTI IK -> Q Match
+    clauseForIx sty ix dti = match (int2SNatPat ix)
+                       <$> (LamCaseE <$> genMatch dti)
+    
+    genMatch :: DTI IK -> Q [Match]
+    genMatch dti
+      = map (uncurry match)
+      <$> mapM (uncurry ci2PatExp) (zip [0..] (dti2ci dti))
+      
+genPiece3_2 :: Input -> Q Exp
+genPiece3_2 input
+  = LamCaseE <$> mapM (\(sty , ix , dti) -> clauseForIx sty ix dti) input
+  where
+    match pat bdy = Match pat (NormalB bdy) []
+    
+    clauseForIx :: STy -> Int -> DTI IK -> Q Match
+    clauseForIx sty ix dti = match (int2SNatPat ix)
+                       <$> (LamCaseE <$> genMatch dti)
+      
+    genMatch :: DTI IK -> Q [Match]
+    genMatch dti
+      = map (uncurry match)
+      <$> mapM (uncurry ci2ExpPat) (zip [0..] (dti2ci dti))
+
 -- |@genFamily init fam@ generates a type-level list
 --  of the codes for the family. It also generates
 --  the necessary 'Element' instances.
 --  TODO: generate the 'HasDatatypeInfo' instances too!
 --
 --  Precondition, input is sorted on second component.
-genFamily :: STy -> [(STy , Int , DTI IK)] -> Q [Dec]  
+genFamily :: STy -> Input -> Q [Dec]
 genFamily first ls
-  = do fam <- familyDecl
-       name <- familyName
-       syn  <- [d| type FAM = Fix Singl $(ConT <$> familyName) |]
-       els  <- concat <$> mapM (\(sty , ix , dti) -> genElement name sty ix dti) ls 
-       return (fam:syn ++ els)
-       
-  where
-    familyName :: Q Name
-    familyName = return . mkName
-               $ ("Fam_" ++)
-               $ styFold (\a -> (a ++) . ('_':)) nameBase nameBase first
-
-    familyDecl :: Q Dec
-    familyDecl = TySynD <$> familyName <*> return [] <*> familyTys
-
-    familyTys :: Q Type
-    familyTys = return $ tlListOf dti2Type (map (\(_ , _ , t) -> t) ls) 
-
--- Generates a type-level list of 'a's
-tlListOf :: (a -> Type) -> [a] -> Type
-tlListOf f = foldr (\h r -> AppT (AppT PromotedConsT (f h)) r) PromotedNilT
-
-dti2Type :: DTI IK -> Type
-dti2Type = tlListOf ci2Type . dti2ci
-
-ci2Type :: CI IK -> Type
-ci2Type = tlListOf ik2Type . ci2ty
-
-int2Type :: Int -> Type
-int2Type 0 = tyZ
-int2Type n = AppT tyS (int2Type (n - 1))
-
-tyS = PromotedT (mkName "S")
-tyZ = PromotedT (mkName "Z")
-tyI = PromotedT (mkName "I")
-tyK = PromotedT (mkName "K")
-
-ik2Type :: IK -> Type
-ik2Type (AtomI n) = AppT tyI $ int2Type n
-ik2Type (AtomK k) = AppT tyK $ PromotedT k
-
--- |@genElement sty ix dti@ generates the instance
---  for the 'Element' class.
-genElement :: Name -> STy -> Int -> DTI IK -> Q [Dec]
-genElement fam sty ix dti
-  = [d| instance Element Singl
-                         $(return (ConT fam))
-                         $(return $ int2Type ix)
-                         $(return (trevnocType sty))
-          where
-            from = $(genFrom dti)
-            to   = $(genTo dti)
-      |]                       
-  where
-    genFrom :: DTI IK -> Q Exp
-    genFrom dti = LamCaseE <$> mapM (uncurry genFromMatch) (zip [0..] (dti2ci dti))
-
-    -- the Int represents the number of the constructos,
-    -- letting us know how many 'There's before the 'Here'
-    genFromMatch :: Int -> CI IK -> Q Match
-    genFromMatch ni ci
-      = do (vars , pat) <- ci2Pat ci
-           bdy <- [e| Fix (Rep $(genFromExp ni (zip vars (ci2ty ci)))) |]
-           return (Match pat (NormalB bdy) [])
-
-    genFromExp :: Int -> [(Name , IK)] -> Q Exp
-    genFromExp 0 ns = [e| Here $(go ns) |]
-      where
-        go []                   = [e| NP0 |]
-        go (x : xs)             = [e| $(mkHead x) :* ( $(go xs) ) |]
-
-        mkHead (x , AtomI _) = [e| NA_I (from $(return (VarE x))) |]
-        mkHead (x , AtomK k) = [e| NA_K $(return (AppE (ConE (mkK k)) (VarE x))) |]
-
-        mkK k = mkName $ 'S':tail (nameBase k)
-    genFromExp n ns = [e| There $(genFromExp (n-1) ns) |]
-
-    genTo :: DTI IK -> Q Exp
-    genTo dti = LamCaseE <$> mapM (uncurry genToMatch) (zip [0..] (dti2ci dti))
-
-    genToMatch :: Int -> CI IK -> Q Match
-    genToMatch ni ci
-      = do vars <- mapM (const (newName "y")) (ci2ty ci)
-           pat  <- [p| Fix (Rep $(genToPat ni (zip vars (ci2ty ci)))) |]
-           bdy  <- genToExp (ciName ci) (zip vars $ ci2ty ci)
-           return (Match pat (NormalB bdy) [])
-
-    genToPat :: Int -> [(Name , IK)] -> Q Pat
-    genToPat 0 ns = [p| Here $(go ns) |]
-      where
-        go []                   = [p| NP0 |]
-        go (x : xs)             = [p| $(mkHead x) :* ( $(go xs) ) |]
-
-        mkHead (x , AtomI _) = [p| NA_I $(return (VarP x)) |]
-        mkHead (x , AtomK k) = [p| NA_K $(return (ConP (mkK k) [VarP x])) |]
-
-        mkK k = mkName $ 'S':tail (nameBase k)
-    genToPat n ns = [p| There $(genToPat (n-1) ns) |]
-
-    genToExp :: Name -> [(Name , IK)] -> Q Exp
-    genToExp con []     = return (ConE con)
-    genToExp con (n:ns) = return $ go (AppE (ConE con) (mkE n)) ns
-      where
-        mkE :: (Name , IK) -> Exp
-        mkE (n , AtomK _) = VarE n
-        mkE (n , AtomI _) = AppE (VarE (mkName "to")) (VarE n)
-
-        go acc []     = acc
-        go acc (n:ns) = go (AppE acc (mkE n)) ns
+  = do (p1a, p1b) <- genPiece1 first ls
+       -- TODO: Gen Piece 2!
+       p3 <- genPiece3 first ls
+       return [p1a , p1b , p3]
 
 -- |Generates a bunch of strings for debug purposes.
 genFamilyDebug :: STy -> [(STy , Int , DTI IK)] -> Q [Dec]

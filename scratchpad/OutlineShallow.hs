@@ -3,7 +3,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeSynonymInstances #-}
-{-# OPTIONS_GHC -cpp #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -16,7 +15,6 @@
 module OutlineShallow where
 
 import Data.Proxy
-#define P Proxy :: Proxy
 import GHC.TypeLits (TypeError , ErrorMessage(..))
 import GHC.Exts (Constraint)
 
@@ -50,9 +48,19 @@ type family Lkup (n :: Nat) (ks :: [k]) :: k where
   Lkup (S n) (k : ks) = Lkup n ks
   Lkup _     '[]      = TypeError (Text "Lkup index too big")
 
+-- |Type-level list index
+type family Idx (ty :: k) (xs :: [k]) :: Nat where
+  Idx x (x ': ys) = Z
+  Idx x (y ': ys) = S (Idx x ys)
+  Idx x '[]       = TypeError (Text "Element not found")
+
 -- |Also list lookup, but for kind * only.
 data El :: [*] -> Nat -> * where
-  El :: IsNat ix => Lkup ix fam -> El fam ix
+  El :: IsNat ix => {unEl :: Lkup ix fam} -> El fam ix
+
+
+getElSNat :: forall ix ls. El ls ix -> SNat ix
+getElSNat (El _) = getSNat' @ix
 
 -- * Codes
 
@@ -60,13 +68,6 @@ data Atom kon
   = K kon
   | I Nat
   deriving (Eq, Show)
-
--- can't use type synonyms as they are
--- not promoted to kinds with -XDataKinds yet.
--- https://ghc.haskell.org/trac/ghc/wiki/GhcKinds#Kindsynonymsfromtypesynonympromotion
-#define Prod(kon)   [Atom kon]
-#define Sum(kon)    [Prod(kon)]
-#define Phiily(kon) [Sum(kon)]
 
 -- * Interpretation of Codes
 
@@ -80,6 +81,15 @@ eqNP :: (forall x. p x -> p x -> Bool)
 eqNP _ NP0       NP0       = True
 eqNP p (x :* xs) (y :* ys) = p x y && eqNP p xs ys
 
+crushNP :: forall r p xs. 
+           (forall x. p x -> r)
+        -> ([r] -> r)
+        -> NP p xs -> r
+crushNP step combine = combine . listify
+  where listify :: forall ys. NP p ys -> [r]
+        listify NP0 = []
+        listify (x :* xs) = step x : listify xs
+
 data NS :: (k -> *) -> [k] -> * where
   There :: NS p xs -> NS p (x : xs)
   Here  :: p x     -> NS p (x : xs)
@@ -90,6 +100,11 @@ eqNS p (There u) (There v) = eqNS p u v
 eqNS p (Here  u) (Here  v) = p u v
 eqNS _ _         _         = False
 
+crushNS :: (forall x. p x -> r)
+        -> NS p xs -> r
+crushNS step (There u) = crushNS step u
+crushNS step (Here  u) = step u
+
 data NA  :: (kon -> *) -> (Nat -> *) -> Atom kon -> * where
   NA_I :: (IsNat k) => phi k -> NA ki phi (I k) 
   NA_K ::              ki  k -> NA ki phi (K k)
@@ -99,6 +114,12 @@ eqNA :: (forall k.  ki  k  -> ki  k  -> Bool)
      -> NA ki phi l -> NA ki phi l -> Bool
 eqNA kp _  (NA_K u) (NA_K v) = kp u v
 eqNA _  fp (NA_I u) (NA_I v) = fp u v
+
+crushNA :: (forall k. ki k -> r)
+        -> (forall x. p  x -> r)
+        -> NA ki p l -> r
+crushNA kstep _ (NA_K v) = kstep v
+crushNA _ pstep (NA_I v) = pstep v
 
 -- TODO: Make rep into a newtype; this should resolve the problem
 --       when unifying ki's
@@ -121,61 +142,79 @@ hmapNS f (There p) = There (hmapNS f p)
 newtype Rep (ki :: kon -> *) (phi :: Nat -> *) (c :: [[Atom kon]])
   = Rep { unRep :: NS (Poa ki phi) c }
 
+hmapRep :: (forall ix . IsNat ix => f ix -> g ix) -> Rep ki f c -> Rep ki g c
+hmapRep f = Rep . hmapNS (hmapNP (hmapNA f)) . unRep
+
+crushRep :: (forall k. ki k -> r)
+         -> (forall x. f  x -> r)
+         -> ([r] -> r) -> Rep ki f c -> r
+crushRep kstep fstep combine = crushNS (crushNP (crushNA kstep fstep) combine) . unRep
+
 newtype Fix (ki :: kon -> *) (codes :: [[[Atom kon]]]) (n :: Nat)
   = Fix { unFix :: Rep ki (Fix ki codes) (Lkup n codes) }
 
-hmapRep :: (forall ix . IsNat ix => f ix -> g ix) -> Rep ki f c -> Rep ki g c
-hmapRep f = Rep . hmapNS (hmapNP (hmapNA f)) . unRep
+crushFix :: forall ki codes ix r. (forall k. ki k -> r) -> ([r] -> r)
+         -> Fix ki codes ix -> r
+crushFix kstep combine = crushRep kstep (crushFix kstep combine) combine . unFix
 
 class Family (ki :: kon -> *) (fam :: [*]) (codes :: [[[Atom kon]]])
   | fam -> ki codes, ki codes -> fam where
   
-  sto'   :: SNat ix -> Lkup ix fam -> Rep ki (El fam) (Lkup ix codes)
-  sfrom' :: SNat ix -> Rep ki (El fam) (Lkup ix codes) -> Lkup ix fam
+  sto'   :: SNat ix -> El fam ix -> Rep ki (El fam) (Lkup ix codes)
+  sfrom' :: SNat ix -> Rep ki (El fam) (Lkup ix codes) -> El fam ix
 
-  dto' :: SNat ix -> Lkup ix fam -> Rep ki (Fix ki codes) (Lkup ix codes)
+sto :: forall fam ki codes ix
+     . (Family ki fam codes)
+    => El fam ix -> Rep ki (El fam) (Lkup ix codes)
+sto el = sto' (getElSNat el) el
 
-class (Family ki fam codes, Lkup ix fam ~ ty, IsNat ix)
-      => Element (ki :: kon -> *) (fam :: [*]) (codes :: [[[Atom kon]]]) (ix :: Nat) (ty :: *)
-      | ty -> ki fam codes ix where
+sfrom :: forall fam ki codes ix
+       . (Family ki fam codes , IsNat ix)
+      => Rep ki (El fam) (Lkup ix codes) -> El fam ix  
+sfrom el = sfrom' (getSNat' @ix) el
 
-sto :: forall ki fam codes ix ty.
-       Element ki fam codes ix ty
-    => ty -> Rep ki (El fam) (Lkup ix codes)
-sto = sto' (getSNat' @ix)
 
-sfrom :: forall ki fam codes ix ty.
-         Element ki fam codes ix ty
-      => Rep ki (El fam) (Lkup ix codes) -> ty
-sfrom = sfrom' (getSNat' @ix)
+-- Finally, a deep embedding comming for "free" 
+dto :: forall ix ki fam codes
+     . (Family ki fam codes)
+    => El fam ix
+    -> Rep ki (Fix ki codes) (Lkup ix codes)
+dto = hmapRep (Fix . dto) . sto @fam
 
-elLift' :: forall ki fam codes ix.
-           (Family ki fam codes, IsNat ix)
-        => (Lkup ix fam -> Lkup ix fam)
-        -> El fam ix -> El fam ix
-elLift' f (El x) = El (f x)
+compos :: forall ki fam codes ix
+        . (Family ki fam codes, IsNat ix)
+       => (forall iy . IsNat iy => SNat iy -> El fam iy -> El fam iy)
+       -> El fam ix -> El fam ix
+compos f = sfrom @fam
+         . hmapRep (\x -> f (getElSNat x) x)
+         . sto @fam
 
-elLiftS :: forall ki fam codes ix.
-           (Family ki fam codes, IsNat ix)
-        => (SNat ix -> Lkup ix fam -> Lkup ix fam)
-        -> El fam ix -> El fam ix
-elLiftS f (El x) = El (f (getSNat' @ix) x)
+-- |Smart injectors
 
-elLift :: (Element ki fam codes ix ty, IsNat ix)
-       => (ty -> ty) -> El fam ix -> El fam ix
-elLift = elLift'
+into :: forall fam ty ix
+      . (ix ~ Idx ty fam , Lkup ix fam ~ ty , IsNat ix)
+     => ty -> El fam ix
+into = El
 
-elLiftSS :: forall ki fam codes ix ty. (Element ki fam codes ix ty, IsNat ix)
-         => (SNat ix -> ty -> ty) -> El fam ix -> El fam ix
-elLiftSS f (El x) = El (f (getSNat' @ix) x)
+shallow :: forall fam ty ki codes ix
+         . (Family ki fam codes,
+           ix ~ Idx ty fam, Lkup ix fam ~ ty, IsNat ix)
+        => ty -> Rep ki (El fam) (Lkup ix codes)
+shallow = sto . into
 
-compos :: forall ki fam codes ix ty.
-          (Element ki fam codes ix ty, IsNat ix)
-       => (forall iy. (Element ki fam codes iy (Lkup iy fam)) => SNat iy -> Lkup iy fam -> Lkup iy fam)
-       -> Lkup ix fam -> Lkup ix fam
-compos g = sfrom @ki @fam @codes @ix @ty
-         . hmapRep (elLiftSS g)
-         . sto @ki @fam @codes @ix @ty
+deep :: forall fam ty ki codes ix
+      . (Family ki fam codes,
+         ix ~ Idx ty fam, Lkup ix fam ~ ty, IsNat ix)
+     => ty -> Rep ki (Fix ki codes) (Lkup ix codes)
+deep = dto . into
+
+crush :: forall fam ty ki codes ix r
+      . (Family ki fam codes,
+         ix ~ Idx ty fam, Lkup ix fam ~ ty, IsNat ix)
+     => Proxy fam
+     -> (forall k. ki k -> r) -> ([r] -> r)
+     -> ty -> r
+crush _ kstep combine = crushFix @ki @codes @ix kstep combine . Fix . deep @fam
 
 -- * Cannonical Example
 
@@ -209,32 +248,48 @@ type CodesRose = '[List , RT]
 type FamRose = '[ [R Int] , R Int] 
 
 instance Family Singl FamRose CodesRose where
-
-  sto' (SS SZ) (a :>: as) = Rep $ Here (NA_K (SInt a) :* NA_I (El as) :* NP0)
-  sto' (SS SZ) (Leaf a)   = Rep $ There (Here (NA_K (SInt a) :* NP0))
-  sto' SZ []              = Rep $ Here NP0
-  sto' SZ (x:xs)          = Rep $ There (Here (NA_I (El x) :* NA_I (El xs) :* NP0))
+  sto' (SS SZ) (El (a :>: as)) = Rep $ Here (NA_K (SInt a) :* NA_I (El as) :* NP0)
+  sto' (SS SZ) (El (Leaf a))   = Rep $ There (Here (NA_K (SInt a) :* NP0))
+  sto' SZ (El [])              = Rep $ Here NP0
+  sto' SZ (El (x:xs))          = Rep $ There (Here (NA_I (El x) :* NA_I (El xs) :* NP0))
 
   sfrom' SZ (Rep (Here NP0))
-    = []
+    = El []
   sfrom' SZ (Rep (There (Here (NA_I (El x) :* NA_I (El xs) :* NP0))))
-    = (x : xs)
+    = El (x : xs)
   sfrom' (SS SZ) (Rep (Here (NA_K (SInt a) :* NA_I (El as) :* NP0)))
-    = (a :>: as)
+    = El (a :>: as)
   sfrom' (SS SZ) (Rep (There (Here (NA_K (SInt a) :* NP0))))
-    = (Leaf a)
-
-instance Element Singl FamRose CodesRose Z [R Int] where
-instance Element Singl FamRose CodesRose (S Z) (R Int) where
-
+    = El (Leaf a)
 
 normalize :: R Int -> R Int
-normalize = go (SS SZ)
+normalize = unEl . go (SS SZ) . into
   where
-    go :: forall iy. SNat iy -> Lkup iy FamRose -> Lkup iy FamRose
-    go (SS SZ) (Leaf a) = (a :>: [])
-    go iy      x        = compos @_ @FamRose @_ @iy go x
+    go :: forall iy. (IsNat iy) => SNat iy -> El FamRose iy -> El FamRose iy
+    go (SS SZ) (El (Leaf a)) = El (a :>: [])
+    go _       x             = compos go x
 
+eqRep :: forall ki fam codes c . (Family ki fam codes)
+      => (forall k . ki k -> ki k -> Bool)
+      -> Rep ki (Fix ki codes) c -> Rep ki (Fix ki codes) c -> Bool
+eqRep kp (Rep t) (Rep u) = eqNS (eqNP (eqNA kp go)) t u
+  where
+    go :: forall ix . Fix ki codes ix -> Fix ki codes ix -> Bool
+    go (Fix u) (Fix v) = eqRep kp u v
+
+instance Eq (R Int) where
+  x == y = eqRep eqSingl (deep @FamRose x) (deep @FamRose y)
+
+test :: Bool
+test = value1 == value1
+    && value2 /= value1
+
+sumTree :: R Int -> Int
+sumTree = crush (Proxy :: Proxy FamRose) k sum
+  where k :: Singl x -> Int
+        k (SInt n) = n
+
+{-
 {-
 -- * SOP functionality
 -- Constr n l === Fin (length l)
@@ -260,9 +315,6 @@ sop (There s)   = case sop s of
 
 -- * Equality changes significantly!
 {-
-type family All (f :: k -> Constraint) (tys :: [k]) :: Constraint where
-  All f '[]       = ()
-  All f (x ': xs) = (f x , All f xs)
 
 
 elLift2a :: (Family ki fam)
@@ -271,32 +323,22 @@ elLift2a :: (Family ki fam)
 elLift2a f x y = let iy = elNat x
               in f iy (projEl iy x) (projEl iy y)
 -}
-{-
-eqRep :: forall ki fam c . (Family ki fam)
-      => (forall k . ki k -> ki k -> Bool)
-      -> Rep ki (El fam) c -> Rep ki (El fam) c -> Bool
-eqRep kp (Rep t) (Rep u) = eqNS (eqNP (eqNA kp (elLift2a go))) t u
-  where
-    go :: IsNat ix => SNat ix -> Lkup ix fam -> Lkup ix fam -> Bool
-    go SZ     x y = eqRep kp (ffrom' @ki @fam SZ x) (ffrom SZ y)
-    go (SS n) x y = _
-    
-    {-
-    go :: (Family ki fam) => Proxy ki -> El fam xi -> El fam xi -> Bool
-    go p (EZ x) (EZ y) = eqRep kp (from x) (from y)
-    go p (ES t) (ES u) = go p t u
--}
--}
 
-{-
+eqRep :: forall ki fam codes c . (Family ki fam codes)
+      => (forall k . ki k -> ki k -> Bool)
+      -> Rep ki (Fix ki codes) c -> Rep ki (Fix ki codes) c -> Bool
+eqRep kp (Rep t) (Rep u) = eqNS (eqNP (eqNA kp go)) t u
+  where
+    go :: forall ix . Fix ki codes ix -> Fix ki codes ix -> Bool
+    go (Fix u) (Fix v) = eqRep kp u v
+
 instance Eq (R Int) where
-  x == y = eqRep eqSingl (ffrom' @Singl @FamRose (SS SZ) x) (ffrom (SS SZ) y)
+  x == y = eqRep eqSingl (dfrom (SS SZ) x) (dfrom (SS SZ) y)
 
 test :: Bool
 test = value1 == value1
     && value2 /= value1
 -}
-
 -- Compos works
 {-
 class IsElem (tys :: [*]) (ix :: Nat) where

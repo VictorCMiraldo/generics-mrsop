@@ -11,7 +11,7 @@
 {-# LANGUAGE StandaloneDeriving   #-}
 -- | A curation of base types commonly used
 --   by the everyday Haskell programmer.
-module Generics.MRSOP.Konstants where
+module Generics.MRSOP.Opaque where
 
 import Data.Function (on)
 import Data.Proxy

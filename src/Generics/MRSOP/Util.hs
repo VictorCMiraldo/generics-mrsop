@@ -1,9 +1,11 @@
-{-# LANGUAGE GADTs         #-}
-{-# LANGUAGE TypeFamilies  #-}
-{-# LANGUAGE DataKinds     #-}
-{-# LANGUAGE PolyKinds     #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE RankNTypes    #-}
+{-# LANGUAGE GADTs               #-}
+{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE PolyKinds           #-}
+{-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE TypeApplications    #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 -- |Useful utilities we need accross multiple modules.
 module Generics.MRSOP.Util where
 
@@ -25,6 +27,11 @@ uncurry' f (fx :*: gx) = f fx gx
 
 -- |Natural transformations
 type f :-> g = forall n . f n -> g n
+
+infixr 8 <.>
+-- |Kleisli Composition
+(<.>) :: (Monad m) => (b -> m c) -> (a -> m b) -> a -> m c
+f <.> g = (>>= f) . g
 
 -- |Type-level Peano Naturals
 data Nat = S Nat | Z
@@ -53,6 +60,9 @@ instance IsNat n => IsNat (S n) where
 getNat :: (IsNat n) => Proxy n -> Integer
 getNat = snat2int . getSNat
 
+getSNat' :: forall (n :: Nat). IsNat n => SNat n
+getSNat' = getSNat (Proxy :: Proxy n)
+
 instance TestEquality SNat where
   testEquality SZ     SZ     = Just Refl
   testEquality (SS n) (SS m)
@@ -66,3 +76,24 @@ type family Lkup (n :: Nat) (ks :: [k]) :: k where
   Lkup Z     (k : ks) = k
   Lkup (S n) (k : ks) = Lkup n ks
   Lkup _     '[]      = TypeError (Text "Lkup index too big")
+
+-- |Type-level list index
+type family Idx (ty :: k) (xs :: [k]) :: Nat where
+  Idx x (x ': ys) = Z
+  Idx x (y ': ys) = S (Idx x ys)
+  Idx x '[]       = TypeError (Text "Element not found")
+
+-- |Also list lookup, but for kind * only.
+data El :: [*] -> Nat -> * where
+  El :: IsNat ix => {unEl :: Lkup ix fam} -> El fam ix
+
+-- | Convenient way to cast an 'El' index to term-level.
+getElSNat :: forall ix ls. El ls ix -> SNat ix
+getElSNat (El _) = getSNat' @ix
+
+-- |Smart constructor into 'El'
+into :: forall fam ty ix
+      . (ix ~ Idx ty fam , Lkup ix fam ~ ty , IsNat ix)
+     => ty -> El fam ix
+into = El
+
