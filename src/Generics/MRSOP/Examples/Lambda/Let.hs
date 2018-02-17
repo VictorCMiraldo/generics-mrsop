@@ -14,11 +14,8 @@ module Generics.MRSOP.Examples.Lambda.Let where
 
 import Data.Function (on)
 
-import Generics.MRSOP.Base.Internal.NS
-import Generics.MRSOP.Base.Internal.NP
-import Generics.MRSOP.Base.Universe
-import Generics.MRSOP.Base.Class
-import Generics.MRSOP.Konstants
+import Generics.MRSOP.Base
+import Generics.MRSOP.Opaque
 import Generics.MRSOP.Util
 
 import Generics.MRSOP.TH
@@ -41,8 +38,17 @@ data Binding var
 deriveFamily [t| Term String |]
 
 alphaEq :: Term String -> Term String -> Bool
-alphaEq t1 t2 = galphaEq (from' @Singl t1) (from t2)
+alphaEq = (galphaEq SZ) `on` (deep @FamTermString)
   where
-    galphaEq :: FAM ix -> FAM ix -> Bool
-    galphaEq (Fix (Rep t)) (Fix (Rep u))
-      = undefined
+    galphaEq :: forall iy . (IsNat iy)
+             => SNat iy
+             -> Fix Singl CodesTermString iy
+             -> Fix Singl CodesTermString iy
+             -> Bool
+    galphaEq iy (Fix x) (Fix y)
+      = case zipRep x y of
+          Nothing -> False
+          Just xy -> case iy of
+                       SZ      -> case sop xy of
+                         Tag cx px -> _
+                       (SS SZ) -> _

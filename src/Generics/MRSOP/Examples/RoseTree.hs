@@ -9,12 +9,13 @@
 {-# LANGUAGE PolyKinds               #-}
 {-# LANGUAGE ScopedTypeVariables     #-}
 {-# LANGUAGE FunctionalDependencies  #-}
+{-# LANGUAGE PatternSynonyms         #-}
 module Generics.MRSOP.Examples.RoseTree where
 
 import Data.Function (on)
 
 import Generics.MRSOP.Base
-import Generics.MRSOP.Konstants
+import Generics.MRSOP.Opaque
 import Generics.MRSOP.Util
 
 -- * Standard Rose-Tree datatype
@@ -64,12 +65,14 @@ testEq = value1 == value1
 
 -- * Compos test
 
+pattern RInt_ = SS SZ
+
 normalize :: R Int -> R Int
 normalize = unEl . go (SS SZ) . into
   where
     go :: forall iy. (IsNat iy) => SNat iy -> El FamRose iy -> El FamRose iy
-    go (SS SZ) (El (Leaf a)) = El (a :>: [])
-    go _       x             = compos go x
+    go RInt_ (El (Leaf a)) = El (a :>: [])
+    go _       x           = compos go x
 
 -- * Crush test
 

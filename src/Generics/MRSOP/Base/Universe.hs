@@ -44,17 +44,19 @@ data NA  :: (kon -> *) -> (Nat -> *) -> Atom kon -> * where
 -- ** Map, Elim and Zip
 
 -- |Maps a natural transformation over an atom interpretation
-mapNA :: (forall ix . IsNat ix => f ix -> g ix)
-      -> NA ki f a -> NA ki g a
-mapNA nat (NA_I f) = NA_I (nat f)
-mapNA nat (NA_K i) = NA_K i
+mapNA :: (forall k  .             ki k  -> kj k)
+      -> (forall ix . IsNat ix => f  ix -> g  ix)
+      -> NA ki f a -> NA kj g a
+mapNA fk fi (NA_I f) = NA_I (fi f)
+mapNA fk fi (NA_K k) = NA_K (fk k)
 
 -- |Maps a monadic natural transformation over an atom interpretation
 mapMNA :: (Monad m)
-       => (forall ix . IsNat ix => f ix -> m (g ix))
-       -> NA ki f a -> m (NA ki g a)
-mapMNA nat (NA_K i) = return (NA_K i)
-mapMNA nat (NA_I f) = NA_I <$> nat f
+       => (forall k  .             ki k  -> m (kj k))
+       -> (forall ix . IsNat ix => f  ix -> m (g  ix))
+       -> NA ki f a -> m (NA kj g a)
+mapMNA fk fi (NA_K k) = NA_K <$> fk k
+mapMNA fk fi (NA_I f) = NA_I <$> fi f
 
 -- |Eliminates an atom interpretation
 elimNA :: (forall k . ki  k -> b)
@@ -94,14 +96,25 @@ type PoA (ki :: kon -> *) (phi :: Nat -> *) = NP (NA ki phi)
 -- a 'Rep'. These are just the cannonical combination
 -- of their homonym versions in 'NS', 'NP' or 'NA'.
 
-mapRep :: (forall ix . IsNat ix => f ix -> g ix)
+mapRep :: (forall ix . IsNat ix => f  ix -> g ix)
        -> Rep ki f c -> Rep ki g c
-mapRep f = Rep . mapNS (mapNP (mapNA f)) . unRep
+mapRep = hmapRep id
 
 mapMRep :: (Monad m)
-        => (forall ix . IsNat ix => f ix -> m (g ix))
+        => (forall ix . IsNat ix => f  ix -> m (g  ix))
         -> Rep ki f c -> m (Rep ki g c)
-mapMRep f = (Rep <$>) . mapMNS (mapMNP (mapMNA f)) . unRep
+mapMRep = hmapMRep return
+
+hmapRep :: (forall k  .             ki k  -> kj k)
+        -> (forall ix . IsNat ix => f  ix -> g ix)
+        -> Rep ki f c -> Rep kj g c
+hmapRep fk fi = Rep . mapNS (mapNP (mapNA fk fi)) . unRep
+
+hmapMRep :: (Monad m)
+         => (forall k  .             ki k  -> m (kj k))
+         -> (forall ix . IsNat ix => f  ix -> m (g  ix))
+         -> Rep ki f c -> m (Rep kj g c)
+hmapMRep fk fi = (Rep <$>) . mapMNS (mapMNP (mapMNA fk fi)) . unRep
 
 zipRep :: (MonadPlus m)
        => Rep ki f c -> Rep kj g c
@@ -174,6 +187,11 @@ newtype Fix (ki :: kon -> *) (codes :: [[[ Atom kon ]]]) (n :: Nat)
 proxyFixIdx :: Fix ki fam ix -> Proxy ix
 proxyFixIdx _ = Proxy
 
+mapMFix :: (Monad m)
+        => (forall k . ki k -> m (kj k))
+        -> Fix ki fam ix -> m (Fix kj fam ix)
+mapMFix fk = (Fix <$>) . hmapMRep fk (mapMFix fk) . unFix
+
 -- |Compare two values of a same fixpoint for equality.
 eqFix :: (forall k. ki k -> ki k -> Bool)
       -> Fix ki fam ix -> Fix ki fam ix -> Bool
@@ -183,33 +201,3 @@ eqFix p = eqRep p (eqFix p) `on` unFix
 heqFixIx :: (IsNat ix , IsNat ix')
          => Fix ki fam ix -> Fix ki fam ix' -> Maybe (ix :~: ix')
 heqFixIx fa fb = testEquality (getSNat Proxy) (getSNat Proxy)
-
-{-
-
--- |Crush the first layer of a value by traversing it and applying the
---  provided morphism.
---  ATTENTION: Not recursive!
-crush1M :: (Monad m)
-        => (forall iy . NA ki (Fix ki fam) iy -> m a)
-        -> ([a] -> m a)
-        -> Fix ki fam ix -> m a
-crush1M alg cat (Fix (Rep ns))
-  = elimNS ((>>= cat) . sequence . elimNP alg) ns
-
--- |Crushes the whole value by recursing on type-variables.
-crushM :: forall m a ki fam ix . (Monad m)
-       => (forall k . ki k -> m a)
-       -> ([a] -> m a)
-       -> Fix ki fam ix -> m a
-crushM f cat = crush1M go cat
-  where
-    go :: (Monad m) => NA ki (Fix ki fam) iy -> m a
-    go (NA_I i) = crushM f cat i
-    go (NA_K x) = f x
-
--- |Pure variant of 'crush'
-crush :: (forall k . ki k -> a)
-      -> ([a] -> a)
-      -> Fix ki fam ix -> a
-crush f cat = runIdentity . crushM (return . f) (return . cat)
--}
