@@ -54,6 +54,7 @@
 % command from stylish.lhs (if it's defined!)
 \newcommand{\HT}[1]{\ifdefined\HSCon\HSCon{#1}\else#1\fi}
 \newcommand{\HS}[1]{\ifdefined\HSSym\HSSym{#1}\else#1\fi}
+\newcommand{\HV}[1]{\ifdefined\HSVar\HSVar{#1}\else#1\fi}
 
 %%% Datatype Promotion
 %format (P (a)) = "\HS{''}" a
@@ -64,11 +65,19 @@
 %format dot     = "\HS{.}"
 
 %%% Types
-%format RepGen  = "\HT{Rep_{gen}}"
-%format RepSOP  = "\HT{Rep_{sop}}"
-%format RepFix  = "\HT{Rep_{Fix}}"
-%format CodeSOP = "\HT{Code_{sop}}"
-%format CodeFix = "\HT{Code_{fix}}"
+%format GenericGen = "\HT{Generic_{gen}}"
+%format GenericSOP = "\HT{Generic_{sop}}"
+%format GenericFix = "\HT{Generic_{Fix}}"
+%format RepGen     = "\HT{Rep_{gen}}"
+%format RepSOP     = "\HT{Rep_{sop}}"
+%format RepFix     = "\HT{Rep_{Fix}}"
+%format CodeSOP    = "\HT{Code_{sop}}"
+%format CodeFix    = "\HT{Code_{fix}}"
+
+%%% Functions
+%format fromGen = "\HV{from_{gen}}"
+%format fromSOP = "\HV{from_{sop}}"
+%format fromFix = "\HV{from_{fix}}"
 
 %format :*  = "\HS{\times}"
 %format :*: = ":\!*\!:"
