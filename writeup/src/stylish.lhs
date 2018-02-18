@@ -50,6 +50,9 @@
 %subst string a  = "\HSString{``" a "\char34 }"
 %subst special a = "\HSSpecial{" a "}"
 
+%format :          = "\HSCon{\mathbin{:}}"
+%format nil        = "\HSCon{[]}"
+
 %format family     = "\HSKeyword{family}"
 %format _          = "\HSManualSym{\anonymous} "
 %format ->         = "\HSManualSym{\to} "
@@ -77,7 +80,6 @@
 %format `mod`      = "\HSManualSym{\mathbin{`mod`}}"
 %format :%         = "\HSManualSym{\mathbin{:\%}}"
 %format %          = "\HSManualSym{\mathbin{\%}}"
-%format :          = "\HSManualSym{\mathbin{:}}"
 %format ++         = "\HSManualSym{\plus} "
 %format ==         = "\HSManualSym{\equiv} "
 %format /=         = "\HSManualSym{\not\equiv} "

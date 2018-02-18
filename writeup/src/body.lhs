@@ -394,6 +394,124 @@ deep vs shallow drama}
 \section{Template Haskell}
 \label{sec:templatehaskell}
 
+\victor{I'm assuming we have already introduced the 
+usual RoseTree family: |data Rose a = Fork a [Rose a]|}
+
+\victor{The glue text should mention how boring and mechanical it is to 
+have to write the |Family| instance by hand}
+
+  Having a convenient and robust way to get the |Family| instance
+for a certain selection of datatypes is paramount for the usability
+of the library. The goal is to take mechanical work away from the
+programmer, and not introduce more, after all. In a real scenario,
+the typical mutually recursive family will be constituted of dozens
+of datatypes with tens of dozens of constructors. Sometimes these
+datatypes are written with parameters, or come from external libraries.
+There are many difficulties to a fully automatic interface to deriving |Family|
+instances.
+
+\subsection{The User Interface}
+\label{sec:thapi}
+
+  All that the programmer have to do to derive their |Family|
+instance is call the \emph{Template Haskell}~\cite{Sheard2002} 
+function |deriveFamily| and pass the (fully saturated) type that
+is the topmost type in the family:
+
+\newcommand{\shspc}{\hspace{-0.05em}}
+%format (tht (a)) = "\HSSym{[\shspc t\shspc|}" a "\HSSym{|\shspc]}"
+\begin{myhs}
+\begin{code}
+data Exp   var = dots
+data Stmt  var = dots
+data Decl  var = dots
+data Prog  var = dots
+
+deriveFamily (tht (Prog String))
+\end{code}
+\end{myhs}
+
+  \victor{Explain the splicing idea; mention that |Prog String| will
+be the |Lkup Z Fam| type}
+
+\subsection{Under the Hood}
+\label{sec:underthehood}
+
+  The process of deriving a whole mutually recursive family from a single
+member is mainly divided in two disjoint process. First we unfold all definitions
+and follow all the recursive paths until we reach a fixpoint and, hence,
+have discovered all types in the family. Second, we translate the definition
+of the previously discovered types to the format our library expects.
+
+  Let us illustrate this process in a bit more detail using the cannonical
+mutually recursive family example and walking through what
+happens inside \emph{Template Haskell}~\cite{Sheard2002} when it starts unfolding 
+the |deriveFamily| clause.
+
+%format :>: = "\HSCon{\triangleright}"
+\begin{myhs}
+\begin{code}
+data Rose a  = a :>: [Rose a]
+data [a]     = nil | a : [a]
+
+deriveFamily (tht (Rose Int))
+\end{code}
+\end{myhs}
+
+  \victor{I'm using type-level naturals in the following}
+  
+
+  The first thing that happens is registering the type |Rose Int| as being 
+indexed by |Z|. But we have not yet processed it. We need to reify
+the definition of |Rose| and apply it to |Int| in order to get the 
+the type of |:>:| that will belong in the family. In fact, after reifying |Rose Int|
+and $\beta$-reducing it we get something like 
+|(\ a -> a :>: [Rose a]) Int == Int :>: [Rose Int]|. We now have to
+process the fields of |Int :>: [Rose Int]|, and once we are done, convert them
+to |Atom|s. The first field will be an opaque type |KInt|, but the second
+needs further processing, as it is the first time we encounter the type |[Rose Int]|.
+Same story as before. Start by registering |[Rose Int]| to a fresh index, in this case |S Z|.
+Reify the topmost application and $\beta$-reduce: |(\ a -> nil || a : [a]) (Rose Int) ==| 
+|nil || (Rose Int) : [Rose Int]|. We now go over the fields of each constructor
+and see what still needs processing. Turns out we are done since there is no
+type we have not seen before as both |Rose Int| and |[Rose Int]| have been
+registered with indexes |Z| and |S Z| respectively. We can then issue
+the codes:
+
+
+\begin{myhs}
+\begin{code}
+type CodeRoseInt      = (P [ (P [ KInt , I (S Z) ]) ])
+type CodeListRoseInt  = (P [ (P [ ]) , (P [ I Z , I (S Z) ]) ])
+\end{code}
+\end{myhs}
+
+  \victor{I'm not sure I should delve in more details about
+the actual implementation. Does the description suffice?}
+
+  \victor{Should we talk about the generation of pattern synonyms
+to help with the manipulation of deeply embedded values?}
+
+\subsection{Temp. Summary}
+
+  \victor{Stress that we have achieved what we were looking for:
+\begin{description}
+  \item[Convenience:] The user jsut tells the top-most type
+    of the family. Changes in the family don't require changes
+    in the code (unless they are gigantic changes, obviously).
+  \item[Robustness:] Having a type-level reduction mechanism
+    allows us to let the user make use of types such as |Maybe|
+    or |[ ]| and the mechanism will consider those as members of
+    the family.
+\end{description}}
+
+
+  In order to derive a whole mutually recursive family from just one of
+the members of the family requires some engineering. 
+
+We have to be able to automatically handle all of these cases for
+a satisfying \emph{template haskell} mechanism.
+
 \victor{Driving in Auto from Gameplan}
 
 \section{Conclusion}
