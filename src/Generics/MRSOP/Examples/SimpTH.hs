@@ -69,8 +69,8 @@ type ScopedEqvs = [[ (String , String) ]]
 type AlphaDEq = State ScopedEqvs
 
 -- Adds a new scope
-newScope :: AlphaDEq ()
-newScope = modify ([]:)
+newScope :: AlphaDEq a -> AlphaDEq a
+newScope f = modify ([]:) >> f >>= \x -> modify tail >> return x
 
 -- Adds a new name eqv on the current scope.
 addEqv :: String -> String -> AlphaDEq ()
@@ -136,7 +136,7 @@ alphaEq = (galphaEq Decl_) `on` (deep @FamStmtString)
           DVar_ (SString v1 :*: SString v2)
             -> addEqv v1 v2 >> return True
           DFun_ (SString f1 :*: SString f2) (SString x1 :*: SString x2) s
-            -> addEqv f1 f2 >> addEqv x1 x2 >> uncurry' galphaEqT s
+            -> addEqv f1 f2 >> addEqv x1 x2 >> newScope (uncurry' galphaEqT s)
           _ -> step x
     go Exp_ x
       = case sop x of
@@ -172,5 +172,21 @@ test2 fib n aux = DFun fib n
                            (ECall fib (ESub (EVar n) (ELit 1)))))
       `SSeq` (SReturn (EVar aux))
 
+{- EXAMPLE
+
+decl f(n):
+  decl g(n):
+    z = n + 1
+    return z
+  return g(n)
+
+-}
+
+test3 :: String -> String -> String -> Decl String
+test3 n1 n2 z = DFun "f" n1
+              $ SDecl (DFun "g" n2
+                      $ SAssign z (EAdd (EVar n2) (ELit 1))
+                      `SSeq` (SReturn $ EVar z))
+         `SSeq` (SReturn $ ECall "g" (EVar n1))
 
 
