@@ -1,4 +1,4 @@
-\documentclass[acmsmall,10pt,review,anonymous]{acmart}%
+\documentclass[acmsmall,10pt,review]{acmart}%
 \settopmatter{printfolios=true,printccs=false,printacmref=false}
 
 \usepackage{cleveref}
@@ -79,50 +79,33 @@
 %% Many elements are not rendered, but should be provided for metadata
 %% extraction tools.
 
-%% Author with single affiliation.
-\author{First1 Last1}
-\authornote{with author1 note}          %% \authornote is optional;
-                                        %% can be repeated if necessary
+\author{Victor Cacciari Miraldo}
 \orcid{nnnn-nnnn-nnnn-nnnn}             %% \orcid is optional
 \affiliation{
-  \position{Position1}
-  \department{Department1}              %% \department is recommended
-  \institution{Institution1}            %% \institution is required
-  \streetaddress{Street1 Address1}
-  \city{City1}
-  \state{State1}
-  \postcode{Post-Code1}
-  \country{Country1}                    %% \country is recommended
+  \position{PhD candidate}
+  \department{Information and Computing Sciences}
+  \institution{Utrecht University}
+  \streetaddress{Princetonplein, 5}
+  \city{Utrecht}
+  \state{Utrecht}
+  \postcode{3584 CC}
+  \country{The Netherlands} 
 }
-\email{first1.last1@@inst1.edu}          %% \email is recommended
+\email{V.CacciariMiraldo@@uu.nl}
 
-%% Author with two affiliations and emails.
-\author{First2 Last2}
-\authornote{with author2 note}          %% \authornote is optional;
-                                        %% can be repeated if necessary
+\author{Alejandro Serrano}
 \orcid{nnnn-nnnn-nnnn-nnnn}             %% \orcid is optional
 \affiliation{
-  \position{Position2a}
-  \department{Department2a}             %% \department is recommended
-  \institution{Institution2a}           %% \institution is required
-  \streetaddress{Street2a Address2a}
-  \city{City2a}
-  \state{State2a}
-  \postcode{Post-Code2a}
-  \country{Country2a}                   %% \country is recommended
+  \position{Junior lecturer}
+  \department{Information and Computing Sciences}
+  \institution{Utrecht University}
+  \streetaddress{Princetonplein, 5}
+  \city{Utrecht}
+  \state{Utrecht}
+  \postcode{3584 CC}
+  \country{The Netherlands} 
 }
-\email{first2.last2@@inst2a.com}         %% \email is recommended
-\affiliation{
-  \position{Position2b}
-  \department{Department2b}             %% \department is recommended
-  \institution{Institution2b}           %% \institution is required
-  \streetaddress{Street3b Address2b}
-  \city{City2b}
-  \state{State2b}
-  \postcode{Post-Code2b}
-  \country{Country2b}                   %% \country is recommended
-}
-\email{first2.last2@@inst2b.org}         %% \email is recommended
+\email{A.SerranoMena@@uu.nl}
 
 
 %% Abstract
@@ -157,7 +140,7 @@ Text of abstract \ldots.
 
 %% Keywords
 %% comma separated list
-\keywords{keyword1, keyword2, keyword3}  %% \keywords are mandatory in final camera-ready submission
+\keywords{Generic Programming, Datatype, Haskell}
 
 
 %% \maketitle
