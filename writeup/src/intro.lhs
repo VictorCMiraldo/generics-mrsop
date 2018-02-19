@@ -110,7 +110,7 @@ at run-time. This is an example of Haskell's \emph{datatype} promotion~
 \cite{Yorgey2012}.}
 \begin{myhs}
 \begin{code}
-Rep (Bin a) = quote [ quote [a], quote [Bin a, Bin a] ]
+Rep (Bin a) = P [ P [a], P [Bin a, Bin a] ]
 \end{code}
 \end{myhs}
 This representation follows more closely the shape of Haskell datatypes, and

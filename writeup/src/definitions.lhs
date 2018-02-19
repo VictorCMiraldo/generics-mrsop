@@ -82,3 +82,6 @@
 %format :*  = "\HS{\times}"
 %format :*: = ":\!*\!:"
 %format :+: = ":\!+\!:"
+
+%format NilRoseTree = "\HSManualSym{[]_{\mathsf{RoseTree}}}"
+%format ConsRoseTree = "\HSManualSym{\mathrel{:_{\mathsf{RoseTree}}}}"

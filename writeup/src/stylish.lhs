@@ -98,8 +98,3 @@
 %format //         = "\HSManualSym{\mathbin{//}}"
 %format undefined  = "\HSManualSym{\bot} "
 %format not	   = "\HSManualSym{\neg} "
-
-%format quote = "\textquotesingle\!\!"
-
-%format NilRoseTree = "\HSManualSym{[]_{\mathsf{RoseTree}}}"
-%format ConsRoseTree = "\HSManualSym{\mathrel{:_{\mathsf{RoseTree}}}}"
