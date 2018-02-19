@@ -1,41 +1,10 @@
-\section{Introduction}
-\label{sec:introduction}
-
-\victor{Mention that \texttt{Multirec} exists, but falls short just like \texttt{GHC.Generic}.
-Mention we will only show the \texttt{GHC.Generics} example to keep it simple}
-
 \section{Background}
 \label{sec:genericprog}
-
-\victor{where should we add the following:\\
-  The generic representation of
-\begin{myhs}
-\begin{code}
-  data Bin a = Leaf a | Bin (Bin a) (Bin a)
-\end{code}
-\end{myhs}
-  is
-\begin{myhs}
-\begin{code}
-  RepGen (Bin a) = K1 R a :+: (K1 R (Bin a) :*: K1 R (Bin a))
-\end{code}
-\end{myhs}
-  which is isomorphic to |Either a (Bin a , Bin a)|
-}
 
 \victor[victor:codes]{In \texttt{GHC.Generics}, the representation has NO CODE;
 in fact, that's why we need instance search to perform induction on it.
 I need to mention this somehow }
 
-  The core underlying idea of generic programming is the fact that a great
-number of datatypes can be translated to a uniform representation. Upon
-writing code that operates under this representation, we easily use this
-code for any datatype that can be translated to that specific representation.
-Of course, different choices of representation will have an impact
-on both the datatypes one can encode and the functions one can write,
-be it on expressivity or style. Predictably so, such a translation
-is an isomorphism. The standard denotation of the witnesses of
-this isomorphism are |from :: a -> Rep a| and |to :: Rep a -> a|.
 
   Since version $7.2$, GHC supports some basic, off the shelf, generic
 programming using \texttt{GHC.Generics}~\cite{Magalhaes2010}, 

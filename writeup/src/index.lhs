@@ -1,6 +1,10 @@
 \documentclass[acmsmall,10pt,review,anonymous]{acmart}%
 \settopmatter{printfolios=true,printccs=false,printacmref=false}
 
+\usepackage{cleveref}
+
+\newcommand{\nameofourlibrary}{generic-mrsop}
+
 %%%%%%%%%%%%%%
 %%%%%%%%%%%%%%
 %% Template 
@@ -59,16 +63,10 @@
 \begin{document}
 
 %% Title information
-\title[Short Title]{Full Title}         %% [Short Title] is optional;
-                                        %% when present, will be used in
-                                        %% header instead of Full Title.
-\titlenote{with title note}             %% \titlenote is optional;
-                                        %% can be repeated if necessary;
-                                        %% contents suppressed with 'anonymous'
-\subtitle{Subtitle}                     %% \subtitle is optional
-\subtitlenote{with subtitle note}       %% \subtitlenote is optional;
-                                        %% can be repeated if necessary;
-                                        %% contents suppressed with 'anonymous'
+\title[Mutually Recursive Sums-of-Products]{Mutually Recursive Sums-of-Products}
+%\titlenote{with title note}
+\subtitle{A Beautiful Draft on Generic Programming}
+%\subtitlenote{with subtitle note}
 
 
 %% Author information
@@ -173,6 +171,7 @@ Text of abstract \ldots.
 %
 % Body
 %
+%include src/intro.lhs
 %include src/body.lhs
 %
 %%%%%%%%%%%%%%%%%%%%%%%%
