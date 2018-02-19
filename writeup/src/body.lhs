@@ -1,6 +1,10 @@
 \section{Background}
 \label{sec:genericprog}
 
+\alejandro{We need a small paragraph here}
+
+\section{Pattern functors}
+
 \victor[victor:codes]{In \texttt{GHC.Generics}, the representation has NO CODE;
 in fact, that's why we need instance search to perform induction on it.
 I need to mention this somehow }
@@ -13,6 +17,8 @@ allows one to define a function for \emph{any} datatype by induction
 on the structure of its representation using \emph{pattern functors}.
 
 \victor{Do I have to explain pattern-functors here?}
+\alejandro{Explain that you are using subscript |gen| to distinguish this
+|Gen| from those of other libraries}
 
 Defining a generic |size| function that provides a measure of the 
 value in question, for instance, is done in two
@@ -130,7 +136,15 @@ the constructor. In fact, the \texttt{generics-sop}~\cite{deVries2014} library
 allows one to do precisely that. The language of representations is
 different from \texttt{GHC.Generics}. Instead of using binary \emph{pattern-functors},
 we will use list of lists, whose semantics is consonant to a formula in disjunctive normal form.
-The outer list is interpreted as an $n$-ary sum and the inner lists as $n$-ary products. This extra
+The outer list is interpreted as an $n$-ary sum and the inner lists as $n$-ary products.
+This section provides an overview of \texttt{generic-sop} as required to
+understand our techniques, we refer the reader to the original paper~\cite{deVries2014} for a
+more comprehensive explanation.
+
+\alejandro{Maybe just ``sums'' and ``products'' instead of $n$-ary. The fact
+that the same $n$ is used for both make it look like they have to coincide.}
+
+This extra
 portion of information allows for a plethora of combinators to be written.
 It ultimately allows one to write, with a pinch of sugar, the |gsize| function as:
 
@@ -249,9 +263,6 @@ elim f (There  x)  = elim f x
 \end{code}
 \end{myhs}
 
-  We refer the reader to the original paper~\cite{deVries2014} for a
-more comprehensive explanation of the \texttt{generics-sop} library.
-
   Comparing to the \texttt{GHC.Generics} implementation of |size|,
 we see two improvements. We need one less typeclass, namelly |GSize|, and, the definition
 is combinator-based. Considering that the generated \emph{pattern-functor} representation
@@ -297,6 +308,8 @@ type family CodeFix (a :: *) :: P [ P [Atom] ]
 type instance CodeFix (Bin Int) = P [ P [KInt] , P [I , I] ]
 \end{code}
 \end{myhs}
+
+\alejandro{Mention that |I| is how we mark recursive positions.}
 
   Here we are considering that an |Atom| is either a recursive
 position or an opaque type, in this case, an |Int|. Favoring the simplicity of the presentation,
@@ -368,7 +381,7 @@ deepFrom = Fix . fmap deepFrom . from
 \end{code}
 \end{myhs}
 
-  Besides the usual combinators, like compos:
+  Besides the usual combinators, like |compos|:
 
 \begin{myhs}
 \begin{code}
@@ -376,6 +389,9 @@ compos :: (Generic a) => (a -> a) -> a -> a
 compos f = to . fmap f . from
 \end{code}
 \end{myhs}
+
+\alejandro{Explain here why |compos| is useful, and mention that other
+generic libraries take it as a basis for other functions.}
 
   we are also able to expoit the \emph{sum-of-products} structure
 to write expressive combinators, such as |crush|, that consumes opaque
