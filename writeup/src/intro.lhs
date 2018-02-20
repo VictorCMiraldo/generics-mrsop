@@ -12,8 +12,8 @@ common technique in the programmers' toolbox. A library like Scrap Your
 Boilerplate~\cite{Lammel2003} has 275 reverse dependencies at the time of
 writing.\footnote{As reported by
 \url{https://packdeps.haskellers.com/reverse/syb}.} Popular libraries like
-Aeson, the de facto standard for JSON serialization in Haskell, use generic
-programming in their tutorials.\footnote{Documentation at 
+Aeson, the \emph{de facto} standard for JSON serialization in Haskell, 
+use generic programming in their tutorials.\footnote{Documentation at 
 \url{hackage.haskell.org/package/aeson/docs/Data-Aeson.html}.}
 
 The core underlying idea of generic programming is the fact that a great
@@ -43,10 +43,12 @@ Rep (Bin a) = K1 R a :+: (K1 R (Bin a) :*: K1 R (Bin a))
 (which is isomorphic to |Either a (Bin a , Bin a)|), along with conversion
 function |from :: a -> Rep a| and |to :: Rep a -> a| which form an isomorphism
 between |Bin a| and |Rep (Bin a)|. Actually, most generic programming libraries
-use a similar pattern of defining the \emph{representation} or \emph{code} of
-a datatype, and two functions witnessing an isomorphism. One important feature
-of each library is which are the primitive operations for constructing codes,
-since they define which datatypes go under its cover.
+use a similar pattern of defining a uniform \emph{representation} for datatypes,
+and two functions witnessing an isomorphism between the values of the datatype
+and the values of the uniform representation. One important feature
+of each library is which is the structure of these \emph{representations}. 
+These not only define the datatypes that go under its cover, but also
+the style of generic programming that they support.
 
 Once you have a uniform representation for datatypes, writing generic code
 becomes the matter of writing code that operates under this representation.
@@ -67,13 +69,13 @@ of children of |x| and |y|.
 
 \paragraph{Deep versus shallow.}
 This simple function already showcases the difference between \emph{shallow}
-and \emph{deep} representations of codes. In a shallow representation only one
+and \emph{deep} encodings of values. In a shallow encoding only one
 layer of the value is turned into a generic form. As a result, our |genericEq|
 needs to call |convert| over each children before going recursively into then.
 This is the kind of representation we get from \texttt{GHC.Generics}, among
 others.
 
-The other side of the spectrum is \emph{deep} representation, in which the
+The other side of the spectrum is \emph{deep} encoding, in which the
 entire value is turned into the set of combinators the generic library provides
 in one go. Since you have the entire shape of the value under your hands, you can
 use deep representation to transform the datatype; for example, you can define
@@ -82,13 +84,13 @@ of generic equality, using a deep representation implies that only call to
 |convert| is needed, but it traverses the value completely. This poses a
 trade-off between deep and shallow representations.
 
-Codes for deep representation need a larger set of combinators than shallow
-ones. In particular, you need a way to mark \emph{recursive} positions in your
+Representations that support a deep encoding need to be constructed from larger set of primitives than shallow ones. 
+In particular, you need a way to mark \emph{recursive} positions in your
 datatype. In our |Bin| example, the representation of the |Bin| constructor
 changes from ``this constructors has two fields of the |Bin a| type'' to 
 ``this constructor has two fields in which you recurse''. The usual technique
 is to abstract the recursion into a \emph{fixed-point} combinator. The
-\texttt{regular} library~\cite{Noort2008} uses this kind of codes. 
+\texttt{regular} library~\cite{Noort2008} uses this kind of representation. 
 
 \paragraph{Sum-of-products.}
 
@@ -185,13 +187,14 @@ data RoseTreeList  a  =  NilRoseTree | RoseTree a ConsRoseTree RoseTreeList a
 \end{code}
 \end{myhs}
 Shallow representations do not suffer too much from this problem. For deep
-representations, though, how to solve this problem is key to derive a code.
+representations, though, how to solve this problem is key to derive representations.
 
 \subsection{Contributions}
 
 In this paper we present \texttt{\nameofourlibrary}, a new library for generic
 programming over mutually recursive families, which uses the sum-of-products
-approach to codes. In particular we make the following contributions:
+approach to representing datatypes. 
+In particular we make the following contributions:
 
 \begin{itemize}
 \item We describe a technique to derive both deep and shallow representations
