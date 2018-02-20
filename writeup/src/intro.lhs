@@ -40,6 +40,12 @@ as the following datatype:
 Rep (Bin a) = K1 R a :+: (K1 R (Bin a) :*: K1 R (Bin a))
 \end{code}
 \end{myhs}
+\victor{We should be carefull with the use of the words \emph{code} and 
+\emph{representation}. Perhaps we should add a paragraph explaining that
+the representations are defined by induction on the language of codes.
+Some libraries allow one to manipulate codes as first class citizens
+(ours, generics-sop), some do not (regular, GHC.generics, multirec).
+Check \ref{victor:codes} too.}
 (which is isomorphic to |Either a (Bin a , Bin a)|), along with conversion
 function |from :: a -> Rep a| and |to :: Rep a -> a| which form an isomorphism
 between |Bin a| and |Rep (Bin a)|. Actually, most generic programming libraries
@@ -51,6 +57,7 @@ since they define which datatypes go under its cover.
 Once you have a uniform representation for datatypes, writing generic code
 becomes the matter of writing code that operates under this representation.
 Image you want to write an equality operation, you can define it generically as:
+\victor{why not call |from| instead of |convert|?}
 \begin{myhs}
 \begin{code}
 eq x y = genericEq (convert x) (convert y)
