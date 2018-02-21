@@ -122,7 +122,7 @@ of whichever constructors make up the value. This is a direct
 consequence of not having access to the \emph{sum-of-products}
 structure that Haskell's |data| declarations follow. We will see a
 different approach, tackling that issue, in
-Section~\ref{sec:explicitsop}.  A second issue is the fact that the
+\Cref{sec:explicitsop}.  A second issue is the fact that the
 generic representation does not carry any information about the
 recursive structure of the type.  Instead, we are relying on the
 instance search mechanism to figure out that the recursive arguments
@@ -146,7 +146,7 @@ one can define. Every generic function has to follow the
 
 \victor{this remark seems unnecessary; why would we write the paper if
 we don't fix things?}
-Later on, in Section~\ref{sec:explicitfix}, we 
+Later on, in \Cref{sec:explicitfix}, we 
 show how to successfuly solve both issues.
 
 \subsection{Explicit Sums of Products}
@@ -335,7 +335,7 @@ explicitely, which fields of a constructor are recursive or not.
 
   Introducing information about the recursive positions in a type is
 done by changing the type of atoms in the universe. In
-Section~\ref{sec:explicitsop} we had |CodeFix :: * -> (P [ (P [*])])|,
+\Cref{sec:explicitsop} we had |CodeFix :: * -> (P [ (P [*])])|,
 that is, the atoms of the universe were Haskell types. If instead we
 create a new kind |Atom|, we can record wether or not a constructor
 field is a recursive position or an opaque type.
@@ -359,14 +359,14 @@ we have done in the actual implementation.
 \victor{add note that we'll give a link to the repo once review is done}
 
   The most notable difference is that our code now is not polymorphic.
-Back in Section~\ref{sec:explicitsop} we have defined |CodeSOP (Bin
+Back in \Cref{sec:explicitsop} we have defined |CodeSOP (Bin
 a)|, and this would work for any |a|. This might seen like a
 disadvantage, but it is in fact quite the opposite. This allows us to
 provide a deep conversion for free, given a shallow conversion. Beyond
 doubt one needs to have access to the |CodeSOP a| when converting a
 |Bin a| to its (deep) representation. By specifying the types involved
 beforehand, we are able to get by without having to carry all of the
-constraints we needed in Section~\ref{sec:explicitsop}. We can benefit
+constraints we needed in \Cref{sec:explicitsop}. We can benefit
 the most from this in the simplicity of combinators we are able to write.
 
   The representation of our codes now requires a functor that map |Atom|s into
@@ -449,7 +449,7 @@ compos f = to . fmap f . from
 \end{myhs}
 
   Although more interesting in the mutually recursive setting,
-Section~\ref{sec:family}, we can illustrate its use for traversing a
+\Cref{sec:family}, we can illustrate its use for traversing a
 tree and adding one to its leaves. In fact, a very convoluted way of
 writing |fmap (+1) :: Bin Int -> Bin Int| could be:
 

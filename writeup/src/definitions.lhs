@@ -9,6 +9,10 @@
 %% Our packages
 \usepackage{xcolor}
 
+%% Cleveref must be the last loaded package
+%% since it modifies the cross-ref system.
+\usepackage{cleveref}
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
 %% Our defs
