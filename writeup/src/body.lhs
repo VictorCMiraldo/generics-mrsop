@@ -678,9 +678,10 @@ zipRep  :: (Alternative f) => Rep phi1 c -> Rep phi2 c -> f (Rep (phi1 :*: phi2)
 \end{code}
 \end{myhs}
 
-  \victor{how about compos and crush?}
+\subsection{Generic Functions}
 
-\subsection{Equality}
+\victor{I'm calling combinators those monsters operating on |Rep|, 
+generic functions will be operating on |El| or |Fix|}
 
   Following the unspoken law of generic programming papers,
 one is obliged to define generic equality in one's generic programming
@@ -688,11 +689,29 @@ framework.
 
 \begin{myhs}
 \begin{code}
-geq :: Fix codes ix -> Fix codes ix -> Bool
-geq (Fix x) (Fix y)  = maybe False (elimRep (uncurry geq) and) 
-                     $ zipRep x y 
+geq :: (Family fam codes) => El fam ix -> El fam ix -> Bool
+geq = go `on` deepFrom
+  where
+    go :: Fix codes ix -> Fix codes ix -> Bool
+    go (Fix x) (Fix y)  = maybe False (elimRep (uncurry go) and) 
+                        $ zipRep x y 
 \end{code} %$
 \end{myhs}
+
+  The |compos| function has a much more interesting type than in \Cref{sec:explicitfix},
+we are now able to alter any of the types making up the family. This offers
+a very expressive recursion pattern.
+
+\begin{myhs}
+\begin{code}
+compos  :: (forall iy dot El fam iy -> El fam iy)
+        -> El fam ix -> El fam ix
+compos f = toMRec . mapRep f . fromMRec
+\end{code}
+\end{myhs}  
+
+\victor{How about talking about the smart constructors to |El| here?}
+
 
 \subsection{Summary and Discussion}
 
