@@ -67,6 +67,10 @@
 %format dots    = "\HS{\cdots}"
 %format forall  = "\HS{\forall}"
 %format dot     = "\HS{.}"
+%format phi     = "\HS{\varphi}"
+%format phi1    = "\HS{\varphi_1}"
+%format phi2    = "\HS{\varphi_2}"
+
 
 %%% Types
 %format GenericGen = "\HT{Generic_{gen}}"
@@ -87,9 +91,11 @@
 %format fromMRec = "\HV{from_{m}}"
 %format toMRec   = "\HV{to_{m}}"
 
+
+%format :>: = "\HT{\triangleright}"
 %format :*  = "\HS{\times}"
-%format :*: = ":\!*\!:"
-%format :+: = ":\!+\!:"
+%format :*: = "\HT{:\!*\!:}"
+%format :+: = "\HT{:\!+\!:}"
 
 %format NilRoseTree = "\HS{[]_{\mathsf{RoseTree}}}"
 %format ConsRoseTree = "\HS{\mathrel{:_{\mathsf{RoseTree}}}}"

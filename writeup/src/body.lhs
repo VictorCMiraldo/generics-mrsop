@@ -592,9 +592,9 @@ a type-error if one tries to lookup an out-of-bounds index:
 \begin{myhs}
 \begin{code}
 type family Lkup (ls :: [k]) (n :: Nat) :: k where
-  Lkup (P [])     _          = TypeError "Impossible"
-  Lkup (x :) xs)  (P Z)      = x
-  Lkup (x :) xs)  ((P S) n)  = Lkup xs n
+  Lkup (P [])    _          = TypeError "Impossible"
+  Lkup (x : xs)  (P Z)      = x
+  Lkup (x : xs)  ((P S) n)  = Lkup xs n
 \end{code}
 \end{myhs}
 
@@ -618,8 +618,21 @@ family with respect to the list of codes.
 \begin{code}
 class Family (fam :: [*]) (codes :: [[[Atom]]]) where
   
-  fromMRec  :: SNat ix  -> El fam ix                       -> RepMRec (El fam) (Lkup fam ix)
-  toMRec    :: SNat ix  -> RepMRec (El fam) (Lkup fam ix)  -> El fam ix
+  fromMRec  :: SNat ix  -> El fam ix                         -> RepMRec (El fam) (Lkup codes ix)
+  toMRec    :: SNat ix  -> RepMRec (El fam) (Lkup codes ix)  -> El fam ix
+\end{code}
+\end{myhs}
+
+  \victor{We should give more material here. This |El| type really is the key type.
+We could talk about the smart constructor |into| and perhaps even about the
+fight with the typechecker to have haskell understant that for valid families
+the |Lkup| function is injective}
+  The least fixpoint combinator also receives an extra parameter of kind |Nat -> *|:
+
+\begin{myhs}
+\begin{code}
+newtype Fix (codes :: [[[Atom]]]) (ix :: Nat)
+  = Fix { unFix :: RepMRec (Fix codes) (Lkup codes ix) }
 \end{code}
 \end{myhs}
 
@@ -628,6 +641,65 @@ class Family (fam :: [*]) (codes :: [[[Atom]]]) where
 the list of codes is well formed w.r.p.t the family, retaining
 all the static guarantees we love so much in Haskell}
 
+\subsection{Combinators}
+
+  \victor{glue this up; point is: |zip| |map| and |elim| are the holy trinity}
+  \victor{should we implement them here?}
+
+  Our |RepMRec phi c| does not make a regular functor anymore, but a higher
+order one:
+
+\begin{myhs}
+\begin{code}
+mapRep :: (forall ix dot phi1 ix -> phi2 ix) -> RepMRec phi1 c -> RepMRec phi2 c
+\end{code}
+\end{myhs}
+
+  More interesting than a map perhaps is a general eliminator. In order to
+destruct a |RepMRec phi c| we need a way for eliminating every |phi ix|
+and a way of combining the results. 
+
+\begin{myhs}
+\begin{code}
+elimRep  :: (forall ix dot phi ix -> a)
+         -> ([a] -> b)
+         -> RepMRec phi c -> b
+\end{code}
+\end{myhs}
+
+  The last of the three base combinators is the |zipRep|, that puts
+two values of |RepMRec| ``side by side'', whenever they are constructed
+using the same injection into |NS|. If their injection does not agree,
+then the |empty| alternative is returned.
+
+\begin{myhs}
+\begin{code}
+zipRep  :: (Alternative f) => Rep phi1 c -> Rep phi2 c -> f (Rep (phi1 :*: phi2) c)
+\end{code}
+\end{myhs}
+
+  \victor{how about compos and crush?}
+
+\subsection{Equality}
+
+  Following the unspoken law of generic programming papers,
+one is obliged to define generic equality in one's generic programming
+framework.
+
+\begin{myhs}
+\begin{code}
+geq :: Fix codes ix -> Fix codes ix -> Bool
+geq (Fix x) (Fix y)  = maybe False (elimRep (uncurry geq) and) 
+                     $ zipRep x y 
+\end{code} %$
+\end{myhs}
+
+\subsection{Summary and Discussion}
+
+\victor{We rock!}
+\victor{We can do the same trick we did for many recursive variables (
+indexing everything by a |Nat -> *| functor) for parametrizing on
+constant types, but now you index by |kon -> *|}
 
 \victor[victor:draft]{Begin draft:}
 
@@ -769,7 +841,6 @@ mutually recursive family example and walking through what
 happens inside \emph{Template Haskell}~\cite{Sheard2002} when it starts unfolding 
 the |deriveFamily| clause.
 
-%format :>: = "\HSCon{\triangleright}"
 \begin{myhs}
 \begin{code}
 data Rose a  = a :>: [Rose a]
