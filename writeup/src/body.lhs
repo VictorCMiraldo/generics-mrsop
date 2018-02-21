@@ -504,6 +504,131 @@ structures.
 \section{Mutual Recursion}
 \label{sec:family}
 
+  Conceptually, going from regular types, \Cref{sec:explicitfix}, to
+mutually recursive families is simple. We just need to be able to reference
+$n$ type variables, one for each element in the family. Take the cannonical
+example of a mutually recursive family, rose trees:
+
+\begin{myhs}
+\begin{code}
+data Rose a  = a :>: [Rose a]
+data [a]     = nil | a : [a]
+\end{code}
+\end{myhs}
+
+  If we were to write |CodeFix (Rose Int)| we would run into problems,
+as |Rose Int| is not immediatly recursive, it references |[Rose Int]|,
+which only then references |Rose Int|. We would like, in fact, to
+say something like |CodeMRec (Rose Int) = (P [ (P [ KInt , I [Rose Int] ])])|,
+that is, the second argument of the constructor |:>:| is a recursive argument,
+but references another type in the family. If we represent a mutually recursive
+family by a list of types, we could use the position
+in this list as a reference. If family consists of |P [Rose Int, [Rose Int]]|,
+we would have |CodeMRec (Rose Int) = (P [ (P [ KInt , I (S Z) ])])|.
+
+  Lifting the construction from \Cref{sec:explicitfix} starts by
+redefining |Atom| to something like:
+
+\begin{myhs}
+\begin{code}
+data Atom (n :: Nat) 
+  = I (Fin n)
+  | KInt
+  | dots
+\end{code}
+\end{myhs}
+
+  Where |Fin n| is a type isomorphic to a finite set with |n| elements. Unfortunately 
+this approach has a major drawback in Haskell. The lack of dependent types would
+require us to turn on the \texttt{-XTypeInType} extension, which although does not
+break consistency, can cause the compiler to loop and is generaly seen as an extreme
+resort. Instead, we choose to relax the definition of |Atom| to
+
+\begin{myhs}
+\begin{code}
+data Atom  
+  = I Nat 
+  | KInt
+  | dots
+\end{code}
+\end{myhs}
+ 
+  One might naively think we are loosing type-safety by allowing codes
+to reference an arbitrary number of recursive positions. What is
+keeping the user from defining |CodeMRec (Rose Int) = (P [ (P [ KInt ,
+I (S (S (S (S (S Z))))) ])])|?  Nothing! As a matter of fact that is a
+perfectly valid code. Moreover, one can construct a family where this
+code is not only valid, but also correct. As long as 
+the interpretation of such code under the family |[Rose Int , [Rose
+Int]]| is ill-typed, we are not compromising any safety and we remove
+some boilerplate from the whole construction.
+
+  Having settled on the definition of |Atom|, we now need to adapt |NA| to
+the new |Atom|s. In order to interpret any |Atom| into |*|, we now need
+a way to interpret the different recursive positions:
+
+\begin{myhs}
+\begin{code}
+data NA :: (Nat -> *) -> Atom -> * where
+  NA_I :: phi n  -> NA phi (I n)
+  NA_K :: Int    -> NA phi KInt
+\end{code}
+\end{myhs}
+
+  This time we parametrize the representation for codes instead of a datatype: \victor{why?}
+
+\begin{myhs}
+\begin{code}
+type RepMRec (phi :: Nat -> *) (c :: [[Atom]]) = NS (NP (NA phi)) c
+\end{code}
+\end{myhs}
+
+  The |phi| functor plays a central role here. This is precisely where we will
+plug the mutually recursive semantics. We want this to correspond to looking
+up the type indexed by |n| in the family. We can define a type-level lookup
+function by the means of a closed |type family|, where we can indeed throw
+a type-error if one tries to lookup an out-of-bounds index:
+
+\begin{myhs}
+\begin{code}
+type family Lkup (ls :: [k]) (n :: Nat) :: k where
+  Lkup (P [])     _          = TypeError "Impossible"
+  Lkup (x :) xs)  (P Z)      = x
+  Lkup (x :) xs)  ((P S) n)  = Lkup xs n
+\end{code}
+\end{myhs}
+
+  And the final piece we have to provide is a datatype that 
+encapsulates this |Lkup| family and can be partially applied.
+Thats because Haskell type families have to be always fully applied,
+meaning we can not extract something of kind |Nat -> *| from |Lkup| alone.
+
+\begin{myhs}
+\begin{code}
+data El :: [*] -> Nat -> * where
+  El :: Lkup fam ix -> El fam ix
+\end{code}
+\end{myhs}
+  
+  Finally, we can pack everything together by the means of a type class
+|Family fam codes| that states the list of types |fam| is a mutually recursive
+family with respect to the list of codes.
+
+\begin{myhs}
+\begin{code}
+class Family (fam :: [*]) (codes :: [[[Atom]]]) where
+  
+  fromMRec  :: SNat ix  -> El fam ix                       -> RepMRec (El fam) (Lkup fam ix)
+  toMRec    :: SNat ix  -> RepMRec (El fam) (Lkup fam ix)  -> El fam ix
+\end{code}
+\end{myhs}
+
+\victor{Explain SNat}
+\victor{Explain we could make another class that checks that
+the list of codes is well formed w.r.p.t the family, retaining
+all the static guarantees we love so much in Haskell}
+
+
 \victor[victor:draft]{Begin draft:}
 
 Mutual recursion means we have many type variables.
@@ -512,13 +637,12 @@ We could have made:
 
 \begin{myhs}
 \begin{code}
-data Atom n 
+data Atom (n :: Nat) 
   = I (Fin n)
   | KInt
   | dots
 \end{code}
 \end{myhs}
-
 But that is complicated, requires \texttt{-XTypeInType}, and can be 
 bypassed: We don't care about malformed codes, as long as they
 are \emph{uninhabitable}. Hence:
