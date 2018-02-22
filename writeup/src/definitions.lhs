@@ -46,6 +46,8 @@
 \newenvironment{myhs}{}{}
 
 
+\newcommand{\nameofourlibrary}{generic-mrsop}
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
@@ -67,10 +69,16 @@
 %format dots    = "\HS{\cdots}"
 %format forall  = "\HS{\forall}"
 %format dot     = "\HS{.}"
-%format phi     = "\HS{\varphi}"
-%format phi1    = "\HS{\varphi_1}"
-%format phi2    = "\HS{\varphi_2}"
-
+%format ^=      = "\HS{\bumpeq}"
+%format alpha   = "\HV{\alpha}"
+%format phi     = "\HV{\varphi}"
+%format phi1    = "\HV{\varphi_1}"
+%format phi2    = "\HV{\varphi_2}"
+%format kappa   = "\HV{\kappa}"
+%format kappa1  = "\HV{\kappa_1}"
+%format kappa2  = "\HV{\kappa_2}"
+%format fSq     = "\HV{f}"
+%format =~=     = "\HS{\approx}"
 
 %%% Types
 %format GenericGen = "\HT{Generic_{gen}}"
@@ -93,9 +101,11 @@
 
 
 %format :>: = "\HT{\triangleright}"
-%format :*  = "\HS{\times}"
+%format :*  = "\HT{\times}"
 %format :*: = "\HT{:\!*\!:}"
 %format :+: = "\HT{:\!+\!:}"
+%format <$$> = "\HS{<\!\!\$\!\!>}"
+%format <*> = "\HS{<\!\!*\!\!>}"
 
 %format NilRoseTree = "\HS{[]_{\mathsf{RoseTree}}}"
 %format ConsRoseTree = "\HS{\mathrel{:_{\mathsf{RoseTree}}}}"

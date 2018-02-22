@@ -1,10 +1,6 @@
 \documentclass[acmsmall,10pt,review]{acmart}%
 \settopmatter{printfolios=true,printccs=false,printacmref=false}
 
-\usepackage{cleveref}
-
-\newcommand{\nameofourlibrary}{generic-mrsop}
-
 %%%%%%%%%%%%%%
 %%%%%%%%%%%%%%
 %% Template 

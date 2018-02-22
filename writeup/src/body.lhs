@@ -14,7 +14,7 @@ we are almost talking about all of them, right? Regardless, we have a good
 argument against them: they require 'Data' and 'Typeable', hence restrict
 which external datatypes one can use}
 
-\section{Pattern functors}
+\subsection{Pattern functors}
 
   Since version $7.2$, GHC supports some basic, off the shelf, generic
 programming using \texttt{GHC.Generics}~\cite{Magalhaes2010}, 
@@ -501,6 +501,8 @@ form of recursion. When a user requires a generic programming
 library, chances are they need to traverse and consume mutually recursive
 structures.
 
+\victor{Should we introduce the |sop| function and |View| datatype?}
+
 \section{Mutual Recursion}
 \label{sec:family}
 
@@ -641,66 +643,81 @@ newtype Fix (codes :: [[[Atom]]]) (ix :: Nat)
 the list of codes is well formed w.r.p.t the family, retaining
 all the static guarantees we love so much in Haskell}
 
+
+
+\subsection{Parametrized Opaque Types}
+\label{sec:konparameter}
+
+Talk about adding a kind |kon| and making everything
+receive a |kon -> *| parameter, like in the actual implementation.
+
 \subsection{Combinators}
 
-  \victor{glue this up; point is: |zip| |map| and |elim| are the holy trinity}
-  \victor{should we implement them here?}
+  \victor{Assuming |RepMRec| now receives an interpretation of constants}
+  \victor{glue this up; point is: |zip| |map| |elim| and |compos| are the base}
 
-  Our |RepMRec phi c| does not make a regular functor anymore, but a higher
-order one:
+
+  For the sake of fostering intuition instead of worrying about
+notational overhead, we shall write values of |RepMRec kappa phi c| just like
+we would write normal Haskell values. They have the same \emph{sums-of-products} 
+structure anyway. Whenever a function is defined
+using the |^=| symbol, |C x_1 dots x_n| will stand for a value of the corresponding
+|RepMRec phi c|, that is, |There (dots (Here (x_1 :* dots :* x_n :* NP0)))|. 
+Since each of these |x_1 dots x_n| might be a recursive type or an opaque type,
+whenever we have two functions |f_I| and |f_K| in scope, |fSq x_j| will
+denote the application of the correct function for recursive positions, |f_I|,
+or opaque types |f_K|.
+
+  Through the rest of this section we wish to showcase a selection of particularly
+powerful combinators that are remarkably simple to define by exploiting the
+\emph{sums-of-products} structure. The first obvious such combinator is |map|.
+Our |RepMRec kappa phi c| does not make a regular functor anymore, but a higher
+bifunctor:
 
 \begin{myhs}
 \begin{code}
-mapRep :: (forall ix dot phi1 ix -> phi2 ix) -> RepMRec phi1 c -> RepMRec phi2 c
+bimapRep  ::  (forall k   dot kappa1  k   -> kappa2  k) 
+          ->  (forall ix  dot phi1    ix  -> phi2    ix) 
+          ->  RepMRec kappa1 phi1 c -> RepMRec kappa2 phi2 c
+bimapRep f_K f_I (C x_1 dots x_n) ^= C (fSq x_1) dots (fSq x_n)
 \end{code}
 \end{myhs}
 
   More interesting than a map perhaps is a general eliminator. In order to
-destruct a |RepMRec phi c| we need a way for eliminating every |phi ix|
-and a way of combining the results. 
+destruct a |RepMRec kappa phi c| we need a way for eliminating every recursive position
+or opaque type inside the representation and a way of combining these results. 
 
 \begin{myhs}
 \begin{code}
-elimRep  :: (forall ix dot phi ix -> a)
-         -> ([a] -> b)
-         -> RepMRec phi c -> b
+elimRep  ::  (forall k   dot kappa  k   -> a)
+         ->  (forall ix  dot phi    ix  -> a)
+         ->  ([a] -> b)
+         ->  RepMRec kappa phi c -> b
+elimRep f_K f_I cat (C x_1 dots x_n) ^= cat [ fSq x_1 , dots , fSq x_n ]
 \end{code}
 \end{myhs}
 
-  The last of the three base combinators is the |zipRep|, that puts
-two values of |RepMRec| ``side by side'', whenever they are constructed
-using the same injection into |NS|. If their injection does not agree,
-then the |empty| alternative is returned.
+  Being able to eliminate a representation is useful, but it becomes even
+more useful when we are able to combine the data in different values of
+the same representation with a |zip| like combinator. Our |zipRep|
+will attempt to put two values of a representation ``side-by-side'', as long
+as they are constructed with the same injection into the $n$-ary sum, |NS|.
 
 \begin{myhs}
 \begin{code}
-zipRep  :: (Alternative f) => Rep phi1 c -> Rep phi2 c -> f (Rep (phi1 :*: phi2) c)
+zipRep  :: Rep kappa1 phi1 c -> Rep kappa2 phi2 c -> Maybe (Rep (kappa1 :*: kappa2) (phi1 :*: phi2) c)
+zipRep (C x_1 dots x_n) (D y_1 dots y_m)
+  | C == D     ^= Just (C (x_1 :*: y_1) dots (x_n :*: y_n)) -- if C == D, then also n == m!
+  | otherwise  ^= Nothing
 \end{code}
 \end{myhs}
 
-\subsection{Generic Functions}
-
-\victor{I'm calling combinators those monsters operating on |Rep|, 
-generic functions will be operating on |El| or |Fix|}
-
-  Following the unspoken law of generic programming papers,
-one is obliged to define generic equality in one's generic programming
-framework.
-
-\begin{myhs}
-\begin{code}
-geq :: (Family fam codes) => El fam ix -> El fam ix -> Bool
-geq = go `on` deepFrom
-  where
-    go :: Fix codes ix -> Fix codes ix -> Bool
-    go (Fix x) (Fix y)  = maybe False (elimRep (uncurry go) and) 
-                        $ zipRep x y 
-\end{code} %$
-\end{myhs}
-
-  The |compos| function has a much more interesting type than in \Cref{sec:explicitfix},
-we are now able to alter any of the types making up the family. This offers
-a very expressive recursion pattern.
+  Note that it is trivial to write |zipRep| with an arbitrary
+|(Alternative f)| constraint instead of |Maybe|. Another combinator
+that receives a good boost in expressivity is the beloved |compos|,
+introduced in \Cref{sec:explicitfix}. We are now able to change every
+subtree of whatever type we choose inside an arbitrary value of the
+mutually recursive family in question.
 
 \begin{myhs}
 \begin{code}
@@ -708,100 +725,207 @@ compos  :: (forall iy dot El fam iy -> El fam iy)
         -> El fam ix -> El fam ix
 compos f = toMRec . mapRep f . fromMRec
 \end{code}
-\end{myhs}  
+\end{myhs}
 
-\victor{How about talking about the smart constructors to |El| here?}
+  It is worth nothing that although we presented pure versions
+of these combinators, \texttt{\nameofourlibrary} defines monadic
+variants of these and suffixes them with a ``M'', following the
+standard Haskell naming convention. We will need these monadic
+combinators in \Cref{sec:alphaequivalence}.
 
+\subsection{Examples}
+\label{sec:mrecexamples}
 
-\subsection{Summary and Discussion}
+\subsubsection{Equality}
 
-\victor{We rock!}
-\victor{We can do the same trick we did for many recursive variables (
-indexing everything by a |Nat -> *| functor) for parametrizing on
-constant types, but now you index by |kon -> *|}
-
-\victor[victor:draft]{Begin draft:}
-
-Mutual recursion means we have many type variables.
-
-We could have made:
+  Following the unspoken law of generic programming papers,
+one is obliged to define generic equality in one's generic programming
+framework. Using \texttt{\nameofourlibrary} one can define a particularly
+elegant version of generic equality:
 
 \begin{myhs}
 \begin{code}
-data Atom (n :: Nat) 
-  = I (Fin n)
-  | KInt
-  | dots
-\end{code}
+geq ::  (Family kappa fam codes) 
+    =>  (forall k dot kappa k -> kappa k -> Bool)
+    ->  El fam ix -> El fam ix -> Bool
+geq eq_K = go `on` deepFrom
+  where
+    go :: Fix codes ix -> Fix codes ix -> Bool
+    go (Fix x) (Fix y)  = maybe False (elimRep (uncurry eq_K) (uncurry go) and) 
+                        $ zipRep x y 
+\end{code} %$
 \end{myhs}
-But that is complicated, requires \texttt{-XTypeInType}, and can be 
-bypassed: We don't care about malformed codes, as long as they
-are \emph{uninhabitable}. Hence:
 
+  Reading through the code we see that we convert both
+arguments of |geq| to their deep representation, then compare their
+top level constructor with |zipRep|, if their constructor agrees
+we go through each of their fields calling either the equality on
+opaque types |eq_K| or recursing.
+
+\subsubsection{$\alpha$-Equivalence}
+\label{sec:alphaequivalence}
+
+  Syntatic equality is definitely a must, but it is a ``no sweat''
+application of generic programming. A more involved exercise,
+requiring some muscle, is the definition of
+\emph{$\alpha$-equivalence} for a language. On this section we start
+showing a straight forward version for the $\lambda$-calculus then go
+on to a more elaborate language.
+
+  Regardless of the language, determining whether two programs are
+$\alpha$-equivalent requires one to focus on the the constructors that
+introduce scoping, declare variables or reference variables. All the
+other constructors of the language should be trivial a trivial
+combination of recursive results. Let us warm up with the
+$\lambda$-calculus:
 
 \begin{myhs}
 \begin{code}
-data Atom
-  = I Nat
-  | KInt
-  | dots
+data Term  = Var String
+           | Abs String Term
+           | App Term Term
 \end{code}
 \end{myhs}
 
-Where |NA| receives a functor that maps a natural number |n|
-to the $n$-th type in the mutually recursive family:
+  The process is conceptually simple. Firstly, for |t_1, t_2 :: Term|
+to be $\alpha$-equivalent, they have to have the same structure, that
+is, the same constructors. Otherwise, we can already say they are not
+$\alpha$-equivalent.  We then traverse both terms at the same time and
+everytime we go through a binder, in this case |Abs|, we register a
+new \emph{rule} saying that the bound variable names are equivalent
+for the terms under that scope. Whenever we find a reference to a
+variable, |Var|, we check if the referenced variable is either exactly
+the same or equivalent under the registered \emph{rules} so far.
+
+  Let us abstract away this book-keeping functionality by the means of
+a monad with a couple associated functions\footnote{%
+It is a simple exercise to implement the |MonadAlphaEq (State [[(String ,
+String)]])| instance: the outer list represent the scopes, the inner lists
+represent the equivalences under a given scope}.
 
 \begin{myhs}
 \begin{code}
-data NA :: (Nat -> *) -> Atom -> * where
-  NA_I :: phi n -> NA phi (I n)
-  NA_K :: Int   -> NA phi KInt
+class Monad m => MonadAlphaEq m where
+  addScope  :: m ()
+  addRule   :: String -> String -> m ()
+  (=~=)     :: String -> String -> m Bool
+  runAlpha  :: m a -> a
 \end{code}
 \end{myhs}
 
-The family can be encoded as a list of types, and a type-level
-lookup lets us index them:
+  Now, we could go about defining our alpha equivalence decider by encoding what to do
+for |Var| and |Abs| and have an automatic eliminator for |App|:
 
+\victor{test this}
+%format TermP  = "\HT{Term\_}"
+%format VarP   = "\HT{Var\_}"
+%format AbsP   = "\HT{Abs\_}"
 \begin{myhs}
 \begin{code}
-type family Lkup (ls :: [k]) (n :: Nat) :: k where
-  Lkup (P [])        _          = TypeError "Gotch'ya! Uninhabitalbe"
-  Lkup (x (P :) xs)  (P Z)      = x
-  Lkup (x (P :) xs)  ((P S) n)  = Lkup xs n
+alphaEq :: Term -> Term -> Bool
+alphaEq x y = runAlpha (galphaEq (deepFrom x) (deepFrom y))
+  where
+    galphaEq x y = maybe False (go TermP) (zipRep x y)
+
+    step = elimRepM  (return . uncurry (==))  -- Opaque types have to equal!
+                     (uncurry galphaEq)       -- recursive step
+                     (return . and)           -- combining results
+
+    go TermP x = case sop x of
+      VarP (v_1 :*: v_2)                -> v_1 =~= v_2
+      AbsP (v_1 :*: v_2) (t_1 :*: t_2)  -> addScope >> addRule v_1 v_2 >> galphaEq t_1 t_2
+      _                                 -> step x
 \end{code}
 \end{myhs}
 
-Unfortunately, we can't have |NA (Lkup fam)| because type-families
-have to be fully saturated. Solution:
+  There is a number of things going on with this example. First,
+note the application of |zipRep|. If two |Term|s are made with different
+constructors, |galphaEq| will already return |False| because |zipRep| will fail.
+When |zipRep| succeeds though, we get access to one constructor with
+paired fields inside. Then the |go| function enters the stage, it 
+is performing the necessary semantic actions for the |Var| and |Abs|
+constructors and applying a general eliminator for anything else.
+The names suffixed with an underscore are \emph{pattern synonyms} 
+that make programming in this framework more convenient. These are
+also automatically generated as we will see on \Cref{sec:templatehaskell}.
 
+  One might be inclined to believe that the generic programming is
+bringing more boilerplate code than anything else. For the lambda calculus
+case it is quite true, with only three constructors in |Term| one is better
+off writing a recursive function. If we bring in a more intricate language,
+however, it becomes almost untractable very fast. Take the a toy imperative 
+language defined below. Transporting |alphaEq| from the lambda calculus
+is fairly simple. For one, |alhaEq|, |step| and |galphaEq| remain the same.
+We just need to adapt the |go| function:
+
+%format StmtP    = "\HT{Stmt\_}"
+%format SAssignP = "\HT{SAssign\_}"
+%format DeclP    = "\HT{Decl\_}"
+%format DVarP    = "\HT{DVar\_}"
+%format DFunP    = "\HT{DFun\_}"
+%format ExpP     = "\HT{Exp\_}"
+%format EVarP    = "\HT{EVar\_}"
+%format ECallP   = "\HT{ECall\_}"
+\begin{minipage}[t]{.45\textwidth}
 \begin{myhs}
 \begin{code}
-data El :: [*] -> Nat -> * where
-  El :: Lkup fam ix -> El fam ix
+data Stmt 
+  =  SAssign  String  Exp 
+  |  SIf      Exp     Stmt Stmt
+  |  SSeq     Stmt    Stmt
+  |  SReturn  Exp
+  |  SDecl    Decl
+  |  SSkip
+
+data Decl 
+  =  DVar String
+  |  DFun String String Stmt
+
+data Exp 
+  =  EVar   String
+  |  ECall  String  Exp
+  |  EAdd   Exp     Exp
+  |  ESub   Exp     Exp
+  |  ELit   Int
 \end{code}
 \end{myhs}
+\end{minipage}%
+\begin{minipage}[t]{.50\textwidth}
+\begin{myhs}
+\begin{code}
+go StmtP x = case sop x of
+      SAssignP (v_1 :*: v_2) (e_1 :*: e_2)  
+        -> addRule v1 v2 >> galphaEq e_1 e_2
+      _ -> step x
+go DeclP x = case sop x of
+      DVarP (v_1 :*: v_2) 
+        -> addRule v_1 v_2 >> return True
+      DFunP (f_1 :*: f_2) (x_1 :*: x_2) (s_1 :*: s_2)
+        -> addRule f1 f2 >> addScope 
+        >> addRule x1 x2 >> galphaEq s_1 s_2
+      _ -> step x
+go ExpP x = case sop x of
+      EVarP (v_1 :*: v_2)
+        -> v_1 =~= v_2
+      ECallP (f_1 :*: f_2) (e_1 :*: e_2)
+        -> (&&) <$$> f_1 =~= f2 <*> galphaEq e_1 e_2 
+      _ -> step x 
+go _ x = step x
+\end{code}
+\end{myhs}
+\end{minipage}
 
-And that's quite a subtle hack! Now we can have
-|type Rep fam a = NS (NP (NA (El fam))) (Code a)| And note that
-if |Code a| references any variable with index larger than
-|length fam|, then |Rep fam a| is uninhabitable.
+  And for this small toy language, having to write $\alpha$-equivalence
+by pattern matching might not be so straight forward anymore. Moreover,
+if we decide to change the toy language and add more statements or more expressions,
+the changes to the |go| function are minimal, if any. As long as we do not touch
+the constructors that |go| patterns matches on, we can use the very same function.
 
-Now we tell the reader about our |Family| class and
-show a rose tree example.
+\subsubsection{The Generic Zipper}
 
-Then we can show how pretty things become when we add our smart
-constructor |into|. 
-
-\subsection{Some cool combinators}
-
-Talk |zipRep|, talk |compos|
-
-\subsection{Parametrized Opaque Types}
-
-Talk about adding a kind |kon| and making everything
-receive a |kon -> *| parameter, like in the actual implementation.
-
-\victor{End draft \ref{victor:draft}}
+  \victor{does the generic zipper deserves its own section or do
+we just want to mention it without going into detail??
+I'd say we wait and see how much space we need to fill up}
 
 \section{Template Haskell}
 \label{sec:templatehaskell}
@@ -822,7 +946,7 @@ datatypes are written with parameters, or come from external libraries.
 There are many difficulties to a fully automatic interface to deriving |Family|
 instances.
 
-\subsection{The User Interface}
+\subsection{The Final User Interface}
 \label{sec:thapi}
 
   All that the programmer have to do to derive their |Family|

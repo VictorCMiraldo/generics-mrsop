@@ -39,6 +39,7 @@
 \newcommand{\HSManualSym}[1]{\mathcolor{hsblue4}{#1}}
 \newcommand{\HSCon}[1]{\mathcolor{hsblue3}{#1}}
 \newcommand{\HSVar}[1]{\mathcolor{hsblue5}{#1}}
+\newcommand{\HSComment}[1]{\mathcolor{hsgold2}{\textit{#1}}}
 
 %subst keyword a = "\HSKeyword{" a "}"
 %subst conid a   = "\HSCon{" a "}"
@@ -49,6 +50,7 @@
 %subst char a    = "\HSChar{''" a "''}"
 %subst string a  = "\HSString{``" a "\char34 }"
 %subst special a = "\HSSpecial{" a "}"
+%subst comment a = "\HSComment{ -\! -" a "}"
 
 %format :          = "\HSCon{\mathbin{:}}"
 %format nil        = "\HSCon{[]}"
