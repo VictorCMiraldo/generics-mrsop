@@ -99,23 +99,23 @@ type PoA (ki :: kon -> *) (phi :: Nat -> *) = NP (NA ki phi)
 
 mapRep :: (forall ix . IsNat ix => f  ix -> g ix)
        -> Rep ki f c -> Rep ki g c
-mapRep = hmapRep id
+mapRep = bimapRep id
 
 mapRepM :: (Monad m)
         => (forall ix . IsNat ix => f  ix -> m (g  ix))
         -> Rep ki f c -> m (Rep ki g c)
-mapRepM = hmapRepM return
+mapRepM = bimapRepM return
 
-hmapRep :: (forall k  .             ki k  -> kj k)
-        -> (forall ix . IsNat ix => f  ix -> g ix)
-        -> Rep ki f c -> Rep kj g c
-hmapRep fk fi = Rep . mapNS (mapNP (mapNA fk fi)) . unRep
+bimapRep :: (forall k  .             ki k  -> kj k)
+         -> (forall ix . IsNat ix => f  ix -> g ix)
+         -> Rep ki f c -> Rep kj g c
+bimapRep fk fi = Rep . mapNS (mapNP (mapNA fk fi)) . unRep
 
-hmapRepM :: (Monad m)
-         => (forall k  .             ki k  -> m (kj k))
-         -> (forall ix . IsNat ix => f  ix -> m (g  ix))
-         -> Rep ki f c -> m (Rep kj g c)
-hmapRepM fk fi = (Rep <$>) . mapNSM (mapNPM (mapNAM fk fi)) . unRep
+bimapRepM :: (Monad m)
+          => (forall k  .             ki k  -> m (kj k))
+          -> (forall ix . IsNat ix => f  ix -> m (g  ix))
+          -> Rep ki f c -> m (Rep kj g c)
+bimapRepM fk fi = (Rep <$>) . mapNSM (mapNPM (mapNAM fk fi)) . unRep
 
 zipRep :: (MonadPlus m)
        => Rep ki f c -> Rep kj g c
@@ -200,7 +200,7 @@ proxyFixIdx _ = Proxy
 mapMFix :: (Monad m)
         => (forall k . ki k -> m (kj k))
         -> Fix ki fam ix -> m (Fix kj fam ix)
-mapMFix fk = (Fix <$>) . hmapRepM fk (mapMFix fk) . unFix
+mapMFix fk = (Fix <$>) . bimapRepM fk (mapMFix fk) . unFix
 
 -- |Compare two values of a same fixpoint for equality.
 eqFix :: (forall k. ki k -> ki k -> Bool)

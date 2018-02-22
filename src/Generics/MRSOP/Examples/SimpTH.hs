@@ -18,6 +18,7 @@ import Data.Function (on)
 import Generics.MRSOP.Base
 import Generics.MRSOP.Opaque
 import Generics.MRSOP.Util
+import Generics.MRSOP.Zipper
 
 import Generics.MRSOP.TH
 
@@ -33,10 +34,12 @@ data Stmt var
   | SReturn (Exp var)
   | SDecl (Decl var)
   | SSkip
+  deriving Show
 
 data Decl var
   = DVar var
   | DFun var var (Stmt var)
+  deriving Show
 
 data Exp var
   = EVar  var
@@ -44,6 +47,7 @@ data Exp var
   | EAdd (Exp var) (Exp var)
   | ESub (Exp var) (Exp var)
   | ELit Int
+  deriving Show
 
 deriveFamily [t| Stmt String |]
 
@@ -189,4 +193,32 @@ test3 n1 n2 z = DFun "f" n1
                       `SSeq` (SReturn $ EVar z))
          `SSeq` (SReturn $ ECall "g" (EVar n1))
 
+
+-- ** Zipper test
+
+infixr 4 >>>
+(>>>) :: (a -> b) -> (b -> c) -> a -> c
+(>>>) = flip (.)
+
+test4 :: Int -> Decl String
+test4 n = DFun "test" "n"
+        $ (SAssign "x" (EAdd (ELit 10) (ELit n)))
+        `SSeq` (SReturn (EVar "x"))
+        
+
+test5 :: Maybe (Decl String)
+test5 = enter
+    >>> down
+    >=> down
+    >=> down
+    >=> down
+    >=> right
+    >=> update mk42
+    >>> leave
+    >>> return . unEl
+      $ into @FamStmtString (test4 10)
+  where
+    mk42 :: SNat ix -> El FamStmtString ix -> El FamStmtString ix
+    mk42 Exp_ _ = El $ ELit 42
+    mk42 _    x = x
 

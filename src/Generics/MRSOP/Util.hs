@@ -13,6 +13,13 @@ import Data.Proxy
 import Data.Type.Equality
 import GHC.TypeLits (TypeError , ErrorMessage(..))
 
+infixr 3 *** , &&&
+(&&&) :: (a -> b) -> (a -> c) -> a -> (b , c)
+f &&& g = \x -> (f x , g x)
+
+(***) :: (a -> b) -> (c -> d) -> (a , c) -> (b , d)
+f *** g = (f . fst) &&& (g . snd)
+
 -- |Poly-kind-indexed product
 data (:*:) (f :: k -> *) (g :: k -> *) (x :: k)
   = f x :*: g x

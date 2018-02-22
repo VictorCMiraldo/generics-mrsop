@@ -16,7 +16,6 @@ module Generics.MRSOP.TH (deriveFamily, genFamilyDebug) where
 import Data.Function (on)
 import Data.List (sortBy)
 
-import Control.Arrow ((***), (&&&))
 import Control.Monad
 import Control.Monad.State
 import Control.Monad.Writer
