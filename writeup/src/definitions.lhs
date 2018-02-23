@@ -81,23 +81,23 @@
 %format =~=     = "\HS{\approx}"
 
 %%% Types
-%format GenericGen = "\HT{Generic_{gen}}"
-%format GenericSOP = "\HT{Generic_{sop}}"
-%format GenericFix = "\HT{Generic_{Fix}}"
-%format RepGen     = "\HT{Rep_{gen}}"
-%format RepSOP     = "\HT{Rep_{sop}}"
-%format RepFix     = "\HT{Rep_{fix}}"
-%format RepMRec    = "\HT{Rep_{m}}"
-%format CodeSOP    = "\HT{Code_{sop}}"
-%format CodeFix    = "\HT{Code_{fix}}"
-%format CodeMRec   = "\HT{Code_{m}}"
+%format GenericGen = "\HT{\textit{Generic}_{\mathsf{gen}}}"
+%format GenericSOP = "\HT{\textit{Generic}_{\mathsf{sop}}}"
+%format GenericFix = "\HT{\textit{Generic}_{\mathsf{fix}}}"
+%format RepGen     = "\HT{\textit{Rep}_{\mathsf{gen}}}"
+%format RepSOP     = "\HT{\textit{Rep}_{\mathsf{sop}}}"
+%format RepFix     = "\HT{\textit{Rep}_{\mathsf{fix}}}"
+%format RepMRec    = "\HT{\textit{Rep}_{\mathsf{mrec}}}"
+%format CodeSOP    = "\HT{\textit{Code}_{\mathsf{sop}}}"
+%format CodeFix    = "\HT{\textit{Code}_{\mathsf{fix}}}"
+%format CodeMRec   = "\HT{\textit{Code}_{\mathsf{mrec}}}"
 
 %%% Functions
-%format fromGen  = "\HV{from_{gen}}"
-%format fromSOP  = "\HV{from_{sop}}"
-%format fromFix  = "\HV{from_{fix}}"
-%format fromMRec = "\HV{from_{m}}"
-%format toMRec   = "\HV{to_{m}}"
+%format fromGen  = "\HV{\textit{from}_{\mathsf{gen}}}"
+%format fromSOP  = "\HV{\textit{from}_{\mathsf{sop}}}"
+%format fromFix  = "\HV{\textit{from}_{\mathsf{fix}}}"
+%format fromMRec = "\HV{\textit{from}_{\mathsf{mrec}}}"
+%format toMRec   = "\HV{\textit{to}_{\mathsf{mrec}}}"
 
 
 %format :>: = "\HT{\triangleright}"

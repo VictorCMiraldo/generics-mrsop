@@ -17,7 +17,7 @@ programming in their tutorials.\footnote{Documentation at
 \url{hackage.haskell.org/package/aeson/docs/Data-Aeson.html}.}
 
 The core underlying idea of generic programming is the fact that a great
-number of datatypes can be translated to a uniform representation. 
+number of datatypes can be described using a uniform encoding.
 Consider the following datatype representing binary trees with data at their
 leaves:
 \begin{myhs}
@@ -34,37 +34,34 @@ children.
 \end{enumerate}
 Different libraries differ on how to encode this information. For example,
 \texttt{GHC.Generics}~\cite{Magalhaes2010} defines the representation of |Bin|
-as the following datatype:
+as the following datatype:\footnote{Throughout this paper we use subscripts
+to distinguish the generic programming library at hand.}
 \begin{myhs}
 \begin{code}
-Rep (Bin a) = K1 R a :+: (K1 R (Bin a) :*: K1 R (Bin a))
+RepGen (Bin a) = K1 R a :+: (K1 R (Bin a) :*: K1 R (Bin a))
 \end{code}
 \end{myhs}
-\victor{We should be carefull with the use of the words \emph{code} and 
-\emph{representation}. Perhaps we should add a paragraph explaining that
-the representations are defined by induction on the language of codes.
-Some libraries allow one to manipulate codes as first class citizens
-(ours, generics-sop), some do not (regular, GHC.generics, multirec).
-Check \ref{victor:codes} too.}
-(which is isomorphic to |Either a (Bin a , Bin a)|), along with conversion
-function |from :: a -> Rep a| and |to :: Rep a -> a| which form an isomorphism
-between |Bin a| and |Rep (Bin a)|. Actually, most generic programming libraries
-use a similar pattern of defining the \emph{representation} or \emph{code} of
-a datatype, and two functions witnessing an isomorphism. One important feature
-of each library is which are the primitive operations for constructing codes,
-since they define which datatypes go under its cover.
+This type is isomorphic to |Either a (Bin a , Bin a)|, but using the combinators
+provided by \texttt{GHC.Generics}, namely |:+:| and |:*:|. In addition, we need
+two conversion functions |from :: a -> Rep a| and |to :: Rep a -> a|
+which form an isomorphism
+between |Bin a| and |RepGen (Bin a)|. Actually, most generic programming libraries
+use a similar pattern of defining the \emph{description} of
+a datatype in the corresponding uniform language by some type-level information, 
+and two functions witnessing an isomorphism. One important feature
+of each library is how is this description encoded and which are the primitive
+operations for constructing such encodings, since they ultimately define which
+datatypes go under its cover.
 
-Once you have a uniform representation for datatypes, writing generic code
-becomes the matter of writing code that operates under this representation.
+Once you have a uniform description language for datatypes, writing generic code
+becomes the matter of writing code that operates under this language.
 Image you want to write an equality operation, you can define it generically as:
-\victor{why not call |from| instead of |convert|?}
 \begin{myhs}
 \begin{code}
-eq x y = genericEq (convert x) (convert y)
+eq x y = genericEq (from x) (from y)
 \end{code}
 \end{myhs}
-where |convert| moves the value into the uniform representation. The |genericEq|
-function then:
+The |genericEq| function operates at the level of descriptions:
 \begin{enumerate}
 \item Checks whether |x| and |y| are built from the same constructor, in
 negative case we can already return |False|;
@@ -74,32 +71,34 @@ of children of |x| and |y|.
 
 \paragraph{Deep versus shallow.}
 This simple function already showcases the difference between \emph{shallow}
-and \emph{deep} representations of codes. In a shallow representation only one
-layer of the value is turned into a generic form. As a result, our |genericEq|
-needs to call |convert| over each children before going recursively into then.
+and \emph{deep} descriptions of datatypes. When using a shallow description
+only one layer of the value is turned into a generic form by a call to |from|.
+As a result, our |genericEq| needs to call |from| again over each childre
+ before going recursively into then.
 This is the kind of representation we get from \texttt{GHC.Generics}, among
 others.
 
-The other side of the spectrum is \emph{deep} representation, in which the
+The other side of the spectrum are \emph{deep} descriptions, in which the
 entire value is turned into the set of combinators the generic library provides
 in one go. Since you have the entire shape of the value under your hands, you can
 use deep representation to transform the datatype; for example, you can define
 the type of regular expressions over a datatype~\cite{Serrano2016}. In the case
-of generic equality, using a deep representation implies that only call to
-|convert| is needed, but it traverses the value completely. This poses a
-trade-off between deep and shallow representations.
+of generic equality, using a deep description implies that only call to
+|from| is needed, but it traverses the value completely. This poses a
+trade-off between deep and shallow.
 
-Codes for deep representation need a larger set of combinators than shallow
-ones. In particular, you need a way to mark \emph{recursive} positions in your
-datatype. In our |Bin| example, the representation of the |Bin| constructor
+In general, the set of combinators needed for deep descriptions in larger
+than the one needed for shallow descriptions. The reason is that you need a way
+to mark \emph{recursive} positions in your
+datatype. In our |Bin| example, the description of the |Bin| constructor
 changes from ``this constructors has two fields of the |Bin a| type'' to 
 ``this constructor has two fields in which you recurse''. The usual technique
 is to abstract the recursion into a \emph{fixed-point} combinator. The
 \texttt{regular} library~\cite{Noort2008} uses this kind of codes. 
 
-\paragraph{Sum-of-products.}
+\paragraph{Sum of products and codes.}
 
-Most generic programming libraries build representations out of three basic
+Most generic programming libraries build their type-level descriptions out of three basic
 combinators: (1) \emph{constants}, which indicate a type which should appear
 as-is; (2) \emph{products} (usually written as |:*:|) which are used to
 build tuples; and (3) \emph{sums} (usually written as |:+:|) which
@@ -111,18 +110,29 @@ to express the choice of constructor, and within each of them a product to
 declare which fields you have. However, this shape is \emph{not enforced} at
 any level. A recent approach to generic programming~\cite{deVries2014}
 explicitly uses a list of lists of types, the outer one representing the sum
-and each inner one thought as products.\footnote{The |quote| sign marks the
+and each inner one thought as products. The $\HS{'}$ sign in the code below marks the
 list as operating in the type-level, as opposed to term-level lists which exists
 at run-time. This is an example of Haskell's \emph{datatype} promotion~
-\cite{Yorgey2012}.}
+\cite{Yorgey2012}.
 \begin{myhs}
 \begin{code}
-Rep (Bin a) = P [ P [a], P [Bin a, Bin a] ]
+CodeSOP (Bin a) = P [ P [a], P [Bin a, Bin a] ]
 \end{code}
 \end{myhs}
-This representation follows more closely the shape of Haskell datatypes, and
+The shape of this description follows more closely the shape of Haskell datatypes, and
 make it easier to implement some generic functionality like random generation
 of values.
+
+At this point we remark the relation between a \emph{representation} -- like
+|RepGen| -- and a \emph{code} -- like |CodeSOP|.
+Both are examples of descriptions of a datatype, but operate at different
+levels. Representations are type constructors, functor more specifically,
+whereas codes are aggregations of ground types (a list of lists in the case
+of |CodeSOP|). This means that we can build a value using the type of the
+representation, whereas we need to perform an additional step in the case of
+codes. For example, \texttt{generics-sop} defines a type family |RepSOP| which
+converts from a code into a representation. Manipulating codes instead of
+representation leads to a simpler style of generic programming.
 
 \paragraph{Mutually recursive datatypes.}
 
@@ -155,7 +165,7 @@ approaches when more than one datatype enters the game.
 
 The \texttt{multirec} library~\cite{Yakushev2009} is a generalization of
 \texttt{regular} which handles mutually recursive families. From \texttt{regular}
-it inherits its deep representation approach using combinators. As discussed
+it inherits its deep approach using representations. As discussed
 above, there are other choices -- shallow representations and sum-of-products --
 with different trade-offs. Our work stems from the desire of having the nice
 properties of sum-of-products in a mutually recursive setting.
@@ -165,7 +175,7 @@ properties of sum-of-products in a mutually recursive setting.
 Generic programming alleaviates the problem of writing repetitive operations
 such as equality or pretty-printing, which depend on the structure of the
 datatype. But in order to do so, they still require the programmer to figure
-out the code and write conversion function from and to that type. This is
+out the right description and write conversion function from and to that type. This is
 tedious, and also follows the shape of the type!
 
 For that reason, most generic programming libraries also include some
@@ -191,17 +201,18 @@ data RoseTree      a  =  a :>: RoseTreeList a
 data RoseTreeList  a  =  NilRoseTree | RoseTree a ConsRoseTree RoseTreeList a
 \end{code}
 \end{myhs}
-Shallow representations do not suffer too much from this problem. For deep
-representations, though, how to solve this problem is key to derive a code.
+Shallow descriptions do not suffer too much from this problem. For deep
+approaches, though, how to solve this problem is key to derive a useful
+description of the datatype.
 
 \subsection{Contributions}
 
 In this paper we present \texttt{\nameofourlibrary}, a new library for generic
 programming over mutually recursive families, which uses the sum-of-products
-approach to codes. In particular we make the following contributions:
+approach. In particular we make the following contributions:
 
 \begin{itemize}
-\item We describe a technique to derive both deep and shallow representations
+\item We describe a technique to derive both deep and shallow encodings
 of a datatype from a unified code (\Cref{sec:explicitfix}). This give users to
 our library control over which style of generic programming they prefer in each
 different scenario.
