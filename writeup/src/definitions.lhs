@@ -43,7 +43,7 @@
 
 %% LaTeX stuff
 
-\newenvironment{myhs}{}{}
+\newenvironment{myhs}{\par\vspace{0.15cm}\begin{minipage}{\textwidth}}{\end{minipage}\vspace{0.15cm}}
 
 
 \newcommand{\nameofourlibrary}{generic-mrsop}
