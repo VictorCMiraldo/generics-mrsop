@@ -682,60 +682,92 @@ data SNat (n :: Nat) where
 \end{code}
 \end{myhs}
 
-  
-\paragraph{Deep encoding.}
-  The least fixpoint combinator also receives an extra parameter of kind |Nat -> *|:
+The limitations of the Haskell type system lead us to introduce |El| as an
+intermediate datatype. Our |fromMRec| function does not take one member of
+the family directly, but an |El|-wrapped one. However, to construct that value
+|El| needs to know its parameters, which amounts to the family we are 
+embedding our type into and the index in that family. Those values are not
+immediately obvious, but we can use Haskell's |TypeApplications| to work around
+it. We shall not go into details about their implementation, but the final
+|into| function which injects a value into the corresponding |El| looks like:
+\begin{myhs}
+\begin{code}
+into :: forall fam ty ix. (ix ~ Idx ty fam , Lkup ix fam ~ ty , IsNat ix) => ty -> El fam ix
+into = El
+\end{code}
+\end{myhs}
+where |Idx| is a closed type family implementing the inverse of |Lkup|, that is,
+obtaining the index of the type |ty| in the list |fam|. Using this function
+we can turn a |rs :: [RoseTree Int]| into its generic representation by writing
+|into @RoseTreeFamily rs|. The type application |@RoseTreeFamily| is responsible
+for fixing the mutually recursive family we are working with.
 
+  
+\paragraph{Deep representation.} In \Cref{sec:explicitfix} we have described a
+technique to derive deep representations from shallow representations. We can
+play a very similar trick here. The main difference is the definition of the
+least fixpoint combinator, which receives an extra parameter of kind |Nat -> *|:
 \begin{myhs}
 \begin{code}
 newtype Fix (codes :: [[[Atom]]]) (ix :: Nat)
   = Fix { unFix :: RepMRec (Fix codes) (Lkup codes ix) }
 \end{code}
 \end{myhs}
+Intuitively, since now we can recurse on different positions, we need to keep
+track of the representations for all those positions in the type. This is the
+job of the |codes| argument. Furthermore, our |Fix| does not represent a single
+datatype, but rather the \emph{whole} family. Thus, we need on each value an
+additional index to declare which is the element of the family we are working on.
 
-\victor{Explain SNat}
-\victor{Explain we could make another class that checks that
-the list of codes is well formed w.r.p.t the family, retaining
-all the static guarantees we love so much in Haskell}
-
-
-Lifting the construction from \Cref{sec:explicitfix} starts by
-redefining |Atom| to something like:
-
+As in the previous section, we can obtain the deep representation by iteratively
+applying the shallow representation. Last time we used |fmap| since the |RepFix|
+type was a functor. |RepMRec| on the other hand cannot be given a |Functor|
+instance, but we can still define a similar function |mapRec|,
 \begin{myhs}
 \begin{code}
-data Atom (n :: Nat) 
-  = I (Fin n)
-  | KInt
-  | dots
+mapRep :: (forall ix . IsNat ix => f ix -> g ix) -> RepMRec f c -> RepMRec g c
+\end{code}
+\end{myhs}
+This type signature tells us that if we want to change the |phi| argument in 
+the representation, we need to provide a function which works over each
+possible index this |phi| can take. This makes sense, as |phi| has kind
+|Nat -> *|. 
+\begin{myhs}
+\begin{code}
+deepFrom :: Family fam codes => El fam ix -> Fix (RepFix codes ix)
+deepFrom = Fix . mapRec deepFrom . from
 \end{code}
 \end{myhs}
 
-  Where |Fin n| is a type isomorphic to a finite set with |n| elements. Unfortunately 
+\paragraph{Only well-formed representations are accepted.}
+At first glance, it looks like the |Atom| datatype gives too much freedom.
+Its |I| constructor receives a natural number, but there is no static check
+about this number referring to an actual member of the recursive family we
+are describing. For example, the list of codes
+|(P [ (P [ (P [ KInt, I (S (S Z))])])])|  is accepted by the compiler
+although it does not represent any family of datatypes.
+
+A direct solution to this problem is to introduce yet another index, this
+time to the |Atom| datatype, which specifies which indices are allowed.
+The |I| constructor is then refined to take not any natural number, but only
+those which lie in the range -- this is usually known as |Fin n|.
+\begin{myhs}
+\begin{code}
+data Atom (n :: Nat) = I (Fin n) | KInt | dots
+\end{code}
+\end{myhs}
+Unfortunately 
 this approach has a major drawback in Haskell. The lack of dependent types would
 require us to turn on the \texttt{-XTypeInType} extension, which although does not
 break consistency, can cause the compiler to loop and is generaly seen as an extreme
-resort. Instead, we choose to relax the definition of |Atom| to
+resort.
 
-\begin{myhs}
-\begin{code}
-data Atom  
-  = I Nat 
-  | KInt
-  | dots
-\end{code}
-\end{myhs}
- 
-  One might naively think we are loosing type-safety by allowing codes
-to reference an arbitrary number of recursive positions. What is
-keeping the user from defining |CodeMRec (Rose Int) = (P [ (P [ KInt ,
-I (S (S (S (S (S Z))))) ])])|?  Nothing! As a matter of fact that is a
-perfectly valid code. Moreover, one can construct a family where this
-code is not only valid, but also correct. As long as 
-the interpretation of such code under the family |[Rose Int , [Rose
-Int]]| is ill-typed, we are not compromising any safety and we remove
-some boilerplate from the whole construction.
-
+By looking a bit more closely, we find that we are not losing any type-safety
+by allowing codes which reference an arbitrary number of recursive positions.
+Users of our library are allowed to write the previous ill-defined code, but
+when trying to write \emph{values} of the representation of that code, the
+|Lkup| function detects the out-of-bounds index, raising a type error and
+preventing the program from compiling.
 
 \subsection{Parametrized Opaque Types}
 \label{sec:konparameter}
