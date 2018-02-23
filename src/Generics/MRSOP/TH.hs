@@ -16,7 +16,6 @@ module Generics.MRSOP.TH (deriveFamily, genFamilyDebug) where
 import Data.Function (on)
 import Data.List (sortBy)
 
-import Control.Arrow ((***), (&&&))
 import Control.Monad
 import Control.Monad.State
 import Control.Monad.Writer
@@ -385,8 +384,15 @@ reifySTy sty
 --     >                   ]
 --
 -- 2. The index of each type in the family.
--- > elListRInt :: SNat Z
--- > elRInt     :: SNat (S Z)
+-- 2.1 types
+-- > pattern RInt_     = SZ
+-- > pattern ListRInt_ = SS SZ
+--
+-- 2.2. constructors
+-- > pattern a :>:_ as = Tag CZ      (NA_K a :* NA_I (El as) :* NP0)
+-- > pattern Leaf_ a   = Tag (CS CZ) (NA_K a :* NP0)
+-- > pattern nil_      = Tag CZ NP0
+-- > pattern a :_ as   = Tag (CS CZ) (NA_I a :* NA_I (El as) :* NP0)
 --
 -- 3. The instance:
 -- > instance Family Singl FamRose CodesRose where
