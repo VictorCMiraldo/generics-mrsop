@@ -730,10 +730,10 @@ variants of these and suffixes them with a ``M'', following the
 standard Haskell naming convention. We will need these monadic
 combinators in \Cref{sec:alphaequivalence}.
 
-\subsection{Examples}
+\section{Examples}
 \label{sec:mrecexamples}
 
-\subsubsection{Equality}
+\subsection{Equality}
 
   Following the unspoken law of generic programming papers,
 one is obliged to define generic equality in one's generic programming
@@ -759,7 +759,7 @@ top level constructor with |zipRep|, if their constructor agrees
 we go through each of their fields calling either the equality on
 opaque types |eq_K| or recursing.
 
-\subsubsection{$\alpha$-Equivalence}
+\subsection{$\alpha$-Equivalence}
 \label{sec:alphaequivalence}
 
   Syntatic equality is definitely a must, but it is a ``no sweat''
@@ -778,9 +778,9 @@ $\lambda$-calculus:
 
 \begin{myhs}
 \begin{code}
-data Term  = Var String
-           | Abs String Term
-           | App Term Term
+data Term  =  Var  String
+           |  Abs  String  Term
+           |  App  Term    Term
 \end{code}
 \end{myhs}
 
@@ -929,7 +929,7 @@ if we decide to change the toy language and add more statements or more expressi
 the changes to the |go| function are minimal, if any. As long as we do not touch
 the constructors that |go| patterns matches on, we can use the very same function.
 
-\subsubsection{The Generic Zipper}
+\subsection{The Generic Zipper}
 
   \victor{does the generic zipper deserves its own section or do
 we just want to mention it without going into detail??
