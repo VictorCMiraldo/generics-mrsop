@@ -43,10 +43,23 @@ RepGen (Bin a) = K1 R a :+: (K1 R (Bin a) :*: K1 R (Bin a))
 \end{myhs}
 This type is isomorphic to |Either a (Bin a , Bin a)|, but using the combinators
 provided by \texttt{GHC.Generics}, namely |:+:| and |:*:|. In addition, we need
-two conversion functions |from :: a -> Rep a| and |to :: Rep a -> a|
+two conversion functions |from :: a -> Rep a x| and |to :: Rep a x -> a|
 which form an isomorphism
-between |Bin a| and |RepGen (Bin a)|. Actually, most generic programming libraries
-use a similar pattern of defining the \emph{description} of
+between |Bin a| and |RepGen (Bin a) x|.\footnote{The additional type argument
+to |RepGen| can be ignored for the moment. Its role shall become clear once
+we introduce pattern functors in \Cref{sec:patternfunctors}.}
+All this information is tied to the
+original datatype using a type class:
+\begin{myhs}
+\begin{code}
+class Generic a where
+  type RepGen a :: * -> *
+  fromGen  :: a -> RepGen a x
+  toGen    :: RepGen a x -> a
+\end{code}
+\end{myhs}
+Most generic programming libraries
+follow a similar pattern of defining the \emph{description} of
 a datatype in the corresponding uniform language by some type-level information, 
 and two functions witnessing an isomorphism. One important feature
 of each library is how is this description encoded and which are the primitive
@@ -221,7 +234,7 @@ mutually recursive families of datatypes (\Cref{sec:family}).
 \item Codes and conversions to and from generic representations are
 derived using Template Haskell (\Cref{sec:templatehaskell}).
 The novelty lies in our handling of instantiated type constructors.
+\item We use our generic programming approach to asbtract common patterns
+such as equality, $\alpha$-equivalence and zipper (\Cref{sec:mrecexamples}).
 \end{itemize}
-Throughout the text we introduce examples of functions defined using generic
-programming, such as equality and $\alpha$-equivalence. We also compare our
-design to other approaches in the literature.
+Thoughout the text we compare our design to other approaches in the literature.
