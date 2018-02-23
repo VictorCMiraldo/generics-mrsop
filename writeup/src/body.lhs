@@ -145,11 +145,6 @@ absence \emph{codes} greatly limits the number of generic combinators
 one can define. Every generic function has to follow the
 \emph{mutually recursive classes} technique we shown.
 
-\victor{this remark seems unnecessary; why would we write the paper if
-we don't fix things?} \alejandro{Agree.}
-Later on, in \Cref{sec:explicitfix}, we 
-show how to successfuly solve both issues.
-
 \subsection{Explicit Sums of Products}
 \label{sec:explicitsop}
 
@@ -210,9 +205,8 @@ representations tedious. Now, each datatype has a \emph{code},
 \emph{representation} of the values fo the datatype in question. T he
 key insight here is that we can write combinators that work for
 \emph{any} \emph{representation} by induction on the |CodeSOP|, and
-this does not require instance search. \alejandro{Explain here that
-``instance search'' refers to the need of defining a |Size| class and
-|GSize| for each combinator.}
+this does not require instance search, that is, the definition
+of a |GSize| instance for each \emph{pattern functor}.
 
   Expectedly, the very \emph{representation}, defined by induction on
 |CodeSOP| by the means of $n$-ary sums, |NS|, and $n$-ary products,
@@ -801,42 +795,53 @@ variable, |Var|, we check if the referenced variable is either exactly
 the same or equivalent under the registered \emph{rules} so far.
 
   Let us abstract away this book-keeping functionality by the means of
-a monad with a couple associated functions\footnote{%
-It is a simple exercise to implement the |MonadAlphaEq (State [[(String ,
-String)]])| instance: the outer list represent the scopes, the inner lists
-represent the equivalences under a given scope}.
+a monad with a couple associated functions. The idea is that |m| will
+keep track of a stack of scopes, each scope will be registering a list
+of \emph{name-equivalences}. In fact, this is very close to how one
+sould go about defining equality for \emph{nominal terms}~\cite{Calves2008}.
 
 \begin{myhs}
 \begin{code}
 class Monad m => MonadAlphaEq m where
-  addScope  :: m ()
+  scoped    :: m a -> m a
   addRule   :: String -> String -> m ()
   (=~=)     :: String -> String -> m Bool
-  runAlpha  :: m a -> a
 \end{code}
 \end{myhs}
 
-  Now, we could go about defining our alpha equivalence decider by encoding what to do
-for |Var| and |Abs| and have an automatic eliminator for |App|:
+  Running a |scoped f| computation will push a new scope for running |f|
+and pop it after |f| is done. The |addRule v_1 v_2| function registers an equivalence
+of |v_1| and |v_2| in the top of the scope stack. Finally, |v_1 =~= v_2| is define
+by pattern matching on the scope stack. If the stack is empty, then |v_1 =~= v_2 = v_1 == v_2|.
+Otherwise, let the stack be |s:ss|. We first traverse |s| gathering the rules
+referencing either |v_1| or |v_2|. If there is none, we check if |v_1 =~= v_2| under |ss|.
+If there are rules referencing either variable name in the topmost stack, we must
+ensure there is only one such rule, and it states a name equivalence between |v_1| and |v_2|.
+We will not show the implementation of these functions as these can be checked in 
+the \texttt{Examples} directory of \texttt{\nameofourlibrary}. It is a good exercise
+to implement the |MonadAlphaEq (State [[ (String , String) ]])| nevertheless. 
 
-\victor{test this}
+  Returning to the main focus of this illustration and leaving book-keeping functionality
+aside, we define our alpha equivalence decider by encoding what to do
+for |Var| and |Abs| constructors. The |App| can be eliminated generically.
+
 %format TermP  = "\HT{Term\_}"
 %format VarP   = "\HT{Var\_}"
 %format AbsP   = "\HT{Abs\_}"
 \begin{myhs}
 \begin{code}
 alphaEq :: Term -> Term -> Bool
-alphaEq x y = runAlpha (galphaEq (deepFrom x) (deepFrom y))
+alphaEq x y = runState (galphaEq (deepFrom x) (deepFrom y)) [[]]
   where
     galphaEq x y = maybe False (go TermP) (zipRep x y)
 
-    step = elimRepM  (return . uncurry (==))  -- Opaque types have to equal!
+    step = elimRepM  (return . uncurry (==))  -- Opaque types have to be equal!
                      (uncurry galphaEq)       -- recursive step
                      (return . and)           -- combining results
 
     go TermP x = case sop x of
       VarP (v_1 :*: v_2)                -> v_1 =~= v_2
-      AbsP (v_1 :*: v_2) (t_1 :*: t_2)  -> addScope >> addRule v_1 v_2 >> galphaEq t_1 t_2
+      AbsP (v_1 :*: v_2) (t_1 :*: t_2)  -> scoped (addRule v_1 v_2 >> galphaEq t_1 t_2)
       _                                 -> step x
 \end{code}
 \end{myhs}
@@ -852,14 +857,14 @@ The names suffixed with an underscore are \emph{pattern synonyms}
 that make programming in this framework more convenient. These are
 also automatically generated as we will see on \Cref{sec:templatehaskell}.
 
-  One might be inclined to believe that the generic programming is
-bringing more boilerplate code than anything else. For the lambda calculus
-case it is quite true, with only three constructors in |Term| one is better
-off writing a recursive function. If we bring in a more intricate language,
-however, it becomes almost untractable very fast. Take the a toy imperative 
-language defined below. Transporting |alphaEq| from the lambda calculus
-is fairly simple. For one, |alhaEq|, |step| and |galphaEq| remain the same.
-We just need to adapt the |go| function:
+  One might be inclined to believe that the generic programming here
+is more cumbersome than a straight forward pattern matching definition
+over |Term|.  If we bring in a more intricate language to the
+spotlight, however, manual pattern matching becomes almost untractable
+very fast.  Take the a toy imperative language defined below.
+Transporting |alphaEq| from the lambda calculus is fairly simple. For
+one, |alhaEq|, |step| and |galphaEq| remain the same.  We just need to
+adapt the |go| function:
 
 %format StmtP    = "\HT{Stmt\_}"
 %format SAssignP = "\HT{SAssign\_}"
@@ -898,20 +903,20 @@ data Exp
 \begin{code}
 go StmtP x = case sop x of
       SAssignP (v_1 :*: v_2) (e_1 :*: e_2)  
-        -> addRule v1 v2 >> galphaEq e_1 e_2
+        -> addRule v_1 v_2 >> galphaEq e_1 e_2
       _ -> step x
 go DeclP x = case sop x of
       DVarP (v_1 :*: v_2) 
         -> addRule v_1 v_2 >> return True
       DFunP (f_1 :*: f_2) (x_1 :*: x_2) (s_1 :*: s_2)
-        -> addRule f1 f2 >> addScope 
-        >> addRule x1 x2 >> galphaEq s_1 s_2
+        -> addRule f_1 f_2   
+        >> scoped (addRule x_1 x_2 >> galphaEq s_1 s_2)
       _ -> step x
 go ExpP x = case sop x of
       EVarP (v_1 :*: v_2)
         -> v_1 =~= v_2
       ECallP (f_1 :*: f_2) (e_1 :*: e_2)
-        -> (&&) <$$> f_1 =~= f2 <*> galphaEq e_1 e_2 
+        -> (&&) <$$> f_1 =~= f_2 <*> galphaEq e_1 e_2 
       _ -> step x 
 go _ x = step x
 \end{code}
