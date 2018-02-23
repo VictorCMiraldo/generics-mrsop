@@ -20,6 +20,8 @@ import Generics.MRSOP.Opaque
 import Generics.MRSOP.Util
 import Generics.MRSOP.Zipper
 
+import Generics.MRSOP.Examples.LambdaAlphaEqTH hiding (FIX, alphaEq)
+
 import Generics.MRSOP.TH
 
 import Control.Monad
@@ -67,48 +69,22 @@ type FIX = Fix Singl CodesStmtString
 
 -- * Alpha Equality Functionality
 
--- | Scoped name equivalences
-type ScopedEqvs = [[ (String , String) ]]
-
-type AlphaDEq = State ScopedEqvs
-
--- Adds a new scope
-newScope :: AlphaDEq a -> AlphaDEq a
-newScope f = modify ([]:) >> f >>= \x -> modify tail >> return x
-
--- Adds a new name eqv on the current scope.
-addEqv :: String -> String -> AlphaDEq ()
-addEqv n m
-  | m /= n    = modify (\(x:xs) -> ((n , m):x):xs)
-  | otherwise = return ()
-
--- are two names referring to the same variable?
-isEqv :: String -> String -> AlphaDEq Bool
-isEqv n m
-  | n == m    = return True
-  | otherwise = get >>= return . eqv n m
-  where
-    eqv n m []     = False
-    eqv n m (s:ss)
-      | n `elem` (map fst s) = (n , m) `elem` s
-      | otherwise            = eqv n m ss
-
-alphaEq :: Decl String -> Decl String -> Bool
-alphaEq = (galphaEq Decl_) `on` (deep @FamStmtString)
+alphaEqD :: Decl String -> Decl String -> Bool
+alphaEqD = (galphaEq Decl_) `on` (deep @FamStmtString)
   where
     -- Generic programming boilerplate;
     -- could be removed. WE are just passing SNat
     -- and Proxies around.
     galphaEq :: forall iy . (IsNat iy)
              => SNat iy -> FIX iy -> FIX iy -> Bool
-    galphaEq iy x y = evalState (galphaEq' iy x y) [[]]
+    galphaEq iy x y = runAlpha (galphaEq' iy x y) 
 
-    galphaEqT :: forall iy . (IsNat iy)
-              => FIX iy -> FIX iy -> AlphaDEq Bool
+    galphaEqT :: forall iy m . (MonadAlphaEq m , IsNat iy)
+              => FIX iy -> FIX iy -> m Bool
     galphaEqT x y = galphaEq' (getSNat' @iy) x y
     
-    galphaEq' :: forall iy . (IsNat iy)
-              => SNat iy -> FIX iy -> FIX iy -> AlphaDEq Bool
+    galphaEq' :: forall iy m . (MonadAlphaEq m , IsNat iy)
+              => SNat iy -> FIX iy -> FIX iy -> m Bool
     galphaEq' iy (Fix x)
       = maybe (return False) (go iy) . zipRep x . unFix
 
@@ -118,35 +94,39 @@ alphaEq = (galphaEq Decl_) `on` (deep @FamStmtString)
     -- Performs one default ste by eliminating the topmost Rep
     -- using galphaEqT on the recursive positions and isEqv
     -- on the atoms.
+    step :: forall m c . (MonadAlphaEq m)
+         => Rep (Singl :*: Singl) (FIX :*: FIX) c
+         -> m Bool
     step = elimRepM (return . uncurry' eqSingl)
                     (uncurry' galphaEqT)
                     (return . and)
 
     -- The actual important 'patterns'; everything
     -- else is done by 'step'.
-    go :: forall iy
-        . SNat iy
+    go :: forall iy m . (MonadAlphaEq m)
+       => SNat iy
        -> Rep (Singl :*: Singl) (FIX :*: FIX)
               (Lkup iy CodesStmtString)
-       -> AlphaDEq Bool
+       -> m Bool
     go Stmt_ x
       = case sop x of
           SAssign_ (SString v1 :*: SString v2) e1e2
-            -> addEqv v1 v2 >> uncurry' (galphaEq' Exp_) e1e2
+            -> addRule v1 v2 >> uncurry' (galphaEq' Exp_) e1e2
           otherwise
             -> step x
     go Decl_ x
       = case sop x of
           DVar_ (SString v1 :*: SString v2)
-            -> addEqv v1 v2 >> return True
+            -> addRule v1 v2 >> return True
           DFun_ (SString f1 :*: SString f2) (SString x1 :*: SString x2) s
-            -> addEqv f1 f2 >> addEqv x1 x2 >> newScope (uncurry' galphaEqT s)
+            -> addRule f1 f2 >> onNewScope (addRule x1 x2 >> uncurry' galphaEqT s)
           _ -> step x
     go Exp_ x
       = case sop x of
-          EVar_ v -> uncurry' (isEqv `on` unSString) v
+          EVar_ (SString v1 :*: SString v2)
+            -> v1 =~= v2
           ECall_ (SString f1 :*: SString f2) e
-            -> isEqv f1 f2 >> uncurry' galphaEqT e
+            -> (&&) <$> (f1 =~= f2) <*> uncurry' galphaEqT e
           _ -> step x 
     go _ x = step x
 
