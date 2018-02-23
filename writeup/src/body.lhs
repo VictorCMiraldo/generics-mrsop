@@ -15,6 +15,7 @@ argument against them: they require 'Data' and 'Typeable', hence restrict
 which external datatypes one can use}
 
 \subsection{Pattern functors}
+\label{sec:patternfunctors}
 
   Since version $7.2$, GHC supports some basic, off the shelf, generic
 programming using \texttt{GHC.Generics}~\cite{Magalhaes2010}, 
@@ -505,27 +506,200 @@ structures.
 
   Conceptually, going from regular types, \Cref{sec:explicitfix}, to
 mutually recursive families is simple. We just need to be able to reference
-$n$ type variables, one for each element in the family. Take the cannonical
-example of a mutually recursive family, rose trees:
-
+not only one type variable, but one for each element in the family.
+As a running example, we use the flattened |RoseTree| family described in the
+introduction:
 \begin{myhs}
 \begin{code}
-data Rose a  = a :>: [Rose a]
-data [a]     = nil | a : [a]
+data RoseTree      a  =  a :>: RoseTreeList a
+data RoseTreeList  a  =  NilRoseTree | RoseTree a ConsRoseTree RoseTreeList a
 \end{code}
 \end{myhs}
 
-  If we were to write |CodeFix (Rose Int)| we would run into problems,
-as |Rose Int| is not immediatly recursive, it references |[Rose Int]|,
-which only then references |Rose Int|. We would like, in fact, to
-say something like |CodeMRec (Rose Int) = (P [ (P [ KInt , I [Rose Int] ])])|,
-that is, the second argument of the constructor |:>:| is a recursive argument,
-but references another type in the family. If we represent a mutually recursive
-family by a list of types, we could use the position
-in this list as a reference. If family consists of |P [Rose Int, [Rose Int]]|,
-we would have |CodeMRec (Rose Int) = (P [ (P [ KInt , I (S Z) ])])|.
+The previously introduced |CodeFix| does not provide enough combinators to
+describe this datatype. In particular, when we try to write
+|CodeFix (RoseTree Int)|, there is no immediately recursive appearance of
+|RoseTree| itself, so we cannot use the atom |I| in that position.
+|RoseTreeList a| is not an opaque type either, so we cannot
+use any of the other combinators provided by |Atom|. Furthermore, we would
+like to not forget about |RoseTree Int| referring to itself via another datatype
+|RoseTreeList|.
 
-  Lifting the construction from \Cref{sec:explicitfix} starts by
+Our solution is to move from codes of datatypes to \emph{codes for families of
+datatypes}. We no longer talk about |CodeFix (RoseTree Int)| or
+|CodeFix (RoseTreeList Int)| in isolation, but rather about
+|CodeMRec (P [RoseTree Int, RoseTreeList Int])|. Then we extend the language
+of |Atom|s by appending to |I| a natural number which specifies which is
+the member of the family in which recursion happens:
+\begin{myhs}
+\begin{code}
+data Atom = I Nat | KInt | dots
+
+data Nat  = Z | S Nat
+\end{code}
+\end{myhs}
+The code of this recursive family of datatypes can be finally described as:
+\begin{myhs}
+\begin{code}
+CodeMRec (P [RoseTree Int, RoseTreeList Int]) = (P  [ (P [ (P [ KInt, I (S Z)])])          -- code for RoseTree Int
+                                                    , (P [ (P []), P [ I Z, I (S Z)]])])   -- code for RoseTreeList Int
+\end{code}
+\end{myhs}
+Let us have a closer look at the code for |RoseTree Int|, which appears in the
+first place in the list. There is only one constructor which has an |Int| field,
+represented by |KInt|, and another in which we recur to the second member of 
+our family (since lists are 0-indexed, we represent this by |S Z|). Similarly,
+the second constructor of |RoseTreeList Int| points back to both |RoseTree Int|
+using |I Z| and to |RoseTreeList| itself via |I (S Z)|.
+
+  Having settled on the definition of |Atom|, we now need to adapt |NA| to
+the new |Atom|s. In order to interpret any |Atom| into |*|, we now need
+a way to interpret the different recursive positions. This information is given
+by an additional type parameter |phi| from natural numbers into types.
+\begin{myhs}
+\begin{code}
+data NA :: (Nat -> *) -> Atom -> * where
+  NA_I :: phi n  -> NA phi (I n)
+  NA_K :: Int    -> NA phi KInt
+\end{code}
+\end{myhs}
+The additional |phi| bubbles up to the representation of codes.
+\begin{myhs}
+\begin{code}
+type RepMRec (phi :: Nat -> *) (c :: [[Atom]]) = NS (NP (NA phi)) c
+\end{code}
+\end{myhs}
+The only missing piece is tying the recursive loop here. If we want our
+representation to describe a family of datatypes, |phi| should be the functor
+interpreting each of those types.
+
+As an ancillary operation, we need a type-level lookup function for the family.
+We can define this operation for any type-level list in Haskell by
+means of a \emph{closed} |type family| which we call |Lkup|.
+\begin{myhs}
+\begin{code}
+type family Lkup (ls :: [k]) (n :: Nat) :: k where
+  Lkup (P [])    _          = TypeError "Index out of bounds"
+  Lkup (x : xs)  (P Z)      = x
+  Lkup (x : xs)  ((P S) n)  = Lkup xs n
+\end{code}
+\end{myhs}
+In order to improve type error messages, we generate a |TypeError| whenever we
+reach the given index |n| is out of bounds. Interestingly, our design
+guarantees that this case is never reached, all lookups in a representation
+of a code all well-typed.
+
+In principle, this is enough to provide a ground representation for the family
+of types. Let |fam| be the family of ground types, like
+|(P [RoseTree Int, RoseTreeList Int])|, and |codes| the corresponding list
+of codes. Then the representation of the type at index |ix| in the list |fam|
+is given by:
+\begin{myhs}
+\begin{code}
+RepMRec (Lkup fam) (Lkup codes ix)
+\end{code}
+\end{myhs}
+This definition states that to obtain the representation of the type at index
+|ix|, we first lookup its code. Then, in the recursive positions we interpret
+each |I n| by looking up the type at that index in the original family. This
+gives us a \emph{shallow} representation. As an example, here is the expansion
+for index 0 of the rose tree family:
+\begin{myhs}
+\begin{code}
+RepMRec (Lkup RoseTreeFamily) (Lkup RoseTreeCodes Z)
+  =    NS (NP (NA (Lkup RoseTreeFamily))) (Lkup RoseTreeCodes Z)
+  =    NS (NP (NA (Lkup RoseTreeFamily))) (P [ (P [ KInt, I (S Z)])])
+  ==   K1 R Int :*: K1 R (Lkup RoseTreeFamily (S Z))
+  =    K1 R Int :*: K1 R (RoseTreeList Int)
+\end{code}
+\end{myhs}
+
+Unfortunately, Haskell only allows saturated, that is, fully-applied type
+families. As a result, we need to introduce an intermediate datatype |El|,
+\begin{myhs}
+\begin{code}
+data El :: [*] -> Nat -> * where
+  El :: Lkup fam ix -> El fam ix
+\end{code}
+\end{myhs}
+The representation of the family |fam| at index |ix| is thus given by
+|RepMRec (El fam) (Lkup codes ix)|. We only need to use |El| in the first
+argument, because that is the position in which we require partial application.
+The second position features |Lkup| fully-applied, and can stay as is.
+
+  Up to this point, we have talked about a type family and their codes as 
+independent entities. As in the rest of generic programming approaches, we
+want to make their relation explicit. The |Family| type class realizes this
+relation, and introduces functions to perform the conversion between our
+representation and the actual types:
+\begin{myhs}
+\begin{code}
+class Family (fam :: [*]) (codes :: [[[Atom]]]) where
+  
+  fromMRec  :: SNat ix  -> El fam ix                         -> RepMRec (El fam) (Lkup codes ix)
+  toMRec    :: SNat ix  -> RepMRec (El fam) (Lkup codes ix)  -> El fam ix
+\end{code}
+\end{myhs}
+One of the differences between other approaches and ours is that we do not
+use an associated type to define the |codes| for a mutually recursive family
+|fam|. One of the reasons to choose this path is that it alleaviates the
+nomenclature burden of writing the longer |CodeMRec fam| everytime we want to
+refer to |codes|. Furthermore, there are types like lists which appear in
+many different families, and in that case it makes more sense to speak about a
+relation instead of a function. In any case, we can choose the other point of
+the design space by moving |codes| into an associated type or introduce a
+functional dependency |fam -> codes|.
+
+Since now |fromMRec| and |toMRec| operate on families of datatypes, they have
+to specify how to translate \emph{each} of the members of the family back and
+forth the generic representation. This translation needs to know which is the
+index of the datatype we are dealing with in each case, this is the reason
+underneath the additional |SNat ix| parameter. For example, in the case of
+or family of rose trees, |fromMRec| has the following shape:
+\begin{myhs}
+\begin{code}
+fromMRec SZ       (El (x :>: children))  = Rep (          Here (NA_K x :* NA_I children :* NP0))
+fromMRec (SS SZ)  (El [])                = Rep (          Here NP0 ))
+fromMRec (SS SZ)  (El (x : xs))          = Rep ( There (  Here (NA_I x :* NA_I xs :* NP0)))
+\end{code}
+\end{myhs}
+By pattern matching on the index, the compiler knows which is the family member
+to expect as second argument. In dependently-typed languages such as Agda or
+Idris, this index would be expressed as a normal |Nat| value,
+\begin{myhs}
+\begin{code}
+fromMRec : (ix : Nat)  -> El fam ix -> RepMRec (El fam) (Lkup codes ix)
+\end{code}
+\end{myhs}
+Alas, Haskell is not dependently-typed. The usual trick is to introduce a
+\emph{singleton type} which reifies a type into its term-level representation.
+In the case of |Nat|, this type is |SNat|,
+\begin{myhs}
+\begin{code}
+data SNat (n :: Nat) where
+  SZ ::          -> SNat (P Z)
+  SS ::  SNat n  -> SNat ((P S) n)
+\end{code}
+\end{myhs}
+
+  
+\paragraph{Deep encoding.}
+  The least fixpoint combinator also receives an extra parameter of kind |Nat -> *|:
+
+\begin{myhs}
+\begin{code}
+newtype Fix (codes :: [[[Atom]]]) (ix :: Nat)
+  = Fix { unFix :: RepMRec (Fix codes) (Lkup codes ix) }
+\end{code}
+\end{myhs}
+
+\victor{Explain SNat}
+\victor{Explain we could make another class that checks that
+the list of codes is well formed w.r.p.t the family, retaining
+all the static guarantees we love so much in Haskell}
+
+
+Lifting the construction from \Cref{sec:explicitfix} starts by
 redefining |Atom| to something like:
 
 \begin{myhs}
@@ -561,85 +735,6 @@ code is not only valid, but also correct. As long as
 the interpretation of such code under the family |[Rose Int , [Rose
 Int]]| is ill-typed, we are not compromising any safety and we remove
 some boilerplate from the whole construction.
-
-  Having settled on the definition of |Atom|, we now need to adapt |NA| to
-the new |Atom|s. In order to interpret any |Atom| into |*|, we now need
-a way to interpret the different recursive positions:
-
-\begin{myhs}
-\begin{code}
-data NA :: (Nat -> *) -> Atom -> * where
-  NA_I :: phi n  -> NA phi (I n)
-  NA_K :: Int    -> NA phi KInt
-\end{code}
-\end{myhs}
-
-  This time we parametrize the representation for codes instead of a datatype: \victor{why?}
-
-\begin{myhs}
-\begin{code}
-type RepMRec (phi :: Nat -> *) (c :: [[Atom]]) = NS (NP (NA phi)) c
-\end{code}
-\end{myhs}
-
-  The |phi| functor plays a central role here. This is precisely where we will
-plug the mutually recursive semantics. We want this to correspond to looking
-up the type indexed by |n| in the family. We can define a type-level lookup
-function by the means of a closed |type family|, where we can indeed throw
-a type-error if one tries to lookup an out-of-bounds index:
-
-\begin{myhs}
-\begin{code}
-type family Lkup (ls :: [k]) (n :: Nat) :: k where
-  Lkup (P [])    _          = TypeError "Impossible"
-  Lkup (x : xs)  (P Z)      = x
-  Lkup (x : xs)  ((P S) n)  = Lkup xs n
-\end{code}
-\end{myhs}
-
-  And the final piece we have to provide is a datatype that 
-encapsulates this |Lkup| family and can be partially applied.
-Thats because Haskell type families have to be always fully applied,
-meaning we can not extract something of kind |Nat -> *| from |Lkup| alone.
-
-\begin{myhs}
-\begin{code}
-data El :: [*] -> Nat -> * where
-  El :: Lkup fam ix -> El fam ix
-\end{code}
-\end{myhs}
-  
-  Finally, we can pack everything together by the means of a type class
-|Family fam codes| that states the list of types |fam| is a mutually recursive
-family with respect to the list of codes.
-
-\begin{myhs}
-\begin{code}
-class Family (fam :: [*]) (codes :: [[[Atom]]]) where
-  
-  fromMRec  :: SNat ix  -> El fam ix                         -> RepMRec (El fam) (Lkup codes ix)
-  toMRec    :: SNat ix  -> RepMRec (El fam) (Lkup codes ix)  -> El fam ix
-\end{code}
-\end{myhs}
-
-  \victor{We should give more material here. This |El| type really is the key type.
-We could talk about the smart constructor |into| and perhaps even about the
-fight with the typechecker to have haskell understant that for valid families
-the |Lkup| function is injective}
-  The least fixpoint combinator also receives an extra parameter of kind |Nat -> *|:
-
-\begin{myhs}
-\begin{code}
-newtype Fix (codes :: [[[Atom]]]) (ix :: Nat)
-  = Fix { unFix :: RepMRec (Fix codes) (Lkup codes ix) }
-\end{code}
-\end{myhs}
-
-\victor{Explain SNat}
-\victor{Explain we could make another class that checks that
-the list of codes is well formed w.r.p.t the family, retaining
-all the static guarantees we love so much in Haskell}
-
 
 
 \subsection{Parametrized Opaque Types}

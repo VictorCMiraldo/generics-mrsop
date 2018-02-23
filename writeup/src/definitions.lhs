@@ -97,6 +97,9 @@
 %format fromSOP  = "\HV{\textit{from}_{\mathsf{sop}}}"
 %format fromFix  = "\HV{\textit{from}_{\mathsf{fix}}}"
 %format fromMRec = "\HV{\textit{from}_{\mathsf{mrec}}}"
+%format toGen    = "\HV{\textit{to}_{\mathsf{gen}}}"
+%format toSOP    = "\HV{\textit{to}_{\mathsf{sop}}}"
+%format toFix    = "\HV{\textit{to}_{\mathsf{fix}}}"
 %format toMRec   = "\HV{\textit{to}_{\mathsf{mrec}}}"
 
 
