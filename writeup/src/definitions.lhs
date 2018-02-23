@@ -66,7 +66,7 @@
 %format (P (a)) = "\HS{''}" a
 
 %%% Usefull Notation
-%format dots    = "\HS{\cdots}"
+%format dots    = "\HS{\dots}"
 %format forall  = "\HS{\forall}"
 %format dot     = "\HS{.}"
 %format ^=      = "\HS{\bumpeq}"

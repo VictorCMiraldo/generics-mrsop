@@ -345,9 +345,9 @@ field is a recursive position or an opaque type.
 \begin{code}
 data Atom = I | KInt | dots
 
-type family CodeFix (a :: *) :: P [ P [Atom] ]
+type family    CodeFix (a :: *)   ::  P [ P [Atom] ]
 
-type instance CodeFix (Bin Int) = P [ P [KInt] , P [I , I] ]
+type instance  CodeFix (Bin Int)  =   P [ P [KInt] , P [I , I] ]
 \end{code}
 \end{myhs}
 
