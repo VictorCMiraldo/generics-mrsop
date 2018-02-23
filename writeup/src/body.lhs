@@ -23,16 +23,17 @@ allows one to define a function for \emph{any} datatype by induction
 on the structure of its representation using \emph{pattern functors}.
 
   These \emph{pattern functors} are parametrized versions of tuples,
-sum-types (|Either|), and unit, empty and constant functors. These provide
+sum types (|Either| in Haskell lingo), and unit, empty and constant functors. These provide
 a unified view over data: the generic \emph{representation} of values.
 The values of a suitable type |a| are translated to this representation
-by the means of the |from :: a -> RepGen a| function. We will be using
-subscripts to distinguish different representations.
+by the means of the |from :: a -> RepGen a| function.
 
 Defining a generic |size| function that provides a measure for any 
 value of a supported datatype, for instance, is done in two
 steps. First, we define a class that exposes a |size| function
-for values in kind |*|:
+for values. Since we use a mix of classes for both ground types (of kind |*|)
+and type constructors (of kind |* -> *|), we shall be explicit about
+them in our class definitions.
 
 \begin{myhs}
 \begin{code}
@@ -44,7 +45,7 @@ class Size (a :: *) where
 \end{code}
 \end{myhs}
 
-  The default keyword instructs Haskell to use the provided
+  The |default| keyword instructs Haskell to use the provided
 implementation whenever the constraint |(GenericGen a , GSize (RepGen a))| 
 can be satisfied when declaring an instance for |Size a|.
 In a nutshell, we are saying that if Haskell
@@ -145,7 +146,7 @@ one can define. Every generic function has to follow the
 \emph{mutually recursive classes} technique we shown.
 
 \victor{this remark seems unnecessary; why would we write the paper if
-we don't fix things?}
+we don't fix things?} \alejandro{Agree.}
 Later on, in \Cref{sec:explicitfix}, we 
 show how to successfuly solve both issues.
 
@@ -156,7 +157,7 @@ show how to successfuly solve both issues.
 structure of |Bin|, we could have defined our |gsize| function as we
 described it before: sum up the sizes of the fields inside a value,
 ignoring the constructor. In fact, the
-\texttt{generics-sop}~\cite{deVries2014} library allows one to do
+\texttt{generics-sop}~\cite{deVries2014} library allows one to do so.
 Unlike \texttt{GHC.Generics}, the representation of values is
 defined by induction on the \emph{code} of a datatype, this \emph{code}
 is a type-level list of lists of |*|, whose semantics is
@@ -166,7 +167,7 @@ This section provides an overview of \texttt{generic-sop} as required
 to understand our techniques, we refer the reader to the original
 paper~\cite{deVries2014} for a more comprehensive explanation.
 
-This extra portion of information allows for a plethora of combinators
+This additional portion of information allows for a plethora of combinators
 to be written. It ultimately allows one to write, with a pinch of
 sugar, the |gsize| function as:
 
