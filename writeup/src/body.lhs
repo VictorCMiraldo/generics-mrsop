@@ -210,7 +210,9 @@ representations tedious. Now, each datatype has a \emph{code},
 \emph{representation} of the values fo the datatype in question. T he
 key insight here is that we can write combinators that work for
 \emph{any} \emph{representation} by induction on the |CodeSOP|, and
-this does not require instance search.
+this does not require instance search. \alejandro{Explain here that
+``instance search'' refers to the need of defining a |Size| class and
+|GSize| for each combinator.}
 
   Expectedly, the very \emph{representation}, defined by induction on
 |CodeSOP| by the means of $n$-ary sums, |NS|, and $n$-ary products,
@@ -352,12 +354,12 @@ type instance  CodeFix (Bin Int)  =   P [ P [KInt] , P [I , I] ]
 \end{myhs}
 
   Where |I| is used to mark the recursive positions and |KInt, dots|
-are codes for a pretermined selection of Haskell primitive types.
+are codes for a pretermined selection of primitive types, which we
+refer to as \emph{opaque types}.
 Favoring the simplicity of the presentation, we will stick with only
-hardcoded |Int| as the only opaque type in the universe. It is simple
-to parametrize the whole development to whatever the user requires, as
-we have done in the actual implementation.
-\victor{add note that we'll give a link to the repo once review is done}
+hardcoded |Int| as the only opaque type in the universe. Later on,
+in \Cref{sec:konparameter}, we parametrize the whole development to whatever
+the user requires.
 
   The most notable difference is that our code now is not polymorphic.
 Back in \Cref{sec:explicitsop} we have defined |CodeSOP (Bin
