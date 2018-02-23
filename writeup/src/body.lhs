@@ -871,15 +871,16 @@ other constructors of the language should be trivial a trivial
 combination of recursive results. Let us warm up with the
 $\lambda$-calculus:
 
+%format LambdaTerm = "\HT{Term_{\lambda}}"
 \begin{myhs}
 \begin{code}
-data Term  =  Var  String
-           |  Abs  String  Term
-           |  App  Term    Term
+data LambdaTerm  =  Var  String
+                 |  Abs  String      LambdaTerm
+                 |  App  LambdaTerm  LambdaTerm
 \end{code}
 \end{myhs}
 
-  The process is conceptually simple. Firstly, for |t_1, t_2 :: Term|
+  The process is conceptually simple. Firstly, for |t_1, t_2 :: LambdaTerm|
 to be $\alpha$-equivalent, they have to have the same structure, that
 is, the same constructors. Otherwise, we can already say they are not
 $\alpha$-equivalent.  We then traverse both terms at the same time and
@@ -925,7 +926,7 @@ for |Var| and |Abs| constructors. The |App| can be eliminated generically.
 %format AbsP   = "\HT{Abs\_}"
 \begin{myhs}
 \begin{code}
-alphaEq :: Term -> Term -> Bool
+alphaEq :: LambdaTerm -> LambdaTerm -> Bool
 alphaEq x y = runState (galphaEq (deepFrom x) (deepFrom y)) [[]]
   where
     galphaEq x y = maybe False (go TermP) (zipRep x y)
@@ -942,7 +943,7 @@ alphaEq x y = runState (galphaEq (deepFrom x) (deepFrom y)) [[]]
 \end{myhs}
 
   There is a number of things going on with this example. First,
-note the application of |zipRep|. If two |Term|s are made with different
+note the application of |zipRep|. If two |LambdaTerm|s are made with different
 constructors, |galphaEq| will already return |False| because |zipRep| will fail.
 When |zipRep| succeeds though, we get access to one constructor with
 paired fields inside. Then the |go| function enters the stage, it 
@@ -954,7 +955,7 @@ also automatically generated as we will see on \Cref{sec:templatehaskell}.
 
   One might be inclined to believe that the generic programming here
 is more cumbersome than a straight forward pattern matching definition
-over |Term|.  If we bring in a more intricate language to the
+over |LambdaTerm|.  If we bring in a more intricate language to the
 spotlight, however, manual pattern matching becomes almost untractable
 very fast.  Take the a toy imperative language defined below.
 Transporting |alphaEq| from the lambda calculus is fairly simple. For
@@ -1026,9 +1027,140 @@ the constructors that |go| patterns matches on, we can use the very same functio
 
 \subsection{The Generic Zipper}
 
-  \victor{does the generic zipper deserves its own section or do
-we just want to mention it without going into detail??
-I'd say we wait and see how much space we need to fill up}
+  To conclude our examples section and stress-test our framework, 
+we introduce a more complex application of generic programming. 
+Zippers~\cite{Huet1997} are a well estabilished technique for 
+traversing a recursive datastructure keeping track of the current
+\emph{focus point}. Defining generic zippers is nothing new,
+this has been done by many authors~\cite{Hinze2004,Adams2010,Yakushev2009}
+for many different classes of types in the past. To the best of
+the authors knowledge, this is the first definition in a direct
+\emph{sums-of-products} style. Moreover, being able to define
+the generic zipper in one's generic programming framework is
+a non-trivial benchmark to achieve.
+
+  Generally speaking, the zipper keeps track of a focus point in a
+datastructure and allows for the user to convinently move this focus
+point and to apply functions to whatever is under focus.  This focus
+point is expressed by the means of a location type, |Loc|, with a
+couple associated functions:
+
+\begin{myhs}
+\begin{code}
+up      :: Loc a -> Maybe (Loc a)
+down    :: Loc a -> Maybe (Loc a)
+right   :: Loc a -> Maybe (Loc a)
+update  :: (a -> a) -> Loc a -> Loc a
+\end{code}
+\end{myhs}
+
+  In our case, this location type consists in a distinguished element
+of type |ix| and a stack of contexts with a hole of type |ix|, where
+we can plug the distinguished element and \emph{leave} the zipper.
+All of the following development is parametrized by an interpretation
+for opaque types |ki :: kon -> *|, a family |fam :: [*]| and its associated
+codes |codes :: [[[Atom kon]]]|; since these are the same for any given family,
+let us fix those and ommit them from the declarations to simplify the presentation. 
+
+  A location for the |ix| element of the family, |El fam ix|
+is defined by having a distinguished element of the family, possibly of
+a different index, |iy| and a stack of contexts that represent a value of
+type |El fam ix| with a \emph{hole} of type |El fam iy|.
+
+\begin{myhs}
+\begin{code}
+data Loc :: Nat -> * where
+  Loc :: El fam iy -> Ctxs ix iy -> Loc ix
+\end{code}
+\end{myhs}
+
+  The stack of contexts represent how deep into the recursive
+tree we have descended so far. Each time we unwrap another layer of recursion,
+we push some context into the stack to be able to ascend back up. Note how
+the |Cons| constructor resembles some sort of composition operation.
+
+\begin{myhs}
+\begin{code}
+data Ctxs :: Nat -> Nat -> * where
+  Nil   :: Ctxs ix ix
+  Cons  :: Ctx (Lkup codes iz) iy -> Ctxs ix iz -> Ctxs ix iy
+\end{code}
+\end{myhs}
+
+  Each individual context, |Ctx c iy| is a choice of a constructor
+for the code |c| with a product of the correct type missing an element
+of type |El fam iy|, representing the hole where the distinguished element
+in |Loc| was supposed to be. 
+
+\begin{myhs}
+\begin{code}
+data Ctx :: [[Atom kon]] -> Nat -> * where
+  Ctx :: Constr n c -> NPHole (Lkup n c) iy -> Ctx c iy
+
+data NPHole :: [Atom kon] -> Nat -> * where
+  Here   :: NP (NA ki (El fam)) xs            -> NPHole (I ix  : xs)  ix
+  There  :: NA ki (El fam) x -> NPHole xs ix  -> NPHole (x     : xs)  ix
+\end{code}
+\end{myhs}
+
+  The navigation functions are exactly direct translation of those defined 
+for the \texttt{multirec}~\cite{Yakushev2008} library, that use the
+|first|, |fill|, and |next| primitives for working over |Ctx|s.
+The |fill| is trivial to translate, whereas |first| and |next| require
+a slight trick.  We have to wrap the |Nat| parameter of |NPHole| in an
+existential in order to manipulate it conveniently:
+
+\begin{myhs}
+\begin{code}
+data NPHoleE :: [Atom kon] -> * where
+  Witness :: El fam ix -> NPHole c ix -> NPHoleE c
+\end{code}
+\end{myhs}
+
+  Finally, we can define the |firstE| and |nextE| that are used
+instead of the |first| and |next| from \texttt{multirec}. The intuition
+behind those is pretty simple; |firstE| returns the |NPHole| with the hole
+first recursive position (if any) selected, |nextE| tries to find the
+next recursive position in a |NPHole|. The |ix| is packed up in an existential
+type since we do not really know before hand which member of the mutually
+recursive family is seen first in an arbitrary product. These altered
+functions have types:
+
+\begin{myhs}
+\begin{code}
+firstE  :: NP (NA ki (El fam)) xs  -> Maybe (NPHoleE xs)
+nextE   :: NPHoleE xs              -> Maybe (NPHoleE xs)
+\end{code}
+\end{myhs}
+
+  To conclude we can now use flipped compositions for pure functions 
+|(>>>) :: (a -> b) -> (b -> c) -> a -> c| and monadic functions
+|(>=>) :: (Monad m) => (a -> m b) -> (b -> m c) -> a -> m c| to elegantly
+write some \emph{location based} instruction to transform some value
+of a |LambdaTerm| (\Cref{sec:alphaequivalence}), for instance.
+
+\begin{minipage}[t]{.55\textwidth}
+\begin{myhs}
+\begin{code}
+tr :: LambdaTerm -> Maybe LambdaTerm
+tr = enter  >>> down 
+            >=> right 
+            >=> update (const $$ Var "c") 
+            >>> leave 
+            >>> return
+\end{code}
+\end{myhs}
+\end{minipage}%
+\begin{minipage}[t]{.45\textwidth}
+\begin{myhs}
+\begin{code}
+tr (App (Var "a") (Var "b")) 
+  == Just (App (Var "a") (Var "c"))
+\end{code}
+\end{myhs}
+\end{minipage}
+
+  Where |enter| and |leave| witness the isomorphism |El fam ix <-> Loc ix|.
 
 \section{Template Haskell}
 \label{sec:templatehaskell}

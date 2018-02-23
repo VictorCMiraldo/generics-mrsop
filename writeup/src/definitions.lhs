@@ -91,6 +91,9 @@
 %format CodeSOP    = "\HT{\textit{Code}_{\mathsf{sop}}}"
 %format CodeFix    = "\HT{\textit{Code}_{\mathsf{fix}}}"
 %format CodeMRec   = "\HT{\textit{Code}_{\mathsf{mrec}}}"
+%format NPHole     = "\HT{NP_{\square}}"
+%format NPHoleE    = "\HT{\exists NP_{\square}}"
+
 
 %%% Functions
 %format fromGen  = "\HV{\textit{from}_{\mathsf{gen}}}"
@@ -101,6 +104,8 @@
 %format toSOP    = "\HV{\textit{to}_{\mathsf{sop}}}"
 %format toFix    = "\HV{\textit{to}_{\mathsf{fix}}}"
 %format toMRec   = "\HV{\textit{to}_{\mathsf{mrec}}}"
+%format firstE   = "\HV{first_\exists}"
+%format nextE    = "\HV{next_\exists}"
 
 
 %format :>: = "\HT{\triangleright}"
@@ -109,6 +114,8 @@
 %format :+: = "\HT{:\!+\!:}"
 %format <$$> = "\HS{<\!\!\$\!\!>}"
 %format <*> = "\HS{<\!\!*\!\!>}"
+
+%format <-> = "\HS{\leftrightarrow}"
 
 %format NilRoseTree = "\HS{[]_{\mathsf{RoseTree}}}"
 %format ConsRoseTree = "\HS{\mathrel{:_{\mathsf{RoseTree}}}}"
