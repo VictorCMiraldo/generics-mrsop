@@ -233,6 +233,7 @@ informing the typechecker of the structure of the |CodeSOP|.
 
 \victor{could add a note here saying that this is 
 one of the central tricks}
+
 \begin{minipage}[t]{.45\textwidth}
 \begin{myhs}
 \begin{code}
@@ -314,16 +315,13 @@ carry proofs that the recursive arguments can also be translated to
 a generic representation. We can relief this burden by recording,
 explicitely, which fields of a constructor are recursive or not.
 
-\victor{\huge IM HERE}
 \section{Explicit Fix: Deep and Shallow for free}
 \label{sec:explicitfix}
 
-  Introducing information about the recursive positions in a type is
-done by changing the type of atoms in the universe. In
-\Cref{sec:explicitsop} we had |CodeFix :: * -> (P [ (P [*])])|,
-that is, the atoms of the universe were Haskell types. If instead we
-create a new kind |Atom|, we can record wether or not a constructor
-field is a recursive position or an opaque type.
+  Introducing information about the recursive positions in a type requires
+more expressive codes. In \Cref{sec:explicitsop} our \emph{codes} were 
+a list of lists of types, which could be anything. Instead, we
+will now have a list of lists of |Atom| to be our codes:
 
 \begin{myhs}
 \begin{code}
@@ -340,19 +338,22 @@ are codes for a pretermined selection of primitive types, which we
 refer to as \emph{opaque types}.
 Favoring the simplicity of the presentation, we will stick with only
 hardcoded |Int| as the only opaque type in the universe. Later on,
-in \Cref{sec:konparameter}, we parametrize the whole development to whatever
-the user requires.
+in \Cref{sec:konparameter}, we parametrize the whole development.
 
-  The most notable difference is that our code now is not polymorphic.
+  Our \emph{codes} here are not polymorphic anymore.
 Back in \Cref{sec:explicitsop} we have defined |CodeSOP (Bin
 a)|, and this would work for any |a|. This might seen like a
-disadvantage, but it is in fact quite the opposite. This allows us to
-provide a deep conversion for free, given a shallow conversion. Beyond
+disadvantage at first, but it is in fact quite the opposite. This allows us to
+provide a deep conversion for free and relaxes the need to carry
+constraints around. Beyond
 doubt one needs to have access to the |CodeSOP a| when converting a
-|Bin a| to its (deep) representation. By specifying the types involved
+|Bin a| to its deep representation. By specifying the types involved
 beforehand, we are able to get by without having to carry all of the
 constraints we needed in \Cref{sec:explicitsop}. We can benefit
 the most from this in the simplicity of combinators we are able to write.
+
+
+\victor{\huge IM HERE}
 
   The representation of our codes now requires a functor that map |Atom|s into
 Haskell values, that is, |Atom -> *|. The representation |RepFix| is remarkably 
