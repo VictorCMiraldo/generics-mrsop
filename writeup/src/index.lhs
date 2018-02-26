@@ -108,18 +108,20 @@
 %% Note: \begin{abstract}...\end{abstract} environment must come
 %% before \maketitle command
 \begin{abstract}
-  The technique of writting programs that operate on a uniform representation of 
-data instead of data directly, \emph{Generic Programming}, has its expressivity
-bounded by the quality of the choice of representation. This is not always
-a linear choice. Different flavors of representations have different drawbacks
-alltogether. The Haskell ecosystem has many different libraries, but none is
-cabaple of handling mutually recursive types in a satisfactory way.
-We present a library for type-safe generic programming with mutually recursive families
-and explicit \emph{sums-of-products} structure. The \emph{sums-of-products}
-structure allows for simple, combinator-based, generic functions that operate on arbitrarily
-complex families of datatypes, including those comming from external libraries. 
-Moreover, we do so with a relatively sane set of \emph{Language Extensions}, hence 
-allowing the programmer to use the library without consistency drawbacks.
+  The technique of writting programs that operate on a uniform
+representation of class of datatypes, \emph{Generic Programming}, has
+its expressivity bounded by the quality of the choice of
+representation.  Each having different drawbacks altogether.  The
+Haskell ecosystem has many different libraries, but none is cabaple of
+handling mutually recursive types in a convenient and simple form.  We
+present a library for type-safe generic programming with mutually
+recursive families and explicit \emph{sums-of-products} structure. The
+\emph{sums-of-products} structure allows for simple, combinator-based,
+generic functions that operate on arbitrarily complex families of
+datatypes, including those comming from external libraries.  Moreover,
+we do so with a relatively sane set of \emph{Language Extensions},
+hence allowing the programmer to use the library without consistency
+drawbacks.
 \end{abstract}
 
 
