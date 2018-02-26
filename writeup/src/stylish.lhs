@@ -100,3 +100,5 @@
 %format //         = "\HSManualSym{\mathbin{//}}"
 %format undefined  = "\HSManualSym{\bot} "
 %format not	   = "\HSManualSym{\neg} "
+%format >>>        = "\HSManualSym{\ggg}"
+%format >=> = "\HSManualSym{> \! = \! >}"

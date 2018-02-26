@@ -106,7 +106,7 @@
 %format toMRec   = "\HV{\textit{to}_{\mathsf{mrec}}}"
 %format firstE   = "\HV{first_\exists}"
 %format nextE    = "\HV{next_\exists}"
-
+%format fam      = "\HV{\mathit{fam}}"
 
 %format :>: = "\HT{\triangleright}"
 %format :*  = "\HT{\times}"

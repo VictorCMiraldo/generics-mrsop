@@ -692,7 +692,7 @@ it. We shall not go into details about their implementation, but the final
 |into| function which injects a value into the corresponding |El| looks like:
 \begin{myhs}
 \begin{code}
-into :: forall fam ty ix. (ix ~ Idx ty fam , Lkup ix fam ~ ty , IsNat ix) => ty -> El fam ix
+into :: forall fam ty ix dot (ix ~ Idx ty fam , Lkup ix fam ~ ty , IsNat ix) => ty -> El fam ix
 into = El
 \end{code}
 \end{myhs}
@@ -725,7 +725,7 @@ type was a functor. |RepMRec| on the other hand cannot be given a |Functor|
 instance, but we can still define a similar function |mapRec|,
 \begin{myhs}
 \begin{code}
-mapRep :: (forall ix . IsNat ix => f ix -> g ix) -> RepMRec f c -> RepMRec g c
+mapRep :: (forall ix dot IsNat ix => phi1 ix -> phi2 ix) -> RepMRec phi2 c -> RepMRec phi2 c
 \end{code}
 \end{myhs}
 This type signature tells us that if we want to change the |phi| argument in 
@@ -1029,24 +1029,24 @@ data Exp
 \begin{minipage}[t]{.50\textwidth}
 \begin{myhs}
 \begin{code}
-go StmtP x = case sop x of
+go StmtP  x = case sop x of
       SAssignP (v_1 :*: v_2) (e_1 :*: e_2)  
-        -> addRule v_1 v_2 >> galphaEq e_1 e_2
-      _ -> step x
-go DeclP x = case sop x of
+         ->  addRule v_1 v_2 >> galphaEq e_1 e_2
+      _  ->  step x
+go DeclP  x = case sop x of
       DVarP (v_1 :*: v_2) 
-        -> addRule v_1 v_2 >> return True
+         ->  addRule v_1 v_2 >> return True
       DFunP (f_1 :*: f_2) (x_1 :*: x_2) (s_1 :*: s_2)
-        -> addRule f_1 f_2   
-        >> scoped (addRule x_1 x_2 >> galphaEq s_1 s_2)
-      _ -> step x
-go ExpP x = case sop x of
+         ->  addRule f_1 f_2   
+         >>  scoped (addRule x_1 x_2 >> galphaEq s_1 s_2)
+      _  ->  step x
+go ExpP   x = case sop x of
       EVarP (v_1 :*: v_2)
-        -> v_1 =~= v_2
+         ->  v_1 =~= v_2
       ECallP (f_1 :*: f_2) (e_1 :*: e_2)
-        -> (&&) <$$> f_1 =~= f_2 <*> galphaEq e_1 e_2 
-      _ -> step x 
-go _ x = step x
+         ->  (&&) <$$> f_1 =~= f_2 <*> galphaEq e_1 e_2 
+      _  ->  step x 
+go _      x = step x
 \end{code}
 \end{myhs}
 \end{minipage}
@@ -1175,11 +1175,11 @@ of a |LambdaTerm| (\Cref{sec:alphaequivalence}), for instance.
 \begin{myhs}
 \begin{code}
 tr :: LambdaTerm -> Maybe LambdaTerm
-tr = enter  >>> down 
-            >=> right 
-            >=> update (const $$ Var "c") 
-            >>> leave 
-            >>> return
+tr = enter  >>>  down 
+            >=>  right 
+            >=>  update (const $$ Var "c") 
+            >>>  leave 
+            >>>  return
 \end{code}
 \end{myhs}
 \end{minipage}%
