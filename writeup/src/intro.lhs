@@ -1,15 +1,12 @@
 \section{Introduction}
 \label{sec:introduction}
 
-Generic programming provides mechanisms to implement functions
-on the shape of a datatype. A well-known example is the |deriving| mechanism
+\emph{(Datatype-)generic programming} provides mechanisms to implement functions
+on the shape of a datatype~\cite{Gibbons2006}. A well-known example is the |deriving| mechanism
 in Haskell, which frees the programmer from writing repetitive functions such as
-equality~\cite{haskell2010}. Work on this type of genericity 
-\victor{Should we mention there are other types of genericty? IF so, it's either
-here or in the abstract} is especially
-prolific in Haskell, where a vast range of approaches are available as
+equality~\cite{haskell2010}. A vast range of approaches are available as
 preprocessors, language extensions, or
-libraries~\cite{Rodriguez2008,Magalhaes2012}. Generic programming has become a
+libraries for Haskell~\cite{Rodriguez2008,Magalhaes2012}. In fact, generic programming has become a
 common technique in the programmers' toolbox. A library like Scrap Your
 Boilerplate~\cite{Lammel2003} has 275 reverse dependencies at the time of
 writing.\footnote{As reported by
@@ -29,20 +26,9 @@ data Bin a = Leaf a | Bin (Bin a) (Bin a)
 \end{myhs}
 A value of type |Bin a| consists of a choice between two constructors.
 For the first choice, it also constains a value of type |a| whereas 
-for the second if contains two subtrees as children. In fact, |Bin a|
-is isomorphic to the |Either a (Bin a , Bin a)| type. 
-\victor{I feel we should add a paragraph with our final |gsize| function here;
-tell that story of ``oh, what if we change the datatype'' and capitalize
-on the neat definition}
-\tmp{
-In order to represent this datatype generically, we need to remember that:
-\begin{enumerate}
-\item A value of |Bin a| can be built using one of two constructors;
-\item If you use the first constructor you hold a value of the type |a|;
-\item On the other hand, a value built using |Bin| contains two subtrees as
-children.
-\end{enumerate}
-}
+for the second if contains two subtrees as children. This means that the |Bin a| type
+is isomorphic to |Either a (Bin a , Bin a)|. 
+
 Different libraries differ on how they define their underlying generic descriptions. 
 For example,
 \texttt{GHC.Generics}~\cite{Magalhaes2010} defines the representation of |Bin|
@@ -53,7 +39,7 @@ to distinguish the generic programming library at hand.}
 RepGen (Bin a) = K1 R a :+: (K1 R (Bin a) :*: K1 R (Bin a))
 \end{code}
 \end{myhs}
-This type is isomorphic to |Either a (Bin a , Bin a)|, but using the combinators
+which is a direct translation of |Either a (Bin a , Bin a)|, but using the combinators
 provided by \texttt{GHC.Generics}, namely |:+:| and |:*:|. In addition, we need
 two conversion functions |from :: a -> Rep a x| and |to :: Rep a x -> a|
 which form an isomorphism
@@ -78,39 +64,40 @@ of each library is how is this description encoded and which are the primitive
 operations for constructing such encodings, since they ultimately define which
 datatypes go under its cover.
 
-\victor{perhaps instead of equality we show |gsize|?}
 Once you have a uniform description language for datatypes, generic code
-is merely code that operates under this uniform language, ie:
+is merely code that operates under this uniform language. One of the simplest
+examples of generic programming is the definition of a |size| function which
+counts the number of constructors used to build a given value.
 \begin{myhs}
 \begin{code}
-eq x y = genericEq (from x) (from y)
+size x = genericSize (from x)
 \end{code}
 \end{myhs}
-The |genericEq| function operates at the level of descriptions:
-\begin{enumerate}
-\item Checks whether |x| and |y| are built from the same constructor, in
-negative case we can already return |False|;
-\item If they both share the constructor, equality is checked for every pair
-of children of |x| and |y|.
-\end{enumerate}
+The |from| function, defined above, translates the concrete value |x| into
+the generic description language. The |genericSize| function operates then at
+that level: it checks whether the constructor used to build the value has
+fields of the same type, and in affirmative case recurses into those children.
+Then it sums all the obtained values and adds 1.
 
 \paragraph{Deep versus shallow.}
-\victor{Does it really showcase? This sentence is misleading}
-This simple function already showcases the difference between \emph{shallow}
-and \emph{deep} representation of datatypes. When using a shallow representation
+There are two ways to implement |from|, leading to different implementation
+strategies for functions like |genericSize|. When using a \emph{shallow} representation
 only one layer of the value is turned into a generic form by a call to |from|.
-As a result, our |genericEq| needs to call |from| again over each childre
+As a result, our |genericSize| needs to call |from| again over each children
  before going recursively into then.
 This is the kind of representation we get from \texttt{GHC.Generics}, among
 others.
 
 The other side of the spectrum are \emph{deep} representation, in which the
 entire value is turned into the set of combinators the generic library provides
-in one go. Since you have the entire shape of the value under your hands, you can
-use deep representation to transform the datatype; for example, you can define
-the type of regular expressions over a datatype~\cite{Serrano2016}\victor{confusing}. In the case
-of generic equality, using a deep description implies that only call to
-|from| is needed, but it traverses the value completely. This poses a
+in one go. Since you know the entire shape of the datatype, including when
+recursion is places, deep techniques usually allow transformation of the
+datatype, not only generic functionality. This additional power has been used,
+for example, to define regular expressions over Haskell datatypes~\cite{Serrano2016}.
+Depending on the use case, a shallow representation might be more efficient
+if only part of the value needs to be inspected. On the other hand, deep
+representations are sometimes easier to use, since the conversion is taken
+care in one go. This poses a
 trade-off between deep and shallow.
 
 In general, descriptions that support a deep representation are more involved
@@ -133,7 +120,7 @@ this form.
 
 In practice, you always use a sum of products to represent a datatype -- a sum
 to express the choice of constructor, and within each of them a product to
-declare which fields you have. \victor{These sentence reminded me of containers} However, this shape is \emph{not enforced} at
+declare which fields you have. However, this shape is \emph{not enforced} at
 any level. A recent approach to generic programming~\cite{deVries2014}
 explicitly uses a list of lists of types, the outer one representing the sum
 and each inner one thought as products. The $\HS{'}$ sign in the code below marks the
@@ -151,20 +138,9 @@ make it easier to implement generic functionality.
   Note how the \emph{code}, |CodeSOP (Bin a)| is another entity that is added
 to ensure the \emph{representation} has a given structure. This is quite
 a subtle point and it is common to see both terms being used interchangeably.
-We call the \emph{representation} the functor that gives semantic to \emph{codes},
+Being very precise,
+we call the \emph{representation} the functor that gives semantic to \emph{codes},
 if any. Some generic programming libraries define only \emph{representation}.
-\tmp{
-At this point we remark the relation between a \emph{representation} -- like
-|RepGen| -- and a \emph{code} -- like |CodeSOP|.
-Both are examples of descriptions of a datatype, but operate at different
-levels. Representations are type constructors, functor more specifically,
-whereas codes are aggregations of ground types (a list of lists in the case
-of |CodeSOP|). This means that we can build a value using the type of the
-representation, whereas we need to perform an additional step in the case of
-codes. For example, \texttt{generics-sop} defines a type family |RepSOP| which
-converts from a code into a representation. Manipulating codes instead of
-representation leads to a simpler style of generic programming.
-}
 
 \paragraph{Mutually recursive datatypes.}
 
@@ -191,13 +167,10 @@ data Expr  = ... | Do [Stmt] | ...
 data Stmt  = Assign Var Expr | Let Var Expr
 \end{code}
 \end{myhs}
-\victor{if it already received treatment, why are we mentioning it? Perhaps
-mention the previous treatment on the $\alpha$-eq section, this is confusing.}
 Usual problems such as $\alpha$-equality have received a treatment using generic
 programming~\cite{Weirich2011}. It is natural to ask how to extend those
 approaches when more than one datatype enters the game.
 
-\victor{both multirec and regular provide a shallow encoding; but support deep}
 The \texttt{multirec} library~\cite{Yakushev2009} is a generalization of
 \texttt{regular} which handles mutually recursive families. From \texttt{regular}
 it inherits its approach using representations. 
@@ -225,32 +198,18 @@ data Bin a = ... deriving Generic
 \end{myhs}
 to open the doors to generic functionality.
 
-\victor{I don't think we should go into this detail here; we can mention there
-is a challenge we will address on a lter section}
 There is an interesting problem that arises when we have mutually recursive
-datatypes. The definition of |RoseTree a| above uses the list type, but not
-simply |[a]|, but the specific instance |[RoseTree a]|. This means that the
-procedure to derive the code must take into account this fact, effectively
-spiting out the code for the following isomorphic type:
-\begin{myhs}
-\begin{code}
-data RoseTree      a  =  a :>: RoseTreeList a
-data RoseTreeList  a  =  NilRoseTree | RoseTree a ConsRoseTree RoseTreeList a
-\end{code}
-\end{myhs}
+datatypes and want to automatically generate descriptions.
+The definition of |RoseTree a| above uses the list type, but not
+simply |[a]| for any element type |a|, but the specific instance |[RoseTree a]|. This means that the
+procedure to derive the code must take into account this fact.
 Shallow descriptions do not suffer too much from this problem. For deep
 approaches, though, how to solve this problem is key to derive a useful
 description of the datatype.
 
 \subsection{Contributions}
 
-\victor{How about selling it as a framework for keeping the
-good stuff of each GP library? The moment we say we are presenting yet
-another library prople might go ``oh well''}
-In this paper we present \texttt{\nameofourlibrary}, a new library for generic
-programming over mutually recursive families, which uses the sum-of-products
-approach. In particular we make the following contributions:
-
+In this paper we make the following contributions:
 \begin{itemize}
 \item We describe a technique to derive both deep and shallow encodings
 of a datatype from a unified code (\Cref{sec:explicitfix}). This give users to
@@ -264,4 +223,10 @@ The novelty lies in our handling of instantiated type constructors.
 \item We use our generic programming approach to asbtract common patterns
 such as equality, $\alpha$-equivalence and zipper (\Cref{sec:mrecexamples}).
 \end{itemize}
-Thoughout the text we compare our design to other approaches in the literature.
+We have packaged our results as a Haskell library, \texttt{\nameofourlibrary},
+which supports mutually recursive families and uses the sum-of-products approach.
+This library supersedes many other generic programming libraries,
+including |Generic| from \texttt{GHC.Generics}~\cite{Magalhaes2010},
+\texttt{regular}~\cite{Noort2008},
+\texttt{multirec}~\cite{Yakushev2009},
+and \texttt{generic-sop}~\cite{deVries2014}.

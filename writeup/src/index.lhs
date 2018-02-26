@@ -118,10 +118,14 @@ present a library for type-safe generic programming with mutually
 recursive families and explicit \emph{sums-of-products} structure. The
 \emph{sums-of-products} structure allows for simple, combinator-based,
 generic functions that operate on arbitrarily complex families of
-datatypes, including those comming from external libraries.  Moreover,
+datatypes, including those comming from external libraries. Furthermore,
+the library supports both shallow and deep encodings, giving programmers
+a wider range of choice for their generic functions.
+\tmp{Moreover,
 we do so with a relatively sane set of \emph{Language Extensions},
 hence allowing the programmer to use the library without consistency
-drawbacks.
+drawbacks.} \alejandro{The definition of sane is very relative. I would
+not make it part of the abstract.}
 \end{abstract}
 
 

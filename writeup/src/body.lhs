@@ -8,10 +8,11 @@ illustrating how different techniques relate and the nuances between them.
 This will let us gradually build up to our framework, that borrows the good
 pieces of each of the different approaches and combines them without compromising.
 
-\victor{I feel that we should mention \texttt{scrap your boilerplate} somehow,
-we are almost talking about all of them, right? Regardless, we have a good
-argument against them: they require 'Data' and 'Typeable', hence restrict
-which external datatypes one can use}
+  In this paper we follow the lead of generic programming libraries which use
+type-level representations. There is another strand of work, pioneered by Scrap
+Your Boilerplate~\cite{Lammel2003}, and followed by Uniplate~\cite{Mitchell2007}
+and Multiplate, which build generic algorithms by means
+of a set of generic transformations and queries.
 
 \subsection{GHC Generics}
 \label{sec:patternfunctors}
@@ -915,6 +916,7 @@ that receives a good boost in expressivity is the beloved |compos|,
 introduced in \Cref{sec:explicitfix}. We are now able to change every
 subtree of whatever type we choose inside an arbitrary value of the
 mutually recursive family in question.
+\alejandro{Update to reflect different opaque types interpretation.}
 
 \begin{myhs}
 \begin{code}
@@ -926,12 +928,26 @@ compos f = toMRec . mapRep f . fromMRec
 
   It is worth nothing that although we presented pure versions
 of these combinators, \texttt{\nameofourlibrary} defines monadic
-variants of these and suffixes them with a ``M'', following the
+variants of these and suffixes them with a |M|, following the
 standard Haskell naming convention. We will need these monadic
 combinators in \Cref{sec:alphaequivalence}.
 
 \section{Examples}
 \label{sec:mrecexamples}
+
+In this section we present several applications of our generic programming
+approach. The applications themselves -- equality, $\alpha$-equivalence, and
+zippers -- are commonly introduced with any new generic library. Our goal
+is to show \texttt{\nameofourlibrary} is as powerful as other comparable
+libraries. Note also that even though some examples use a single recursive
+dataype for the sake of conciseness, those can be readily generalized to
+muturally recursive families.
+
+There are many other applications for generic programming which greatly benefit
+from supporting mutual recursion. 
+One great pool of examples is operations with abstract syntax trees of realistic
+languages, such as generic diff-ing~\cite{CacciariMiraldo2017} or
+pretty-printing~\cite{Magalhaes2010}.
 
 \subsection{Equality}
 
@@ -1248,6 +1264,8 @@ nextE   :: NPHoleE xs              -> Maybe (NPHoleE xs)
 |(>=>) :: (Monad m) => (a -> m b) -> (b -> m c) -> a -> m c| to elegantly
 write some \emph{location based} instruction to transform some value
 of a |LambdaTerm| (\Cref{sec:alphaequivalence}), for instance.
+Here |enter| and |leave| witness the isomorphism between |El fam ix|
+and |Loc ix|.
 
 \begin{minipage}[t]{.55\textwidth}
 \begin{myhs}
@@ -1269,14 +1287,6 @@ tr (App (Var "a") (Var "b"))
 \end{code}
 \end{myhs}
 \end{minipage}
-
-  Where |enter| and |leave| witness the isomorphism |El fam ix <-> Loc ix|.
-
-\
-
-There are many other applications for generic programming once mutual recursion
-can be accounted. For example, we can diff abstract syntax trees of realistic
-languages in a generic fashion~\cite{CacciariMiraldo2017}.
 
 \section{Template Haskell}
 \label{sec:templatehaskell}
