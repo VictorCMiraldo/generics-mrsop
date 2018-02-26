@@ -66,18 +66,22 @@ datatypes go under its cover.
 
 Once you have a uniform description language for datatypes, generic code
 is merely code that operates under this uniform language. One of the simplest
-examples of generic programming is the definition of a |size| function which
-counts the number of constructors used to build a given value.
+examples of generic programming is the definition of a |size|, akin to
+|length| for lists of |leaves| for trees.
+
 \begin{myhs}
 \begin{code}
 size x = genericSize (from x)
+  where genericSize = crush (const 1) sum
 \end{code}
 \end{myhs}
 The |from| function, defined above, translates the concrete value |x| into
-the generic description language. The |genericSize| function operates then at
-that level: it checks whether the constructor used to build the value has
-fields of the same type, and in affirmative case recurses into those children.
-Then it sums all the obtained values and adds 1.
+the generic description language. The |crush (const 1) sum| function operates then at
+that level: it recurses down potential children, and sum up the results. In fact, 
+this is the very definition one can write using our framework, without any
+added sugar, but we will get back to it in \Cref{sec:explicitfix}. For the rest
+of the intro, let us get a small taste of the nuances between the different
+design choices we will be exploring throughtout this paper.
 
 \paragraph{Deep versus shallow.}
 There are two ways to implement |from|, leading to different implementation
@@ -89,8 +93,8 @@ This is the kind of representation we get from \texttt{GHC.Generics}, among
 others.
 
 The other side of the spectrum are \emph{deep} representation, in which the
-entire value is turned into the set of combinators the generic library provides
-in one go. Since you know the entire shape of the datatype, including when
+entire value is turned into the representation that the generic library provides
+in one go. \victor{I don't get the next sentence} Since you know the entire shape of the datatype, including when
 recursion is places, deep techniques usually allow transformation of the
 datatype, not only generic functionality. This additional power has been used,
 for example, to define regular expressions over Haskell datatypes~\cite{Serrano2016}.
@@ -138,9 +142,8 @@ make it easier to implement generic functionality.
   Note how the \emph{code}, |CodeSOP (Bin a)| is another entity that is added
 to ensure the \emph{representation} has a given structure. This is quite
 a subtle point and it is common to see both terms being used interchangeably.
-Being very precise,
-we call the \emph{representation} the functor that gives semantic to \emph{codes},
-if any. Some generic programming libraries define only \emph{representation}.
+Being very precise, we call the \emph{representation} the functor that gives semantic 
+to \emph{codes}, if any. Some generic programming libraries define only \emph{representation}.
 
 \paragraph{Mutually recursive datatypes.}
 
@@ -152,8 +155,8 @@ HTML and XML documents are better described by a rose tree, which is a mutually
 recursive family of datatypes:
 \begin{myhs}
 \begin{code}
-data RoseTree  a  =  a :>: [RoseTree a]
-data []        a  =  [] | a : [a]
+data Rose  a  =  a :>: [Rose a]
+data []    a  =  [] | a : [a]
 \end{code}
 \end{myhs}
 
@@ -167,9 +170,8 @@ data Expr  = ... | Do [Stmt] | ...
 data Stmt  = Assign Var Expr | Let Var Expr
 \end{code}
 \end{myhs}
-Usual problems such as $\alpha$-equality have received a treatment using generic
-programming~\cite{Weirich2011}. It is natural to ask how to extend those
-approaches when more than one datatype enters the game.
+Usual problems such as $\alpha$-equality, although already treated using generic
+programming~\cite{Weirich2011}, still creeps back up when more than one datatype enters the stage.
 
 The \texttt{multirec} library~\cite{Yakushev2009} is a generalization of
 \texttt{regular} which handles mutually recursive families. From \texttt{regular}
@@ -200,8 +202,8 @@ to open the doors to generic functionality.
 
 There is an interesting problem that arises when we have mutually recursive
 datatypes and want to automatically generate descriptions.
-The definition of |RoseTree a| above uses the list type, but not
-simply |[a]| for any element type |a|, but the specific instance |[RoseTree a]|. This means that the
+The definition of |Rose a| above uses the list type, but not
+simply |[a]| for any element type |a|, but the specific instance |[Rose a]|. This means that the
 procedure to derive the code must take into account this fact.
 Shallow descriptions do not suffer too much from this problem. For deep
 approaches, though, how to solve this problem is key to derive a useful
@@ -212,8 +214,8 @@ description of the datatype.
 In this paper we make the following contributions:
 \begin{itemize}
 \item We describe a technique to derive both deep and shallow encodings
-of a datatype from a unified code (\Cref{sec:explicitfix}). This give users to
-our library control over which style of generic programming they prefer in each
+of a datatype from a unified code (\Cref{sec:explicitfix}). This gives
+control over which style of generic programming one prefers in each
 different scenario.
 \item We extend the sum-of-products approach of \citet{deVries2014} to handle
 mutually recursive families of datatypes (\Cref{sec:family}).
