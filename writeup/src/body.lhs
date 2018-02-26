@@ -1284,6 +1284,12 @@ tr (App (Var "a") (Var "b"))
 
   Where |enter| and |leave| witness the isomorphism |El fam ix <-> Loc ix|.
 
+\
+
+There are many other applications for generic programming once mutual recursion
+can be accounted. For example, we can diff abstract syntax trees of realistic
+languages in a generic fashion~\cite{CacciariMiraldo2017}.
+
 \section{Template Haskell}
 \label{sec:templatehaskell}
 
@@ -1406,6 +1412,30 @@ a satisfying \emph{template haskell} mechanism.
 
 \victor{Driving in Auto from Gameplan}
 
-\section{Conclusion}
+\section{Conclusion and Future Work}
 
-the usual stuff...
+In this paper we have presented \texttt{\nameofourlibrary}, a library for
+generic programming in Haskell which support both deep and shallow
+representations of mutually recursive families of datatypes. We follow the
+sums-of-products approach: datatypes are described by a code
+consisting of lists (one per datatype) of lists (one per constructor)
+of lists (one per field) of atoms. The result is as expressive as other
+approaches such as \texttt{multirec}, yet it allows for a more concise
+combinator-based approach to defining generic functions.
+
+Future work involves expanding the universe of datatypes that our library
+can handle. Currently, every type involved in a recursive family must be
+a ground type (of kind |*| in Haskell terms); our Template Haskell derivations
+acknowledges this fact by implementing some amount of reduction for types.
+This limits the functions we can implement generically, for example we cannot
+write a generic |fmap| function, since it operates on types of kind |* -> *|.
+\texttt{GHC.Generics} supports type constructors with exactly one argument
+via the \texttt{Generic1} type class. We foresee most of the complexity to
+be in the definition of |Atom|, as it must support some kind of application
+of type constructors to other parameters or opaque types.
+
+The original sum-of-products approach does not handle all the ground types either,
+only regular ones~\cite{deVries2014}. We inherit this restriction, and cannot
+represent recursive families which involve existentials or GADTs. The problem
+in this case is representing the constraints that each constructor imposes
+on the type arguments.
