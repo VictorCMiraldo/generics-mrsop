@@ -89,7 +89,6 @@ instance (Size a) => GSize (K1 R a) where
 specific to \texttt{GHC.Generics} flavor of generic programming.
 It is worthwhile to illustrate how the compiler would go about choosing
 instances for computing |size (Bin (Leaf 1) (Leaf 2))|:
-
 \begin{align*}
   |size (Bin (Leaf 1) (Leaf 2))| 
     &= |gsize (from (Bin (Leaf 1) (Leaf 2)))| \\
@@ -215,7 +214,6 @@ of a |GSize| instance for each \emph{pattern functor}.
 building blocks. 
   Overlooking a slight abuse of notation, one can look at |NS| and |NP|
 through the lens of the following isomorphisms:
-
 \begin{align*}
   | NS f [k_1 , k_2 , dots]| &\equiv |f k_1 :+: (f k_2 :+: dots)| \\
   | NP f [k_1 , k_2 , dots]| &\equiv |f k_1 :*: (f k_2 :*: dots)| 
@@ -226,7 +224,6 @@ through the lens of the following isomorphisms:
 is being borrowed from \texttt{GHC.Generics}. 
 This would then be exactly the representation we get
 from \texttt{GHC.Generics}.
-
 \begin{align*}
   |RepSOP (Bin a)|
   &\equiv | NS (NP (K1 R)) (CodeSOP (Bin a))| \\
@@ -725,7 +722,7 @@ type was a functor. |RepMRec| on the other hand cannot be given a |Functor|
 instance, but we can still define a similar function |mapRec|,
 \begin{myhs}
 \begin{code}
-mapRep :: (forall ix dot IsNat ix => phi1 ix -> phi2 ix) -> RepMRec phi2 c -> RepMRec phi2 c
+mapRep :: (forall ix dot phi1 ix -> phi2 ix) -> RepMRec phi2 c -> RepMRec phi2 c
 \end{code}
 \end{myhs}
 This type signature tells us that if we want to change the |phi| argument in 
