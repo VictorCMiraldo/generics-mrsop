@@ -1077,11 +1077,19 @@ also automatically generated as we will see on \Cref{sec:templatehaskell}.
 is more cumbersome than a straight forward pattern matching definition
 over |LambdaTerm|.  If we bring in a more intricate language to the
 spotlight, however, manual pattern matching becomes almost untractable
-very fast.  Take the a toy imperative language defined below.
+very fast. 
+
+Take the a toy imperative language defined in
+\Cref{fig:alphatoy}.
 Transporting |alphaEq| from the lambda calculus is fairly simple. For
 one, |alhaEq|, |step| and |galphaEq| remain the same.  We just need to
-adapt the |go| function:
+adapt the |go| function. On the other hand, having to write $\alpha$-equivalence
+by pattern matching might not be so straight forward anymore. Moreover,
+if we decide to change the toy language and add more statements or more expressions,
+the changes to the |go| function are minimal, if any. As long as we do not touch
+the constructors that |go| patterns matches on, we can use the very same function.
 
+\begin{figure}
 %format StmtP    = "\HT{Stmt\_}"
 %format SAssignP = "\HT{SAssign\_}"
 %format DeclP    = "\HT{Decl\_}"
@@ -1138,12 +1146,9 @@ go _      x = step x
 \end{code}
 \end{myhs}
 \end{minipage}
-
-  And for this small toy language, having to write $\alpha$-equivalence
-by pattern matching might not be so straight forward anymore. Moreover,
-if we decide to change the toy language and add more statements or more expressions,
-the changes to the |go| function are minimal, if any. As long as we do not touch
-the constructors that |go| patterns matches on, we can use the very same function.
+\caption{$\alpha$-equality for a toy imperative language}
+\label{fig:alphatoy}
+\end{figure}
 
 \subsection{The Generic Zipper}
 
