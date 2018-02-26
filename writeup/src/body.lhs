@@ -493,8 +493,8 @@ structures.
   Conceptually, going from regular types, \Cref{sec:explicitfix}, to
 mutually recursive families is simple. We just need to be able to reference
 not only one type variable, but one for each element in the family.
-As a running example, we use the flattened |RoseTree| family described in the
-introduction:
+As a running example, we use a |RoseTree| family similar to the one in the
+introduction, except that the list has been flattened to handle only |RoseTree|s.
 \begin{myhs}
 \begin{code}
 data RoseTree      a  =  a :>: RoseTreeList a
@@ -527,8 +527,10 @@ data Nat   = Z | S Nat
 The code of this recursive family of datatypes can be finally described as:
 \begin{myhs}
 \begin{code}
-CodeMRec (P [RoseTree Int, RoseTreeList Int]) = (P  [ (P [ (P [ KInt, I (S Z)])])          -- code for RoseTree Int
-                                                    , (P [ (P []), P [ I Z, I (S Z)]])])   -- code for RoseTreeList Int
+type FamRose = P [RoseTree Int, RoseTreeList Int]
+
+CodeMRec FamRose = (P  [ (P [ (P [ KInt, I (S Z)])])          -- code for RoseTree Int
+                       , (P [ (P []), P [ I Z, I (S Z)]])])   -- code for RoseTreeList Int
 \end{code}
 \end{myhs}
 Let us have a closer look at the code for |RoseTree Int|, which appears in the
@@ -592,10 +594,10 @@ gives us a \emph{shallow} representation. As an example, here is the expansion
 for index 0 of the rose tree family:
 \begin{myhs}
 \begin{code}
-RepMRec (Lkup RoseTreeFamily) (Lkup RoseTreeCodes Z)
-  =    NS (NP (NA (Lkup RoseTreeFamily))) (Lkup RoseTreeCodes Z)
-  =    NS (NP (NA (Lkup RoseTreeFamily))) (P [ (P [ KInt, I (S Z)])])
-  ==   K1 R Int :*: K1 R (Lkup RoseTreeFamily (S Z))
+RepMRec (Lkup FamRose) (Lkup (CodeMRec FamRose) Z)
+  =    NS (NP (NA (Lkup FamRose))) (Lkup (CodeMRec FamRose) Z)
+  =    NS (NP (NA (Lkup FamRose))) (P [ (P [ KInt, I (S Z)])])
+  ==   K1 R Int :*: K1 R (Lkup FamRose (S Z))
   =    K1 R Int :*: K1 R (RoseTreeList Int)
 \end{code}
 \end{myhs}
