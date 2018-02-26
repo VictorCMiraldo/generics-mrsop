@@ -377,8 +377,8 @@ we can partially apply |RepFix|.
 \begin{myhs}
 \begin{code}
 data NA :: * -> Atom -> * where
-  NA_I :: x    -> NA x I
-  NA_K :: Int  -> NA x KInt
+  NA_I  :: x    -> NA x I
+  NA_K  :: Int  -> NA x KInt
 
 newtype RepFix a x = Rep { unRep :: NS (NP (NA x)) (Code a) }
 \end{code}
@@ -533,9 +533,9 @@ of |Atom|s by appending to |I| a natural number which specifies which is
 the member of the family in which recursion happens:
 \begin{myhs}
 \begin{code}
-data Atom = I Nat | KInt | dots
+data Atom  = I Nat | KInt | dots
 
-data Nat  = Z | S Nat
+data Nat   = Z | S Nat
 \end{code}
 \end{myhs}
 The code of this recursive family of datatypes can be finally described as:
@@ -559,8 +559,8 @@ by an additional type parameter |phi| from natural numbers into types.
 \begin{myhs}
 \begin{code}
 data NA :: (Nat -> *) -> Atom -> * where
-  NA_I :: phi n  -> NA phi (I n)
-  NA_K :: Int    -> NA phi KInt
+  NA_I  :: phi n  -> NA phi (I n)
+  NA_K  :: Int    -> NA phi KInt
 \end{code}
 \end{myhs}
 The additional |phi| bubbles up to the representation of codes.
@@ -677,8 +677,8 @@ In the case of |Nat|, this type is |SNat|,
 \begin{myhs}
 \begin{code}
 data SNat (n :: Nat) where
-  SZ ::          -> SNat (P Z)
-  SS ::  SNat n  -> SNat ((P S) n)
+  SZ  ::          -> SNat (P Z)
+  SS  ::  SNat n  -> SNat ((P S) n)
 \end{code}
 \end{myhs}
 
@@ -772,16 +772,91 @@ preventing the program from compiling.
 \subsection{Parametrized Opaque Types}
 \label{sec:konparameter}
 
-Talk about adding a kind |kon| and making everything
-receive a |kon -> *| parameter, like in the actual implementation.
+Up to this point we have considered |Atom| to include a predetermined selection of
+\emph{opaque types}, such as |Int|, each of them represented by one of the
+constructors other than |I|. This is far from ideal, for two conflicting reasons:
+\begin{enumerate}
+\item The choice of opaque types might be too narrow. For example, the user
+of our library may decide to use |ByteString| in their datatypes. Since that
+type is not covered by |Atom|, nor by our generic approach, this implies that
+\texttt{\nameofourlibrary} becomes useless for them.
+\item The choice of opaque types might be too wide. If we try to encompass any
+possible situation, we might end up with an humongous |Atom| type. But for a
+specific use case, we might be interested only in |Int|s and |Float|s, so why
+bother ourselves with possibly ill-formed representations and pattern matches
+which should never be reached?
+\end{enumerate}
+The solution is to \emph{parametrize} |Atom|, allowing programmers to choose
+which opaque types they want to deal with:
+\begin{myhs}
+\begin{code}
+data Atom kon = I Nat | K kon
+\end{code}
+\end{myhs}
+For example, if we only want to deal with numeric opaque types, we can write:
+\begin{myhs}
+\begin{code}
+data NumericK = KInt | KInteger | KFloat
+type NumericAtom = Atom NumericK
+\end{code}
+\end{myhs}
+
+The representation of codes must be updated to reflect the possibility of
+choosing different sets of opaque types. The |NA| datatype provides in this
+final implementation just two constructors, one per constructor in |Atom|.
+The |NS| and |NP| datatypes do not require any change.
+\begin{myhs}
+\begin{code}
+data NA :: (kon -> *) -> (Nat -> *) -> Atom -> * where
+  NA_I  :: phi    n  -> NA kappa phi (I  n)
+  NA_K  :: kappa  k  -> NA kappa phi (K  k)
+
+type RepMRec (kappa :: kon -> *) (phi :: Nat -> *) (c :: [[Atom]]) = NS (NP (NA kappa phi)) c
+\end{code}
+\end{myhs}
+The |NA_K| constructor in |NA| makes use of an additional argument |kappa|.
+The problem is that we are defining the code for the set of opaque types by
+a specific kind, such as |Numeric| above. On the other hand, values which
+appear in a field must have a type whose kind is |*|. Thus, we require a mapping
+from each of the codes to the actual opaque type they represent, this
+is exactly the \emph{opaque type interpretation} |kappa|. Here is the
+datatype interpreting |NumericK| into ground types:
+\begin{myhs}
+\begin{code}
+data NumericI :: NumericK -> * where
+  IInt      :: Int      -> NumericI KInt
+  IInteger  :: Integer  -> NumericI KInteger
+  IFloat    :: Float    -> NumericI KFloat
+\end{code}
+\end{myhs}
+The last piece of our framework which has to be updated to support different
+sets of opaque types is the |Family| type class. This type class provides an
+interesting use case for the new dependent features in Haskell; both |kappa|
+and |codes| are parametrized by an implicit argument |kon| which represents
+the set of opaque types.
+\begin{myhs}
+\begin{code}
+class Family (kappa :: kon -> *) (fam :: [*]) (codes :: [[[Atom kon]]]) where
+  
+  fromMRec  :: SNat ix  -> El fam ix -> RepMRec kappa (El fam) (Lkup codes ix)
+  toMRec    :: SNat ix  -> RepMRec kappa (El fam) (Lkup codes ix) -> El fam ix
+\end{code}
+\end{myhs}
+
+All the generic operations implemented in \texttt{\nameofourlibrary} use
+parametrized version of |Atom|s and representations described in this section.
+For convenience we also provide a basic set of opaque types which includes the
+most common primitive Haskell datatypes.
 
 \subsection{Combinators}
 
-  \victor{Assuming |RepMRec| now receives an interpretation of constants}
   \victor{glue this up; point is: |zip| |map| |elim| and |compos| are the base}
 
+  Through the rest of this section we wish to showcase a selection of particularly
+powerful combinators that are remarkably simple to define by exploiting the
+\emph{sums-of-products} structure.
 
-  For the sake of fostering intuition instead of worrying about
+For the sake of fostering intuition instead of worrying about
 notational overhead, we shall write values of |RepMRec kappa phi c| just like
 we would write normal Haskell values. They have the same \emph{sums-of-products} 
 structure anyway. Whenever a function is defined
@@ -790,13 +865,26 @@ using the |^=| symbol, |C x_1 dots x_n| will stand for a value of the correspond
 Since each of these |x_1 dots x_n| might be a recursive type or an opaque type,
 whenever we have two functions |f_I| and |f_K| in scope, |fSq x_j| will
 denote the application of the correct function for recursive positions, |f_I|,
-or opaque types |f_K|.
+or opaque types |f_K|. For example, here is the actual code of a function
+which applies functions to a |NA| structure:
+\begin{myhs}
+\begin{code}
+bimapNA f_K f_I  (NA_I  i)  = NA_I  (f_I  i)
+bimapNA f_K f_I  (NA_K  k)  = NA_K  (f_K  k)
+\end{code}
+\end{myhs}
+and this is how we write the function following this convention:
+\begin{myhs}
+\begin{code}
+bimapNA f_K f_I x ^= f x
+\end{code}
+\end{myhs}
 
-  Through the rest of this section we wish to showcase a selection of particularly
-powerful combinators that are remarkably simple to define by exploiting the
-\emph{sums-of-products} structure. The first obvious such combinator is |map|.
+The first obvious combinator which we can write using the sum-of-products
+structure is |map|. 
 Our |RepMRec kappa phi c| does not make a regular functor anymore, but a higher
-bifunctor:
+bifunctor. In other words, it requires two functions, one for mapping over
+opaque types and other for mapping over |I| positions.
 
 \begin{myhs}
 \begin{code}
