@@ -351,14 +351,10 @@ constraints we needed in \Cref{sec:explicitsop}. We can benefit
 the most from this in the simplicity of combinators we are able to write.
 
 
-\victor{\huge IM HERE}
-
-  The representation of our codes now requires a functor that map |Atom|s into
-Haskell values, that is, |Atom -> *|. The representation |RepFix| is remarkably 
-similar to |RepSOP|, but since we now know the recursive positions, we are
-able to lift the representation to a functor. In fact, it is a nice exercise to
-write the |Functor (RepFix a)| instance. We are using a |newtype| here so
-we can partially apply |RepFix|.
+  Giving semantic to our codes now requires a way to map an |Atom| into |*|.
+Since an atom can be either an opaque type, known statically, or some other
+type that will be used as a recursive position later on, we simply receive
+it as another parameter. Hence:
 
 \begin{myhs}
 \begin{code}
@@ -369,6 +365,10 @@ data NA :: * -> Atom -> * where
 newtype RepFix a x = Rep { unRep :: NS (NP (NA x)) (Code a) }
 \end{code}
 \end{myhs}
+
+  It is a interesting exercise to implement the |Functor (RepFix a)| instance.
+We were only able to lift it to a functor by recording the information about
+the recursive positions.
 
   Wrapping our |to| and |from| isomorphism into a typeclass and writing the
 instance that witnesses that |Bin Int| has a |CodeFix| and is isomorphic
@@ -406,7 +406,7 @@ deepFrom = Fix . fmap deepFrom . from
 \end{myhs}
 
   So far, we are handling the same class of types
-as \texttt{regular}~\cite{Noort2008}, but we are imposing 
+as the \texttt{regular}~\cite{Noort2008} library, but we are imposing 
 the representation to follow a \emph{sum-of-products} structure
 by the means of |CodeFix|. Those types are guaranteed to have
 initial algebra, and indeed, the generic fold is defined
@@ -421,9 +421,10 @@ fold f = f . fmap (fold f) . unFix
 
   With a solid representation that not only is guaranteed to follow a 
 \emph{sum-of-products} structure but also has specific information about
-the recursive positions of a type, it is trivial to define even the most
-expressive combinators. One such example is the |compos| function, which 
-applies a function |f| everywhere on the recursive structure.
+the recursive positions of a type, we can define a collection of
+combinators by induction on the |CodeFix| instead of having to rely
+on instances. This is definitely more convenient. For instance,
+lets look at |compos|, which applies a function |f| everywhere on the recursive structure.
 
 \begin{myhs}
 \begin{code}
@@ -434,8 +435,9 @@ compos f = to . fmap f . from
 
   Although more interesting in the mutually recursive setting,
 \Cref{sec:family}, we can illustrate its use for traversing a
-tree and adding one to its leaves. In fact, a very convoluted way of
-writing |fmap (+1) :: Bin Int -> Bin Int| could be:
+tree and adding one to its leaves\footnote{%
+This is, in fact, just a very convolutted way
+writing |fmap (+1) :: Bin Int -> Bin Int|}.
 
 \begin{myhs}
 \begin{code}
@@ -449,7 +451,7 @@ example x         = compos example x
 focus only on the interesting patterns and getting the traversal
 of the rest of the datatype for free.
   
-  Sometimes we actually want to consume a |Bin Tree| and produce
+  Sometimes we actually want to consume a value and produce
 a single value, but does not need the full expressivity of |fold|. 
 Instead, if we know how to consume the opaque types and combine
 those results, we can consume any |GenericFix| type.
@@ -467,8 +469,9 @@ crush k cat = crushFix . deepFrom
 \end{code}
 \end{myhs}
 
-  Finally, we can revisit our running |gsize| example. With the current setting
-one can write the simplest generic size function so far:
+  Finally, we come full circle to our running |gsize| example
+as it was promissed in the introduction. Noticeably the simplest
+implementation so far.
 
 \begin{myhs}
 \begin{code}
@@ -493,30 +496,29 @@ structures.
   Conceptually, going from regular types, \Cref{sec:explicitfix}, to
 mutually recursive families is simple. We just need to be able to reference
 not only one type variable, but one for each element in the family.
-As a running example, we use a |RoseTree| family similar to the one in the
-introduction, except that the list has been flattened to handle only |RoseTree|s.
+As a running example, we use the \emph{rose tree} family from the
+introduction.
 \begin{myhs}
 \begin{code}
-data RoseTree      a  =  a :>: RoseTreeList a
-data RoseTreeList  a  =  NilRoseTree | RoseTree a ConsRoseTree RoseTreeList a
+data Rose  a  =  a :>: [Rose a]
+data []    a  =  [] | a : [a]
 \end{code}
 \end{myhs}
 
-The previously introduced |CodeFix| does not provide enough combinators to
+The previously introduced |CodeFix| is not expressive enough to
 describe this datatype. In particular, when we try to write
-|CodeFix (RoseTree Int)|, there is no immediately recursive appearance of
-|RoseTree| itself, so we cannot use the atom |I| in that position.
-|RoseTreeList a| is not an opaque type either, so we cannot
+|CodeFix (Rose Int)|, there is no immediately recursive appearance of
+|Rose| itself, so we cannot use the atom |I| in that position.
+|[Rose a]| is not an opaque type either, so we cannot
 use any of the other combinators provided by |Atom|. Furthermore, we would
-like to not forget about |RoseTree Int| referring to itself via another datatype
-|RoseTreeList|.
+like to not forget about |[Rose Int]| referring to itself via another datatype.
 
 Our solution is to move from codes of datatypes to \emph{codes for families of
-datatypes}. We no longer talk about |CodeFix (RoseTree Int)| or
-|CodeFix (RoseTreeList Int)| in isolation, but rather about
-|CodeMRec (P [RoseTree Int, RoseTreeList Int])|. Then we extend the language
-of |Atom|s by appending to |I| a natural number which specifies which is
-the member of the family in which recursion happens:
+datatypes}. We no longer talk about |CodeFix (Rose Int)| or
+|CodeFix [Rose Int]| in isolation, but rather about
+|CodeMRec (P [Rose Int,  [Rose Int]])|. Then we extend the language
+of |Atom|s by appending to |I| a natural number which specifies 
+the member of the family to recurse:
 \begin{myhs}
 \begin{code}
 data Atom  = I Nat | KInt | dots
@@ -527,17 +529,17 @@ data Nat   = Z | S Nat
 The code of this recursive family of datatypes can be finally described as:
 \begin{myhs}
 \begin{code}
-type FamRose = P [RoseTree Int, RoseTreeList Int]
+type FamRose = P [Rose Int, [Rose Int]]
 
-CodeMRec FamRose = (P  [ (P [ (P [ KInt, I (S Z)])])          -- code for RoseTree Int
-                       , (P [ (P []), P [ I Z, I (S Z)]])])   -- code for RoseTreeList Int
+CodeMRec FamRose = (P  [ (P [ (P [ KInt, I (S Z)])])          -- code for Rose Int
+                       , (P [ (P []), P [ I Z, I (S Z)]])])   -- code for [Rose Int]
 \end{code}
 \end{myhs}
-Let us have a closer look at the code for |RoseTree Int|, which appears in the
+Let us have a closer look at the code for |Rose Int|, which appears in the
 first place in the list. There is only one constructor which has an |Int| field,
 represented by |KInt|, and another in which we recur to the second member of 
 our family (since lists are 0-indexed, we represent this by |S Z|). Similarly,
-the second constructor of |RoseTreeList Int| points back to both |RoseTree Int|
+the second constructor of |[Rose Int]| points back to both |Rose Int|
 using |I Z| and to |RoseTreeList| itself via |I (S Z)|.
 
   Having settled on the definition of |Atom|, we now need to adapt |NA| to
@@ -551,17 +553,16 @@ data NA :: (Nat -> *) -> Atom -> * where
   NA_K  :: Int    -> NA phi KInt
 \end{code}
 \end{myhs}
-The additional |phi| bubbles up to the representation of codes.
+The additional |phi| naturally bubbles up to the representation of codes.
 \begin{myhs}
 \begin{code}
 type RepMRec (phi :: Nat -> *) (c :: [[Atom]]) = NS (NP (NA phi)) c
 \end{code}
 \end{myhs}
 The only missing piece is tying the recursive loop here. If we want our
-representation to describe a family of datatypes, |phi| should be the functor
-interpreting each of those types.
-
-As an ancillary operation, we need a type-level lookup function for the family.
+representation to describe a family of datatypes, the obvious choice
+for |phi| is to look a type up at |FamRose|. In fact,
+we are just performing a type-level lookup in the family.
 We can define this operation for any type-level list in Haskell by
 means of a \emph{closed} |type family| which we call |Lkup|.
 \begin{myhs}
@@ -579,7 +580,7 @@ of a code all well-typed.
 
 In principle, this is enough to provide a ground representation for the family
 of types. Let |fam| be the family of ground types, like
-|(P [RoseTree Int, RoseTreeList Int])|, and |codes| the corresponding list
+|(P [Rose Int, [Rose Int]])|, and |codes| the corresponding list
 of codes. Then the representation of the type at index |ix| in the list |fam|
 is given by:
 \begin{myhs}
@@ -594,11 +595,11 @@ gives us a \emph{shallow} representation. As an example, here is the expansion
 for index 0 of the rose tree family:
 \begin{myhs}
 \begin{code}
-RepMRec (Lkup FamRose) (Lkup (CodeMRec FamRose) Z)
-  =    NS (NP (NA (Lkup FamRose))) (Lkup (CodeMRec FamRose) Z)
-  =    NS (NP (NA (Lkup FamRose))) (P [ (P [ KInt, I (S Z)])])
+ RepMRec  (Lkup FamRose) (Lkup (CodeMRec FamRose) Z)
+  =    RepMRec  (Lkup FamRose)      (P [ (P [ KInt, I (S Z)])])
+  =    NS (NP (NA (Lkup FamRose)))  (P [ (P [ KInt, I (S Z)])])
   ==   K1 R Int :*: K1 R (Lkup FamRose (S Z))
-  =    K1 R Int :*: K1 R (RoseTreeList Int)
+  =    K1 R Int :*: K1 R [Rose Int]
 \end{code}
 \end{myhs}
 
@@ -641,8 +642,8 @@ functional dependency |fam -> codes|.
 Since now |fromMRec| and |toMRec| operate on families of datatypes, they have
 to specify how to translate \emph{each} of the members of the family back and
 forth the generic representation. This translation needs to know which is the
-index of the datatype we are dealing with in each case, this is the reason
-underneath the additional |SNat ix| parameter. For example, in the case of
+index of the datatype we are dealing with in each case,  hence the
+additional |SNat ix| parameter. For example, in the case of
 or family of rose trees, |fromMRec| has the following shape:
 \begin{myhs}
 \begin{code}
@@ -675,26 +676,29 @@ intermediate datatype. Our |fromMRec| function does not take one member of
 the family directly, but an |El|-wrapped one. However, to construct that value
 |El| needs to know its parameters, which amounts to the family we are 
 embedding our type into and the index in that family. Those values are not
-immediately obvious, but we can use Haskell's |TypeApplications| to work around
+immediately obvious, but we can use Haskell's \texttt{-XTypeApplications} to work around
 it. We shall not go into details about their implementation, but the final
 |into| function which injects a value into the corresponding |El| looks like:
 \begin{myhs}
 \begin{code}
-into :: forall fam ty ix dot (ix ~ Idx ty fam , Lkup ix fam ~ ty , IsNat ix) => ty -> El fam ix
-into = El
+into  :: forall fam ty ix dot (ix ~ Idx ty fam , Lkup ix fam ~ ty , IsNat ix) 
+      => ty -> El fam ix
+into  = El
 \end{code}
 \end{myhs}
 where |Idx| is a closed type family implementing the inverse of |Lkup|, that is,
 obtaining the index of the type |ty| in the list |fam|. Using this function
-we can turn a |rs :: [RoseTree Int]| into its generic representation by writing
-|into @RoseTreeFamily rs|. The type application |@RoseTreeFamily| is responsible
-for fixing the mutually recursive family we are working with.
-
+we can turn a |rs :: [Rose Int]| into its generic representation by writing
+|into @FamRose rs|. The type application |@FamRose| is responsible
+for fixing the mutually recursive family we are working with, which
+let the typechecker reduce all the constraints and happily inject the element
+into |El|.
   
 \paragraph{Deep representation.} In \Cref{sec:explicitfix} we have described a
 technique to derive deep representations from shallow representations. We can
 play a very similar trick here. The main difference is the definition of the
-least fixpoint combinator, which receives an extra parameter of kind |Nat -> *|:
+least fixpoint combinator, which receives an extra parameter of kind |Nat| indicating
+which |code| to use first:
 \begin{myhs}
 \begin{code}
 newtype Fix (codes :: [[[Atom]]]) (ix :: Nat)
@@ -713,13 +717,14 @@ type was a functor. |RepMRec| on the other hand cannot be given a |Functor|
 instance, but we can still define a similar function |mapRec|,
 \begin{myhs}
 \begin{code}
-mapRep :: (forall ix dot phi1 ix -> phi2 ix) -> RepMRec phi2 c -> RepMRec phi2 c
+mapRep :: (forall ix dot phi1 ix -> phi2 ix) -> RepMRec phi1 c -> RepMRec phi2 c
 \end{code}
 \end{myhs}
-This type signature tells us that if we want to change the |phi| argument in 
-the representation, we need to provide a function which works over each
-possible index this |phi| can take. This makes sense, as |phi| has kind
-|Nat -> *|. 
+This type signature tells us that if we want to change the |phi1| argument in 
+the representation, we need to provide a natural transformation from
+|phi1| to |phi2|, that is, a function which works over each
+possible index this |phi1| can take and does not change this index. 
+This makes sense, as |phi1| has kind |Nat -> *|. 
 \begin{myhs}
 \begin{code}
 deepFrom :: Family fam codes => El fam ix -> Fix (RepFix codes ix)
@@ -729,7 +734,7 @@ deepFrom = Fix . mapRec deepFrom . from
 
 \paragraph{Only well-formed representations are accepted.}
 At first glance, it looks like the |Atom| datatype gives too much freedom.
-Its |I| constructor receives a natural number, but there is no static check
+Its |I| constructor receives a natural number, but there is no apparent static check
 about this number referring to an actual member of the recursive family we
 are describing. For example, the list of codes
 |(P [ (P [ (P [ KInt, I (S (S Z))])])])|  is accepted by the compiler
@@ -744,11 +749,11 @@ those which lie in the range -- this is usually known as |Fin n|.
 data Atom (n :: Nat) = I (Fin n) | KInt | dots
 \end{code}
 \end{myhs}
-Unfortunately 
+Unfortunately
 this approach has a major drawback in Haskell. The lack of dependent types would
 require us to turn on the \texttt{-XTypeInType} extension, which although does not
 break consistency, can cause the compiler to loop and is generaly seen as an extreme
-resort.
+resort.\victor{remove the \texttt{-XTypeInType} remark in the lights of 8.4.1?}
 
 By looking a bit more closely, we find that we are not losing any type-safety
 by allowing codes which reference an arbitrary number of recursive positions.
