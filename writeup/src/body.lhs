@@ -25,7 +25,7 @@ data Bin a = Leaf a | Bin (Bin a) (Bin a)
 \end{code}
 \end{myhs}
 A value of type |Bin a| consists of a choice between two constructors.
-For the first choice, it also constains a value of type |a| whereas 
+For the first choice, it also contains a value of type |a| whereas 
 for the second if contains two subtrees as children. This means that the |Bin a| type
 is isomorphic to |Either a (Bin a , Bin a)|. 
 
@@ -81,7 +81,7 @@ that level: it recurses down potential children, and sum up the results. In fact
 this is the very definition one can write using our framework, without any
 added sugar, but we will get back to it in \Cref{sec:explicitfix}. For the rest
 of the intro, let us get a small taste of the nuances between the different
-design choices we will be exploring throughtout this paper.
+design choices we will be exploring throughout this paper.
 
 \paragraph{Deep versus shallow.}
 There are two ways to implement |from|, leading to different implementation
@@ -182,7 +182,7 @@ and the information for recursive positions in a mutually recursive setting.
 
 \paragraph{Deriving the representation.}
 
-Generic programming alleaviates the problem of writing repetitive operations
+Generic programming alleviates the problem of writing repetitive operations
 such as equality or pretty-printing, which depend on the structure of the
 datatype. But in order to do so, they still require the programmer to figure
 out the right description and write conversion function |from| and |to| that type. This is
@@ -222,7 +222,7 @@ mutually recursive families of datatypes (\Cref{sec:family}).
 \item Codes and conversions to and from generic representations are
 derived using Template Haskell (\Cref{sec:templatehaskell}).
 The novelty lies in our handling of instantiated type constructors.
-\item We use our generic programming approach to asbtract common patterns
+\item We use our generic programming approach to abstract common patterns
 such as equality, $\alpha$-equivalence and zipper (\Cref{sec:mrecexamples}).
 \end{itemize}
 We have packaged our results as a Haskell library, \texttt{\nameofourlibrary},
@@ -305,7 +305,7 @@ instance (GSize f , GSize g) => GSize (f :+: g) where
   We still have to handle the cases were 
 we might have an arbitrary type in a position, modelled by the
 constant functor. We must require an instance of |Size|
-so we can sucessfully tie the recursive knot.
+so we can successfully tie the recursive knot.
 
 \begin{myhs}
 \begin{code}
@@ -329,7 +329,7 @@ instances for computing |size (Bin (Leaf 1) (Leaf 2))|:
     &= |size (1 :: Int) + size (2 :: Int)|   
 \end{align*}
 
-  Were we a compiler, we would hapilly issue a \texttt{"No instance
+  Were we a compiler, we would happily issue a \texttt{"No instance
 for (Size Int)"} error message at this point. Nevertheless, the
 literals of type |Int| illustrate what we call \emph{opaque types}:
 those types that constitute the base of the universe and are
@@ -361,7 +361,7 @@ guarantees that the |RepGen a| of a type |a| will be defined using
 only the supported \emph{pattern functors}. Fixing this would require
 one to pin down the language that the representations follow, that is,
 the \emph{code} of the datatype, whose semantics give rise to the
-\emph{representation} of values. Besides correctnes issues, the
+\emph{representation} of values. Besides correctness issues, the
 absence \emph{codes} greatly limits the number of generic combinators
 one can define. Every generic function has to follow the
 \emph{mutually recursive classes} technique we shown.
@@ -405,7 +405,7 @@ size.
   As we hinted earlier, the generic codes consists in 
 a type-level list of lists. The outer list represents the 
 constructors of a type, and will be interpreted as a sum, whereas
-the inner lists are interepreted as the fields of the respective constructors,
+the inner lists are interpreted as the fields of the respective constructors,
 interpreted as products.
 
 \begin{myhs}
@@ -438,7 +438,7 @@ through the lens of the following isomorphisms:
 \end{align*}
 
   We could then define the representation |RepSOP| to be
-|NS (NP (K1 R))|, echoing the isomoprihms above, where |data K1 R a = K1 a| 
+|NS (NP (K1 R))|, echoing the isomorphisms above, where |data K1 R a = K1 a| 
 is being borrowed from \texttt{GHC.Generics}. 
 This is exactly the representation we get
 from \texttt{GHC.Generics}.
@@ -455,7 +455,7 @@ information in the representation, however. Indeed, instead of
 piggybacking on \emph{pattern functors}, we define |NS| and |NP| from
 scratch using \emph{GADTs}~\cite{Xi2003}, whom play a central role
 here.  By pattern matching on the values of |NS| and |NP| we are
-informing the typechecker of the structure of the |CodeSOP|.
+informing the type checker of the structure of the |CodeSOP|.
 
 \begin{minipage}[t]{.45\textwidth}
 \begin{myhs}
@@ -487,7 +487,7 @@ newtype I (a :: *) = I { unI :: a }
 \end{code}
 \end{myhs}
 
-  Evidentiating the claim that one can define general combinators for
+  Evidencing the claim that one can define general combinators for
 working with these representations, let us look at |elim| and |map|,
 used for the |gsize| function in the beginning of the section.
 
@@ -510,15 +510,15 @@ map f  (x :* xs)  = f x : map f xs
 \end{minipage}
 
   Reflecting on the current definition of |size|, specially in
-comparisson to the \texttt{GHC.Generics} implementation of |size|, we
-see two improvements: (A) we need one less typeclass, namelly |GSize|,
+comparison to the \texttt{GHC.Generics} implementation of |size|, we
+see two improvements: (A) we need one less type class, namely |GSize|,
 and, (B) the definition is combinator-based. Considering that the
 generated \emph{pattern functor} representation of a Haskell datatype
 will already be in a \emph{sums-of-products}, we do not lose anything
 by enforcing this structure.
 
   There are still downsides to this approach as it stands. A notable
-one being the need to carry constraints arround: the actual |gsize|
+one being the need to carry constraints around: the actual |gsize|
 written with the \texttt{generics-sop} library and no sugar looks
 like:
 
@@ -537,7 +537,7 @@ eliminator of the $n$-ary sum. This is a direct consequence of a \emph{shallow}
 encoding: since we only unfold one layer of recursion at a time, we have to 
 carry proofs that the recursive arguments can also be translated to
 a generic representation. We can relief this burden by recording,
-explicitely, which fields of a constructor are recursive or not.
+explicitly, which fields of a constructor are recursive or not.
 
 \section{Explicit Fix: Deep and Shallow for free}
 \label{sec:explicitfix}
@@ -558,10 +558,10 @@ type instance  CodeFix (Bin Int)  =   P [ P [KInt] , P [I , I] ]
 \end{myhs}
 
   Where |I| is used to mark the recursive positions and |KInt, dots|
-are codes for a pretermined selection of primitive types, which we
+are codes for a predetermined selection of primitive types, which we
 refer to as \emph{opaque types}.
 Favoring the simplicity of the presentation, we will stick with only
-hardcoded |Int| as the only opaque type in the universe. Later on,
+hard coded |Int| as the only opaque type in the universe. Later on,
 in \Cref{sec:konparameter}, we parametrize the whole development.
 
   Our \emph{codes} here are not polymorphic anymore.
@@ -596,9 +596,9 @@ newtype RepFix a x = Rep { unRep :: NS (NP (NA x)) (Code a) }
 We were only able to lift it to a functor by recording the information about
 the recursive positions.
 
-  Wrapping our |to| and |from| isomorphism into a typeclass and writing the
+  Wrapping our |to| and |from| isomorphism into a type class and writing the
 instance that witnesses that |Bin Int| has a |CodeFix| and is isomorphic
-to its representation is quite straight worward.
+to its representation is quite straight forward.
 
 \begin{myhs}
 \begin{code}
@@ -662,7 +662,7 @@ data View :: [[ Atom ]] -> * -> * where
 
   The real convenience comes from being able to easily pattern
 match and inject into and from generic values. As we shall see
-in \Cref{sec:alphaequivalence}, this is a must have. THe functions
+in \Cref{sec:alphaequivalence}, this is a must have. The functions
 that perform the pattern matching and injection are the |inj|
 and |sop| below.
 
@@ -690,7 +690,7 @@ compos f = to . fmap f . from
   Although more interesting in the mutually recursive setting,
 \Cref{sec:family}, we can illustrate its use for traversing a
 tree and adding one to its leaves\footnote{%
-This is, in fact, just a very convolutted way
+This is, in fact, just a very convoluted way
 writing |fmap (+1) :: Bin Int -> Bin Int|}.
 
 \begin{myhs}
@@ -724,7 +724,7 @@ crush k cat = crushFix . deepFrom
 \end{myhs}
 
   Finally, we come full circle to our running |gsize| example
-as it was promissed in the introduction. Noticeably the simplest
+as it was promised in the introduction. Noticeably the simplest
 implementation so far.
 
 \begin{myhs}
@@ -890,8 +890,8 @@ class Family (fam :: [*]) (codes :: [[[Atom]]]) where
 \end{myhs}
 One of the differences between other approaches and ours is that we do not
 use an associated type to define the |codes| for a mutually recursive family
-|fam|. One of the reasons to choose this path is that it alleaviates the
-nomenclature burden of writing the longer |CodeMRec fam| everytime we want to
+|fam|. One of the reasons to choose this path is that it alleviates the
+nomenclature burden of writing the longer |CodeMRec fam| every time we want to
 refer to |codes|. Furthermore, there are types like lists which appear in
 many different families, and in that case it makes more sense to speak about a
 relation instead of a function. In any case, we can choose the other point of
@@ -950,7 +950,7 @@ obtaining the index of the type |ty| in the list |fam|. Using this function
 we can turn a |rs :: [Rose Int]| into its generic representation by writing
 |into @FamRose rs|. The type application |@FamRose| is responsible
 for fixing the mutually recursive family we are working with, which
-let the typechecker reduce all the constraints and happily inject the element
+let the type checker reduce all the constraints and happily inject the element
 into |El|.
   
 \paragraph{Deep representation.} In \Cref{sec:explicitfix} we have described a
@@ -1011,7 +1011,7 @@ data Atom (n :: Nat) = I (Fin n) | KInt | dots
 Unfortunately
 this approach has a major drawback in Haskell. The lack of dependent types would
 require us to turn on the \texttt{-XTypeInType} extension, which although does not
-break consistency, can cause the compiler to loop and is generaly seen as an extreme
+break consistency, can cause the compiler to loop and is generally seen as an extreme
 resort.\victor{remove the \texttt{-XTypeInType} remark in the lights of 8.4.1?}
 
 By looking a bit more closely, we find that we are not losing any type-safety
@@ -1206,8 +1206,8 @@ zippers -- are commonly introduced with any new generic library. Our goal
 is to show \texttt{\nameofourlibrary} is at least as powerful as other comparable
 libraries, but brings in the union of their advantages. 
 Note also that even though some examples use a single recursive
-dataype for the sake of conciseness, those can be readily generalized to
-muturally recursive families.
+datatype for the sake of conciseness, those can be readily generalized to
+mutually recursive families.
 
 There are many other applications for generic programming which greatly benefit
 from supporting mutual recursion, if not requiring it. 
@@ -1244,7 +1244,7 @@ opaque types |eq_K| or recursing.
 \subsection{$\alpha$-Equivalence}
 \label{sec:alphaequivalence}
 
-  Syntatic equality is definitely a must, but it is a ``no sweat''
+  Syntactic equality is definitely a must, but it is a ``no sweat''
 application of generic programming. A more involved exercise,
 requiring some muscle, is the definition of
 \emph{$\alpha$-equivalence} for a language. On this section we start
@@ -1271,7 +1271,7 @@ data LambdaTerm  =  Var  String
 to be $\alpha$-equivalent, they have to have the same structure, that
 is, the same constructors. Otherwise, we can already say they are not
 $\alpha$-equivalent.  We then traverse both terms at the same time and
-everytime we go through a binder, in this case |Abs|, we register a
+every time we go through a binder, in this case |Abs|, we register a
 new \emph{rule} saying that the bound variable names are equivalent
 for the terms under that scope. Whenever we find a reference to a
 variable, |Var|, we check if the referenced variable is either exactly
@@ -1281,7 +1281,7 @@ the same or equivalent under the registered \emph{rules} so far.
 a monad with a couple associated functions. The idea is that |m| will
 keep track of a stack of scopes, each scope will be registering a list
 of \emph{name-equivalences}. In fact, this is very close to how one
-sould go about defining equality for \emph{nominal terms}~\cite{Calves2008}.
+should go about defining equality for \emph{nominal terms}~\cite{Calves2008}.
 
 \begin{myhs}
 \begin{code}
@@ -1343,7 +1343,7 @@ also automatically generated as we will see on \Cref{sec:templatehaskell}.
   One might be inclined to believe that the generic programming here
 is more cumbersome than a straight forward pattern matching definition
 over |LambdaTerm|.  If we bring in a more intricate language to the
-spotlight, however, manual pattern matching becomes almost untractable
+spotlight, however, manual pattern matching becomes almost intractable
 very fast. 
 
 Take the a toy imperative language defined in
@@ -1421,8 +1421,8 @@ go _      x = step x
 
   To conclude our examples section and stress-test our framework, 
 we introduce a more complex application of generic programming. 
-Zippers~\cite{Huet1997} are a well estabilished technique for 
-traversing a recursive datastructure keeping track of the current
+Zippers~\cite{Huet1997} are a well established technique for 
+traversing a recursive data structure keeping track of the current
 \emph{focus point}. Defining generic zippers is nothing new,
 this has been done by many authors~\cite{Hinze2004,Adams2010,Yakushev2009}
 for many different classes of types in the past. To the best of
@@ -1432,7 +1432,7 @@ the generic zipper in one's generic programming framework is
 a non-trivial expressivity benchmark to be achieved.
 
   Generally speaking, the zipper keeps track of a focus point in a
-datastructure and allows for the user to convinently move this focus
+data structure and allows for the user to conveniently move this focus
 point and to apply functions to whatever is under focus.  This focus
 point is expressed by the means of a location type, |Loc|, with a
 couple associated functions:
@@ -1471,7 +1471,7 @@ This stack of contexts are used to keep track of how far deep from the
 root we are.  All of the following development is parametrized by an
 interpretation for opaque types |ki :: kon -> *|, a family |fam ::
 [*]| and its associated codes |codes :: [[[Atom kon]]]|; since these
-are the same for any given family, let us fix those and ommit them
+are the same for any given family, let us fix those and omit them
 from the declarations to simplify the presentation.
 
   A location for the |ix| element of the family, |El fam ix|
@@ -1578,7 +1578,7 @@ tr (App (Var "a") (Var "b"))
 account of the generic zipper, which is the last example we introduce.
 The selection of examples show that by keeping the good ideas from
 the generic programming community and putting them all under the same roof
-we are able to achieve powerfull functionality in a convenient fashion.
+we are able to achieve powerful functionality in a convenient fashion.
 
   The last point we have to address is that we still have to write
 the |Family| instance for the types we want to use. For instance,
@@ -1635,7 +1635,7 @@ During the unfolding process we keep a key-value map in a
 |State| monad, keeping track of the types we have seen, the types we have
 seen \emph{and} processed and the indexes of those within the family.
 
-  Let us illustrate this process in a bit more detail using the cannonical
+  Let us illustrate this process in a bit more detail using the canonical
 mutually recursive family example and walking through what
 happens inside \emph{Template Haskell}~\cite{Sheard2002} when it starts unfolding 
 the |deriveFamily| clause.
@@ -1683,7 +1683,7 @@ type CodesRoseInt  = P [ (P [P [K KInt , I (S Z)]])  , P [ P [] , P [I Z , I (S 
 \end{code}
 \end{myhs}
 
-  Pattern synonyms for convient pattern matching and injecting over
+  Pattern synonyms for convenient pattern matching and injecting over
 the |View| datatype and |SNat| representing the index of each
 type in the family. These have the same name but with an added \emph{underscore}:
 
