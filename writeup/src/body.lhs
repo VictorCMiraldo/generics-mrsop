@@ -107,9 +107,6 @@ $(\dagger)$, after unwrapping the calculation of the first
 \emph{layer}, we are back to having to calculate |size| for |Bin Int|,
 not their generic representation.
 
-\victor[victor:codes]{In \texttt{GHC.Generics}, the representation has NO CODE;
-in fact, that's why we need instance search to perform induction on it.}
-
   Upon reflecting on the generic |size| function above, we see
 a number of issues. Most notably is the amount of boilerplate to
 achieve a conceptually simple task: sum up all the sizes of the fields
@@ -124,10 +121,6 @@ can be consumed with the |default size| function. The
 \texttt{regular}~\cite{Noort2008} addresses this issue by having a
 specific \emph{pattern functor} for recursive positions.
 
-
-\victor{Should we show how this is 'unsafe' by not having codes.
-|Maybe :*: K1 R Int| is a pattern functor; instance search will blow up though;
-or just mentioning is enough?}
   Perhaps even more subtle, but also more worrying, is that we have no
 guarantees that the |RepGen a| of a type |a| will be defined using
 only the supported \emph{pattern functors}. Fixing this would require
@@ -229,9 +222,6 @@ scratch using \emph{GADTs}~\cite{Xi2003}, whom play a central role
 here.  By pattern matching on the values of |NS| and |NP| we are
 informing the typechecker of the structure of the |CodeSOP|.
 
-\victor{could add a note here saying that this is 
-one of the central tricks}
-
 \begin{minipage}[t]{.45\textwidth}
 \begin{myhs}
 \begin{code}
@@ -284,17 +274,18 @@ map f  (x :* xs)  = f x : map f xs
 \end{myhs}
 \end{minipage}
 
-\victor{We need some glue here}
-  Comparing to the \texttt{GHC.Generics} implementation of |size|, we
+  Reflecting on the current definition of |size|, specially in
+comparisson to the \texttt{GHC.Generics} implementation of |size|, we
 see two improvements: (A) we need one less typeclass, namelly |GSize|,
 and, (B) the definition is combinator-based. Considering that the
 generated \emph{pattern functor} representation of a Haskell datatype
 will already be in a \emph{sums-of-products}, we do not lose anything
 by enforcing this structure.
 
-  There are still downsides to this approach, as it stands. A notable one being the need
-to carry constraints arround: the actual |gsize| written
-with the \texttt{generics-sop} library and no sugar looks like:
+  There are still downsides to this approach, as it stands. A notable
+one being the need to carry constraints arround: the actual |gsize|
+written with the \texttt{generics-sop} library and no sugar looks
+like:
 
 \begin{myhs}
 \begin{code}
