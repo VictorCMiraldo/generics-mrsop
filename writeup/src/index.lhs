@@ -162,7 +162,6 @@ a wider range of choice for their generic functions.
 %
 % Body
 %
-%include src/intro.lhs
 %include src/body.lhs
 %
 %%%%%%%%%%%%%%%%%%%%%%%%
