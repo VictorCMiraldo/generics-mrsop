@@ -282,7 +282,7 @@ generated \emph{pattern functor} representation of a Haskell datatype
 will already be in a \emph{sums-of-products}, we do not lose anything
 by enforcing this structure.
 
-  There are still downsides to this approach, as it stands. A notable
+  There are still downsides to this approach as it stands. A notable
 one being the need to carry constraints arround: the actual |gsize|
 written with the \texttt{generics-sop} library and no sugar looks
 like:
@@ -376,7 +376,7 @@ class GenericFix a where
 \begin{myhs}
 \begin{code}
 type instance CodeFix (Bin Int) = P [ P [KInt] , P [I , I] ]
-instance Generic (Bin Int) where
+instance GenericFix (Bin Int) where
   from (Leaf x)   = Rep (        Here  (NA_K x  :* NP0))
   from (Bin l r)  = Rep (There ( Here  (NA_I l  :* NA_I r :* NP0)))
 \end{code}
@@ -410,16 +410,44 @@ fold f = f . fmap (fold f) . unFix
 \end{code}
 \end{myhs}
 
-  With a solid representation that not only is guaranteed to follow a 
-\emph{sum-of-products} structure but also has specific information about
-the recursive positions of a type, we can define a collection of
-combinators by induction on the |CodeFix| instead of having to rely
-on instances. This is definitely more convenient. For instance,
-lets look at |compos|, which applies a function |f| everywhere on the recursive structure.
+  Another convenience of the \emph{sums-of-products} structure is that we
+can precisely state that a value of a representation is composed of a
+choice of constructor and its respective product of fields. The
+|View| type below exposes this very structure, where |Constr n sum| is
+a proof that |n| is a valid constructor for |sum|, essentially saying
+|n < length sum|, if we could. The |Lkup| is just a type-level list
+lookup, we will come back it in more details in \Cref{sec:family}.
 
 \begin{myhs}
 \begin{code}
-compos :: (Generic a) => (a -> a) -> a -> a
+data View :: [[ Atom ]] -> * -> * where
+  Tag :: Constr n sum -> NP (NA x) (Lkup sum n) -> View sum x
+\end{code}
+\end{myhs}
+
+  The real convenience comes from being able to easily pattern
+match and inject into and from generic values. As we shall see
+in \Cref{sec:alphaequivalence}, this is a must have. THe functions
+that perform the pattern matching and injection are the |inj|
+and |sop| below.
+
+\begin{myhs}
+\begin{code}
+inj :: Constr n sum -> NP (NA x) (Lkup n sum) -> RepFix sum x
+sop :: RepFix sum x -> View sum x
+\end{code}
+\end{myhs}
+
+  With a solid representation that not only is guaranteed to follow a
+\emph{sum-of-products} structure but also has specific information
+about the recursive positions of a type, we can keep on defining a
+collection of combinators by induction on the |CodeFix| instead of
+having to rely on instances. For instance, lets look at |compos|,
+which applies a function |f| everywhere on the recursive structure.
+
+\begin{myhs}
+\begin{code}
+compos :: (GenericFix a) => (a -> a) -> a -> a
 compos f = to . fmap f . from
 \end{code}
 \end{myhs}
@@ -471,15 +499,20 @@ gsize = crush (const 1) sum
 \end{code}
 \end{myhs}
 
-  The deep encoding of |a| allows us to drop the complicated constraints needed
-for handling the types of the fields of the constructors of |a|. The information
-about the recursive position allows us to write neat combinators like |crush|.
-The only thing keeping us from handling real life applications is the limited
-form of recursion. When a user requires a generic programming
-library, chances are they need to traverse and consume mutually recursive
-structures.
-
-\victor{Should we introduce the |sop| function and |View| datatype?}
+  Let us take a step back and reflect upon the current setting we have
+so far achieved. Long story short, we have combined the insight from
+the \texttt{regular} library of keeping track of recursive positions
+with the convenience for the \texttt{generics-sop} for enforcing a
+specific \emph{normal form} to representations. By doing so, we were
+able to provide a \emph{deep} encoding for free. Essentially freeing
+us from the burden of maintaining complicated constraints needed for
+handling the types within the topmost constructor. The information
+about the recursive position allows us to write neat combinators like
+|crush| and |compos| together with a convenient |View| type for
+keeping a choice of constructor handy. The only thing keeping us from
+handling real life applications is the limited form of recursion. When
+a user requires a generic programming library, chances are they need
+to traverse and consume mutually recursive structures.
 
 \section{Mutual Recursion}
 \label{sec:family}
@@ -834,11 +867,9 @@ most common primitive Haskell datatypes.
 
 \subsection{Combinators}
 
-  \victor{glue this up; point is: |zip| |map| |elim| and |compos| are the base}
-
   Through the rest of this section we wish to showcase a selection of particularly
 powerful combinators that are remarkably simple to define by exploiting the
-\emph{sums-of-products} structure.
+\emph{sums-of-products} structure coupled with the mutual recursion information.
 
 For the sake of fostering intuition instead of worrying about
 notational overhead, we shall write values of |RepMRec kappa phi c| just like
@@ -849,8 +880,8 @@ using the |^=| symbol, |C x_1 dots x_n| will stand for a value of the correspond
 Since each of these |x_1 dots x_n| might be a recursive type or an opaque type,
 whenever we have two functions |f_I| and |f_K| in scope, |fSq x_j| will
 denote the application of the correct function for recursive positions, |f_I|,
-or opaque types |f_K|. For example, here is the actual code of a function
-which applies functions to a |NA| structure:
+or opaque types |f_K|. For example, here is the actual code of the function
+which maps over a |NA| structure:
 \begin{myhs}
 \begin{code}
 bimapNA f_K f_I  (NA_I  i)  = NA_I  (f_I  i)
@@ -860,7 +891,7 @@ bimapNA f_K f_I  (NA_K  k)  = NA_K  (f_K  k)
 and this is how we write the function following this convention:
 \begin{myhs}
 \begin{code}
-bimapNA f_K f_I x ^= f x
+bimapNA f_K f_I x ^= fSq x
 \end{code}
 \end{myhs}
 
@@ -915,6 +946,7 @@ introduced in \Cref{sec:explicitfix}. We are now able to change every
 subtree of whatever type we choose inside an arbitrary value of the
 mutually recursive family in question.
 \alejandro{Update to reflect different opaque types interpretation.}
+\victor{There is nothing to update; |El| receives no |kappa :: kon -> *|}
 
 \begin{myhs}
 \begin{code}
@@ -936,13 +968,14 @@ combinators in \Cref{sec:alphaequivalence}.
 In this section we present several applications of our generic programming
 approach. The applications themselves -- equality, $\alpha$-equivalence, and
 zippers -- are commonly introduced with any new generic library. Our goal
-is to show \texttt{\nameofourlibrary} is as powerful as other comparable
-libraries. Note also that even though some examples use a single recursive
+is to show \texttt{\nameofourlibrary} is at least as powerful as other comparable
+libraries, but brings in the union of their advantages. 
+Note also that even though some examples use a single recursive
 dataype for the sake of conciseness, those can be readily generalized to
 muturally recursive families.
 
 There are many other applications for generic programming which greatly benefit
-from supporting mutual recursion. 
+from supporting mutual recursion, if not requiring it. 
 One great pool of examples is operations with abstract syntax trees of realistic
 languages, such as generic diff-ing~\cite{CacciariMiraldo2017} or
 pretty-printing~\cite{Magalhaes2010}.
@@ -1161,7 +1194,7 @@ for many different classes of types in the past. To the best of
 the authors knowledge, this is the first definition in a direct
 \emph{sums-of-products} style. Moreover, being able to define
 the generic zipper in one's generic programming framework is
-a non-trivial benchmark to achieve.
+a non-trivial expressivity benchmark to be achieved.
 
   Generally speaking, the zipper keeps track of a focus point in a
 datastructure and allows for the user to convinently move this focus
@@ -1178,13 +1211,33 @@ update  :: (a -> a) -> Loc a -> Loc a
 \end{code}
 \end{myhs}
 
+  Where |a| and |Loc a| are isomorphic, and can be converted by the
+means of |enter| and |leave| functions. For instance, the composition
+of |down|, |down|, |right| , |update f| will essentially move the
+focus two layers down from the root, then one element to the right and
+apply function |f| to the focused element:
+
+\begin{center}
+\begin{tabular}{m{.2\linewidth} m{.06\linewidth} m{.2\linewidth}}
+\begin{forest}
+  [|a|,draw [|b| [|c_1|] [|c_2|] [|c_3|]] [|d|]]
+\end{forest}
+  & { \centering $\Rightarrow$ } &
+\begin{forest}
+  [|a| [|b| [|c_1|] [|f c_2|,draw] [|c_3|]] [|d|]]
+\end{forest}
+\end{tabular}
+\end{center}
+
   In our case, this location type consists in a distinguished element
 of type |ix| and a stack of contexts with a hole of type |ix|, where
 we can plug the distinguished element and \emph{leave} the zipper.
-All of the following development is parametrized by an interpretation
-for opaque types |ki :: kon -> *|, a family |fam :: [*]| and its associated
-codes |codes :: [[[Atom kon]]]|; since these are the same for any given family,
-let us fix those and ommit them from the declarations to simplify the presentation. 
+This stack of contexts are used to keep track of how far deep from the
+root we are.  All of the following development is parametrized by an
+interpretation for opaque types |ki :: kon -> *|, a family |fam ::
+[*]| and its associated codes |codes :: [[[Atom kon]]]|; since these
+are the same for any given family, let us fix those and ommit them
+from the declarations to simplify the presentation.
 
   A location for the |ix| element of the family, |El fam ix|
 is defined by having a distinguished element of the family, possibly of
@@ -1243,7 +1296,7 @@ data NPHoleE :: [Atom kon] -> * where
 
   Finally, we can define the |firstE| and |nextE| that are used
 instead of the |first| and |next| from \texttt{multirec}. The intuition
-behind those is pretty simple; |firstE| returns the |NPHole| with the hole
+behind those is pretty simple: |firstE| returns the |NPHole| with the 
 first recursive position (if any) selected, |nextE| tries to find the
 next recursive position in a |NPHole|. The |ix| is packed up in an existential
 type since we do not really know before hand which member of the mutually
@@ -1286,32 +1339,33 @@ tr (App (Var "a") (Var "b"))
 \end{myhs}
 \end{minipage}
 
+  We invite the reader to check the source code for a more detailed
+account of the generic zipper, which is the last example we introduce.
+The selection of examples show that by keeping the good ideas from
+the generic programming community and putting them all under the same roof
+we are able to achieve powerfull functionality in a convenient fashion.
+
+  The last point we have to address is that we still have to write
+the |Family| instance for the types we want to use. For instance,
+the |Family| instance for example in \Cref{fig:alphatoy} is not going
+to be fun. Deriving these automatically is possible, but non-trivial,
+as we shall see in \Cref{sec:templatehaskell} 
+
 \section{Template Haskell}
 \label{sec:templatehaskell}
 
-\victor{I'm assuming we have already introduced the 
-usual RoseTree family: |data Rose a = Fork a [Rose a]|}
+  Having a convenient and robust way to get the |Family| instance for
+a certain selection of datatypes is paramount for the usability of the
+library. The goal is to take mechanical work away from the
+programmer. In a real scenario, the typical mutually recursive family
+will be constituted of dozens of datatypes with tens of dozens of
+constructors. Sometimes these datatypes are written with parameters,
+or come from external libraries. We wish to handle all of those,
+but first, there are some challenges we need to overcome.
 
-\victor{The glue text should mention how boring and mechanical it is to 
-have to write the |Family| instance by hand}
-
-  Having a convenient and robust way to get the |Family| instance
-for a certain selection of datatypes is paramount for the usability
-of the library. The goal is to take mechanical work away from the
-programmer, and not introduce more, after all. In a real scenario,
-the typical mutually recursive family will be constituted of dozens
-of datatypes with tens of dozens of constructors. Sometimes these
-datatypes are written with parameters, or come from external libraries.
-There are many difficulties to a fully automatic interface to deriving |Family|
-instances.
-
-\subsection{The Final User Interface}
-\label{sec:thapi}
-
-  All that the programmer have to do to derive their |Family|
-instance is call the \emph{Template Haskell}~\cite{Sheard2002} 
-function |deriveFamily| and pass the (fully saturated) type that
-is the topmost type in the family:
+  The design goal here is that the programmer can derive her |Family|
+instance with minimum effort by calling some \emph{Template Haskell}~\cite{Sheard2002}
+functionality, ie:
 
 \newcommand{\shspc}{\hspace{-0.05em}}
 %format (tht (a)) = "\HSSym{[\shspc t\shspc|}" a "\HSSym{|\shspc]}"
@@ -1326,10 +1380,15 @@ deriveFamily (tht (Prog String))
 \end{code}
 \end{myhs}
 
-  \victor{Explain the splicing idea; mention that |Prog String| will
-be the |Lkup Z Fam| type}
+  The |deriveFamily| receives only the topmost (ie, the first) type of
+the family and should unfold the (type-level) recursion until it
+reaches a fixpoint.  In this case, the |type FamProgString = P [Prog
+String , dots]| will be generated, together with its |Family|
+instance. Optionally, one can also give a custom function to decide
+whether something is an Opaque type or not. By default, it uses a
+selection of Haskell built-in types as opaque types.
 
-\subsection{Under the Hood}
+\subsection{Unfolding the Family}
 \label{sec:underthehood}
 
   The process of deriving a whole mutually recursive family from a single
@@ -1337,6 +1396,9 @@ member is mainly divided in two disjoint process. First we unfold all definition
 and follow all the recursive paths until we reach a fixpoint and, hence,
 have discovered all types in the family. Second, we translate the definition
 of the previously discovered types to the format our library expects.
+During the unfolding process we keep a key-value map in a 
+|State| monad, keeping track of the types we have seen, the types we have
+seen \emph{and} processed and the indexes of those within the family.
 
   Let us illustrate this process in a bit more detail using the cannonical
 mutually recursive family example and walking through what
@@ -1352,61 +1414,73 @@ deriveFamily (tht (Rose Int))
 \end{code}
 \end{myhs}
 
-  \victor{I'm using type-level naturals in the following}
-  
+  The first thing that happens is registering that we seen the type |Rose Int|.
+This associates it with a fresh index, in this case, |Z|. We have not yet processed it, however!To do that, we need to reify the definition of |Rose|. At this point, \emph{Template Haskell} (TH) will return |data Rose x = x :>: [Rose x]|. This has kind |* -> *| and cant
+be directly translated. In our case, we just need the specific case where |x = Int|.
+Essentially, we just apply the reified definition of |Rose| to |Int| and $\beta$-reduce it,
+giving us |Int :>: [Rose Int]|. The next processing step is looking into
+the types of the fields of the (single) constructor |:>:|: First we see |Int| and
+decide it is an opaque type, say |KInt|. Secondly, we see |[Rose Int]| and
+notice it is the first time we see this type. Hence, we register it with a fresh
+index, which now has to be |S Z| and return |P [P [K KInt, I (S Z)]]| as the
+processed type of |Rose Int|. We now go into |[Rose Int]| for processing. The
+idea is the same: reify, then substitute, then process each field of
+each constructor.
 
-  The first thing that happens is registering the type |Rose Int| as being 
-indexed by |Z|. But we have not yet processed it. We need to reify
-the definition of |Rose| and apply it to |Int| in order to get the 
-the type of |:>:| that will belong in the family. In fact, after reifying |Rose Int|
-and $\beta$-reducing it we get something like 
-|(\ a -> a :>: [Rose a]) Int == Int :>: [Rose Int]|. We now have to
-process the fields of |Int :>: [Rose Int]|, and once we are done, convert them
-to |Atom|s. The first field will be an opaque type |KInt|, but the second
-needs further processing, as it is the first time we encounter the type |[Rose Int]|.
-Same story as before. Start by registering |[Rose Int]| to a fresh index, in this case |S Z|.
-Reify the topmost application and $\beta$-reduce: |(\ a -> nil || a : [a]) (Rose Int) ==| 
-|nil || (Rose Int) : [Rose Int]|. We now go over the fields of each constructor
-and see what still needs processing. Turns out we are done since there is no
-type we have not seen before as both |Rose Int| and |[Rose Int]| have been
-registered with indexes |Z| and |S Z| respectively. We can then issue
-the codes:
+\begin{enumerate}
+  \item |reify [] =~= data [x] = nil || x : [x]|
+  \item Substituting |x| for |Rose Int| gives |nil || (Rose Int) : [ Rose Int ]|.
+  \item |nil| has no fields. We have already seen |Rose Int|, it is indexed by |Z|.
+        We have also seen |[Rose Int]|, it is indexed by |S Z|.
+  \item return |P [ P [] , P [I Z , I (S Z)] ]| as the processed type of |[Rose Int]|.
+\end{enumerate}
 
+  Since we have not seen any new type in (4) above, there is nothing else
+to process. Essentially, the hard part has been done. Now we just have to 
+generate the Haskell code. This is a very verbose but mechanical process
+and will be omitted from here. Nevertheless, we generate type synonyms 
+for the family and respective codes:
 
 \begin{myhs}
 \begin{code}
-type CodeRoseInt      = (P [ (P [ KInt , I (S Z) ]) ])
-type CodeListRoseInt  = (P [ (P [ ]) , (P [ I Z , I (S Z) ]) ])
+type FamRoseInt    = P [ Rose Int                    , [Rose Int] ]
+type CodesRoseInt  = P [ (P [P [K KInt , I (S Z)]])  , P [ P [] , P [I Z , I (S Z) ] ] ]
 \end{code}
 \end{myhs}
 
-  \victor{I'm not sure I should delve in more details about
-the actual implementation. Does the description suffice?}
+  Pattern synonyms for convient pattern matching and injecting over
+the |View| datatype and |SNat| representing the index of each
+type in the family. These have the same name but with an added \emph{underscore}:
 
-  \victor{Should we talk about the generation of pattern synonyms
-to help with the manipulation of deeply embedded values?}
+%format nilP  = "\HT{[]\_}"
+%format forkP = "\HT{\triangleright\!\_}"
+%format consP = "\HT{:\!\_}"
+%format RoseIntP = "\HT{RoseInt\_}"
+%format ListRoseIntP = "\HT{ListRoseInt\_}"
+\begin{myhs}
+\begin{code}
+pattern x forkP xs  = Tag SZ       (NA_K x :* NA_I xs :* NP0)
+pattern nilP        = Tag SZ       NP0
+pattern x consP xs  = Tag (SS SZ)  (NA_I x :* NA_I xs :* NP0)
 
-\subsection{Temp. Summary}
+pattern RoseIntP      = SZ
+pattern ListRoseIntP  = SS SZ
+\end{code}
+\end{myhs}
 
-  \victor{Stress that we have achieved what we were looking for:
-\begin{description}
-  \item[Convenience:] The user jsut tells the top-most type
-    of the family. Changes in the family don't require changes
-    in the code (unless they are gigantic changes, obviously).
-  \item[Robustness:] Having a type-level reduction mechanism
-    allows us to let the user make use of types such as |Maybe|
-    or |[ ]| and the mechanism will consider those as members of
-    the family.
-\end{description}}
+  And last but not least, the actual |Family| instance:
 
+\begin{myhs}
+\begin{code}
+instance Family Singl FamRoseInt CodesRoseInt where
+  dots
+\end{code}
+\end{myhs}
 
-  In order to derive a whole mutually recursive family from just one of
-the members of the family requires some engineering. 
+\subsubsection{Meta-information}
 
-We have to be able to automatically handle all of these cases for
-a satisfying \emph{template haskell} mechanism.
-
-\victor{Driving in Auto from Gameplan}
+\victor{Metainformation!!! We must say we can do meta information
+just like \texttt{generics-sop}, and these can also be easily generated}
 
 \section{Conclusion and Future Work}
 

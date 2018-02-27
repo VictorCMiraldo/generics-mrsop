@@ -8,6 +8,7 @@
 %%
 %% Our packages
 \usepackage{xcolor}
+\usepackage{forest}
 
 %% Cleveref must be the last loaded package
 %% since it modifies the cross-ref system.

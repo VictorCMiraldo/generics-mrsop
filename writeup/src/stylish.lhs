@@ -56,6 +56,7 @@
 %format nil        = "\HSCon{[]}"
 
 %format family     = "\HSKeyword{family}"
+%format pattern    = "\HSKeyword{pattern}"
 %format _          = "\HSManualSym{\anonymous} "
 %format ->         = "\HSManualSym{\to} "
 %format <-         = "\HSManualSym{\leftarrow} "
