@@ -613,8 +613,8 @@ genPiece4 first ls = concat <$> mapM genDatatypeInfoInstance ls
       = [e| Meta.New $(genMod name) $(genDatatypeName sty) $(genConInfo ci) |]
 
     genConInfo :: CI IK -> Q Exp
-    genConInfo (Record _ _)
-      = fail "Generating metadata for record types is not yet supported!"
+    genConInfo (Record conname fields)
+      = [e| Meta.Record $(strlit $ nameBase conname) $(genFieldInfo $ map fst fields) |]
     genConInfo (Normal conname _)
       = [e| Meta.Constructor $(strlit $ nameBase conname) |]
     genConInfo (Infix conname fix _ _)
@@ -625,6 +625,10 @@ genPiece4 first ls = concat <$> mapM genDatatypeInfoInstance ls
         genAssoc (Fixity _ InfixN) = [e| Meta.NotAssociative   |]
 
         genFix (Fixity i _) = return . LitE . IntegerL . fromIntegral $ i
+
+    genFieldInfo :: [ FieldName ] -> Q Exp
+    genFieldInfo []     = [e| NP0 |]
+    genFieldInfo (f:fs) = [e| Meta.FieldInfo $(strlit . nameBase $ f) :* ( $(genFieldInfo fs) ) |]
 
     genConInfoNP :: [ CI IK ] -> Q Exp
     genConInfoNP []       = [e| NP0 |]
