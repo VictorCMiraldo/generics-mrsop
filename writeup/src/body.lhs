@@ -1650,7 +1650,9 @@ deriveFamily (tht (Rose Int))
 \end{myhs}
 
   The first thing that happens is registering that we seen the type |Rose Int|.
-This associates it with a fresh index, in this case, |Z|. We have not yet processed it, however!To do that, we need to reify the definition of |Rose|. At this point, \emph{Template Haskell} (TH) will return |data Rose x = x :>: [Rose x]|. This has kind |* -> *| and cant
+This associates it with a fresh index, in this case, |Z|. We have not yet processed it, however!
+To do that, we need to reify the definition of |Rose|. At this point, \emph{Template Haskell}
+will return |data Rose x = x :>: [Rose x]|. This has kind |* -> *| and cant
 be directly translated. In our case, we just need the specific case where |x = Int|.
 Essentially, we just apply the reified definition of |Rose| to |Int| and $\beta$-reduce it,
 giving us |Int :>: [Rose Int]|. The next processing step is looking into
