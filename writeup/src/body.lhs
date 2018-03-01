@@ -1180,14 +1180,12 @@ that receives a good boost in expressivity is the beloved |compos|,
 introduced in \Cref{sec:explicitfix}. We are now able to change every
 subtree of whatever type we choose inside an arbitrary value of the
 mutually recursive family in question.
-\alejandro{Update to reflect different opaque types interpretation.}
-\victor{There is nothing to update; |El| receives no |kappa :: kon -> *|}
 
 \begin{myhs}
 \begin{code}
 compos  :: (forall iy dot El fam iy -> El fam iy)
         -> El fam ix -> El fam ix
-compos f = toMRec . mapRep f . fromMRec
+compos f = toMRec . bimapRep id f . fromMRec
 \end{code}
 \end{myhs}
 
