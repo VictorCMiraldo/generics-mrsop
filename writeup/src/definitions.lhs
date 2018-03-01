@@ -113,6 +113,7 @@
 %format :*  = "\HT{\times}"
 %format :*: = "\HT{:\!*\!:}"
 %format :+: = "\HT{:\!+\!:}"
+%format :@: = "\HT{:\!@\!:}"
 %format <$$> = "\HS{<\!\!\$\!\!>}"
 %format <*> = "\HS{<\!\!*\!\!>}"
 

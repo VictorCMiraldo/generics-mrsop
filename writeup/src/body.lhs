@@ -1672,9 +1672,11 @@ each constructor.
 
   Since we have not seen any new type in (4) above, there is nothing else
 to process. Essentially, the hard part has been done. Now we just have to 
-generate the Haskell code. This is a very verbose but mechanical process
-and will be omitted from here. Nevertheless, we generate type synonyms 
-for the family and respective codes:
+generate the Haskell code. This is a very verbose and mechanical process, whose
+details will be omitted. Nevertheless, we generate type synonyms,
+pattern synonyms, the |Family| instance and metadata information. 
+The generated type synonyms are named after the topmost type of the family,
+passed to |deriveFamily|:
 
 \begin{myhs}
 \begin{code}
@@ -1683,9 +1685,10 @@ type CodesRoseInt  = P [ (P [P [K KInt , I (S Z)]])  , P [ P [] , P [I Z , I (S 
 \end{code}
 \end{myhs}
 
-  Pattern synonyms for convenient pattern matching and injecting over
-the |View| datatype and |SNat| representing the index of each
-type in the family. These have the same name but with an added \emph{underscore}:
+  Pattern synonyms are useful for convenient pattern matching and injecting over
+the |View| datatype. Some |SNat| representing the index of each
+type in the family also come in handy. These have the same name as the original 
+but with an added \emph{underscore}:
 
 %format nilP  = "\HT{[]\_}"
 %format forkP = "\HT{\triangleright\!\_}"
@@ -1703,7 +1706,7 @@ pattern ListRoseIntP  = SS SZ
 \end{code}
 \end{myhs}
 
-  And last but not least, the actual |Family| instance:
+  The actual |Family| instance is exactly as the one shown in \Cref{sec:family}
 
 \begin{myhs}
 \begin{code}
@@ -1712,23 +1715,76 @@ instance Family Singl FamRoseInt CodesRoseInt where
 \end{code}
 \end{myhs}
 
-\subsubsection{Meta-information}
+  Finally, we also generate some metadata for being able to correlate
+the name of constructors and types with the generic representation. 
+We handle metadata almost entirely like \texttt{generics-sop}, with a 
+few differences that will be explained in \Cref{sec:metadata}
 
-\victor{Metainformation!!! We must say we can do meta information
-just like \texttt{generics-sop}, and these can also be easily generated}
+\subsection{Metadata}
+\label{sec:metadata}
+
+  Like in \texttt{generics-sop}, having the code for a family of datatypes
+at hand allows for a completely separate treatment of metadata. Unlike
+\texttt{generics-sop}, the metadata is defined for a type within a family
+and needs to keep track of which arguments were passed to each type.
+We do this by the means of a |TypeName| that maintains the applications.
+A simplified version of our metadata model is shown below.
+
+\begin{myhs}
+\begin{code}
+data TypeName
+  =  ConT String
+  | TypeName :@: TypeName
+
+data DatatypeInfo :: [[Atom kon]] -> * where
+  ADT  :: TypeName  -> NP  ConstructorInfo cs       -> DatatypeInfo cs
+  New  :: TypeName  ->     ConstructorInfo (P [c])  -> DatatypeInfo (P [ P [ c ]])
+
+data ConstructorInfo :: [Atom kon] -> * where
+  Constructor :: Name -> ConstructorInfo xs
+\end{code}
+\end{myhs}
+
+  Finally, the |HasDatatypeInfo| class provides access to metadata information
+for a type \emph{within} a family:
+
+\begin{myhs}
+\begin{code}
+class (Family kappa fam codes) => HasDatatypeInfo kappa fam codes ix where
+  datatypeInfo  :: (ix ~ Idx ty fam , Lkup ix fam ~ ty , IsNat ix)
+                => Proxy fam -> Proxy ty -> DatatypeInfo (Lkup ix codes)
+\end{code}
+\end{myhs}
+
+  The Template Haskell will then generate something similar to
+the instance below for the first type in the family, |Rose Int|:
+
+\begin{myhs}
+\begin{code}
+instance HasDatatypeInfo Singl FamRose CodesRose Z where
+  datatypeInfo _ _  = ADT (Name "R" :@: Name "Int")
+                    $ (Constructor ":>:") :* NP0
+\end{code} %$
+\end{myhs}
+
+  We invite the interested reader to read the documentation
+in the code and check \texttt{generics-sop} for more information. 
+  
 
 \section{Conclusion and Future Work}
 
-In this paper we have presented \texttt{\nameofourlibrary}, a library for
-generic programming in Haskell which support both deep and shallow
-representations of mutually recursive families of datatypes. We follow the
-sums-of-products approach: datatypes are described by a code
-consisting of lists (one per datatype) of lists (one per constructor)
-of lists (one per field) of atoms. The result is as expressive as other
-approaches such as \texttt{multirec}, yet it allows for a more concise
-combinator-based approach to defining generic functions.
+  In this paper we have presented \texttt{\nameofourlibrary}, a
+library for generic programming in Haskell that combines the
+advantages of previous approaches to generic programming. We have
+carefully blended the information about (mutually) recursive
+positions, from \texttt{multirec}, with the sums-of-products codes,
+from \texttt{generics-sop}, maintaining the advantages of both. The
+result is as expressive as other approaches such as \texttt{multirec},
+yet it allows for a more concise combinator-based approach to defining
+generic functions. Our library will be made publically available on
+Hackage once the review process is done. 
 
-Future work involves expanding the universe of datatypes that our library
+  Future work involves expanding the universe of datatypes that our library
 can handle. Currently, every type involved in a recursive family must be
 a ground type (of kind |*| in Haskell terms); our Template Haskell derivations
 acknowledges this fact by implementing some amount of reduction for types.
