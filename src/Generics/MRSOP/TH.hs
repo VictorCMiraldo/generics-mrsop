@@ -30,6 +30,7 @@ import Generics.MRSOP.Base.Class
 import Generics.MRSOP.Base.NS
 import Generics.MRSOP.Base.NP
 import Generics.MRSOP.Base.Universe
+import qualified Generics.MRSOP.Base.Metadata as Meta
 
 import qualified Data.Map as M
 
@@ -108,16 +109,16 @@ data DTI ty
 -- |Constructor information
 data CI ty
   = Normal ConName [ty]
-  | Infix  ConName ty ty
+  | Infix  ConName Fixity ty ty
   | Record ConName [ (FieldName , ty) ]
   deriving (Eq , Show , Functor)
 
 -- ** Monadic Maps
 
 ciMapM :: (Monad m) => (ty -> m tw) -> CI ty -> m (CI tw)
-ciMapM f (Normal name tys) = Normal name <$> mapM f tys
-ciMapM f (Infix name l r)  = Infix name <$> f l <*> f r
-ciMapM f (Record name tys) = Record name <$> mapM (rstr . (id *** f)) tys
+ciMapM f (Normal name tys)  = Normal name  <$> mapM f tys
+ciMapM f (Infix name x l r) = Infix name x <$> f l <*> f r
+ciMapM f (Record name tys)  = Record name  <$> mapM (rstr . (id *** f)) tys
   where
     rstr (a , b) = b >>= return . (a,)
 
@@ -130,14 +131,14 @@ dti2ci (ADT _ _ cis) = cis
 dti2ci (New _ _ ci)  = [ ci ]
 
 ci2ty :: CI ty -> [ty]
-ci2ty (Normal _ tys) = tys
-ci2ty (Infix _ a b)  = [a , b]
-ci2ty (Record _ tys) = map snd tys
+ci2ty (Normal _ tys)  = tys
+ci2ty (Infix _ _ a b) = [a , b]
+ci2ty (Record _ tys)  = map snd tys
 
 ciName :: CI ty -> Name
-ciName (Normal n _)  = n
-ciName (Infix n _ _) = n
-ciName (Record n _)  = n
+ciName (Normal n _)    = n
+ciName (Infix n _ _ _) = n
+ciName (Record n _)    = n
 
 ci2Pat :: CI ty -> Q ([Name] , Pat)
 ci2Pat ci
@@ -231,9 +232,8 @@ conInfo (NormalC  name ty) = Normal name <$> mapM (convertType . snd) ty
 conInfo (RecC     name ty) = Record name <$> mapM (\(s , _ , t) -> (s,) <$> convertType t) ty
 conInfo (InfixC l name r)
   = do info <- reifyFixity name
-       case info of
-         -- TODO: incorporate fixity information.
-         _ -> Infix name <$> convertType (snd l) <*> convertType (snd r)
+       let fixity = maybe defaultFixity id $ info
+       Infix name fixity <$> convertType (snd l) <*> convertType (snd r)
 conInfo (ForallC _ _ _) = fail "Existentials not supported"
 #if MIN_VERSION_template_haskell(2,11,0)
 conInfo (GadtC _ _ _)    = fail "GADTs not supported"
@@ -417,6 +417,11 @@ reifySTy sty
 -- >     = El (a :>: as)
 -- >   sto' (SS SZ) (Rep (There (Here (NA_K (SInt a) :* NP0))))
 -- >     = El (Leaf a)
+--
+-- 4. Metadata for each type in (1)
+-- > instance HasDatatypeInfo Singl FamRose CodesRose Z where ...
+-- > instance HasDatatypeInfo Singl FamRose codesRose (S Z) where ...
+-- 
 
 -- |The input data for the generation is an ordered list
 --  (on the second component of the tuple) of STy's and
@@ -580,6 +585,51 @@ genPiece3_2 input
       = map (uncurry match)
       <$> mapM (uncurry ci2ExpPat) (zip [0..] (dti2ci dti))
 
+genPiece4 :: STy -> Input -> Q [Dec]
+genPiece4 first ls = concat <$> mapM genDatatypeInfoInstance ls
+  where
+    genDatatypeInfoInstance :: (STy , Int , DTI IK) -> Q [Dec]
+    genDatatypeInfoInstance (sty , idx , dti)
+      = [d| instance Meta.HasDatatypeInfo Singl $(ConT <$> familyName first)
+                                                $(ConT <$> codesName first)
+                                                $(return (int2Type idx))
+              where datatypeInfo _ _ = $(genInfo sty dti) |]
+
+    genMod :: Name -> Q Exp
+    genMod = strlit . maybe "" id . nameModule
+
+    strlit :: String -> Q Exp
+    strlit = return . LitE . StringL
+
+    genDatatypeName :: STy -> Q Exp
+    genDatatypeName = styFold (\e1 e2 -> [e| ( $e1 Meta.:@: $e2 ) |])
+                              (\n -> [e| Meta.Name $(strlit (nameBase n)) |] )
+                              (\n -> [e| Meta.Name $(strlit (nameBase n)) |] )
+
+    genInfo :: STy -> DTI IK -> Q Exp
+    genInfo sty (ADT name _ cis)
+      = [e| Meta.ADT $(genMod name) $(genDatatypeName sty) $(genConInfoNP cis) |]
+    genInfo sty (New name _ ci)
+      = [e| Meta.New $(genMod name) $(genDatatypeName sty) $(genConInfo ci) |]
+
+    genConInfo :: CI IK -> Q Exp
+    genConInfo (Record _ _)
+      = fail "Generating metadata for record types is not yet supported!"
+    genConInfo (Normal conname _)
+      = [e| Meta.Constructor $(strlit $ nameBase conname) |]
+    genConInfo (Infix conname fix _ _)
+      = [e| Meta.Infix $(strlit $ nameBase conname) $(genAssoc fix) $(genFix fix) |]
+      where
+        genAssoc (Fixity _ InfixL) = [e| Meta.LeftAssociative  |]
+        genAssoc (Fixity _ InfixR) = [e| Meta.RightAssociative |]
+        genAssoc (Fixity _ InfixN) = [e| Meta.NotAssociative   |]
+
+        genFix (Fixity i _) = return . LitE . IntegerL . fromIntegral $ i
+
+    genConInfoNP :: [ CI IK ] -> Q Exp
+    genConInfoNP []       = [e| NP0 |]
+    genConInfoNP (ci:cis) = [e| $(genConInfo ci) :* ( $(genConInfoNP cis) ) |]
+
 -- |@genFamily init fam@ generates a type-level list
 --  of the codes for the family. It also generates
 --  the necessary 'Element' instances.
@@ -591,7 +641,8 @@ genFamily first ls
   = do (p1a, p1b) <- genPiece1 first ls
        -- TODO: Gen Piece 2!
        p3 <- genPiece3 first ls
-       return [p1a , p1b , p3]
+       p4 <- genPiece4 first ls
+       return $ [p1a , p1b , p3] ++ p4
 
 -- |Generates a bunch of strings for debug purposes.
 genFamilyDebug :: STy -> [(STy , Int , DTI IK)] -> Q [Dec]
