@@ -1556,10 +1556,10 @@ and |Loc ix|.
 tr :: LambdaTerm -> Maybe LambdaTerm
 tr = enter  >>>  down 
             >=>  right 
-            >=>  update (const $$ Var "c") 
+            >=>  update (const $ Var "c") 
             >>>  leave 
             >>>  return
-\end{code}
+\end{code} %$
 \end{myhs}
 \end{minipage}%
 \begin{minipage}[t]{.45\textwidth}
@@ -1724,8 +1724,9 @@ few differences that will be explained in \Cref{sec:metadata}
 
   The representations described up to now are enough to write generic equalities
 and zippers. But there is one missing ingredient to derive generic
-pretty-printing or serialization to a text format, namely \emph{metadata}.
-The metadata of a datatype include its name, the module where it was defined,
+pretty-printing or conversion to JSON, for instance. We need to maintain
+the \emph{metadata} information of our datatypes.
+This metadata includes the datatype name, the module where it was defined,
 and the name of the constructors, among other information. Without this
 information you cannot write a function which outputs the string
 \begin{verbatim}
@@ -1736,12 +1737,14 @@ the code of |Rose Int| does not contain the information that the constructor
 of |Rose| is called |:>:|.
 
 
-  Like in \texttt{generics-sop}, having the code for a family of datatypes
-at hand allows for a completely separate treatment of metadata. This is yet
-another advantage from the sum-of-products approach when compared to the more
-traditional pattern functors. Here is a simplified version of the metadata
-used in that library~\cite{deVries2014}. We omit the definitions of some of the
-types for the sake of conciseness.
+  Like in \texttt{generics-sop}~\cite{deVries2014}, having the code
+for a family of datatypes at hand allows for a completely separate
+treatment of metadata. This is yet another advantage from the
+sum-of-products approach when compared to the more traditional pattern
+functors. In fact, our handling of metadata is heavily inspired from
+\texttt{generics-sop}, so much so that we start explaining a simplified version of how
+they handle metadata, then outline the differences to our approach. 
+
 \begin{myhs}
 \begin{code}
 data DatatypeInfo :: [[*]] -> * where
@@ -1761,15 +1764,14 @@ This information is tied to a datatype by means of an additional type class:
 \begin{myhs}
 \begin{code}
 class HasDatatypeInfo a where
-  type DatatypeInfoOf a  :: DatatypeInfo
-  datatypeInfo           :: proxy a -> DatatypeInfo (Code a)
+  datatypeInfo :: proxy a -> DatatypeInfo (Code a)
 \end{code}
 \end{myhs}
 Generic functions may now query the metadata by means of functions like
 |datatypeName|, which reflect the type information into the term level.
 
 Our library uses the same approach to handle metadata. In fact, the code remains
-almost unchanged, except for a few changed forced by the larger universe of
+almost unchanged, except for adapting it to the larger universe of
 datatypes we can now handle. Unlike \texttt{generic-sop}, our list of lists
 representing the sum-of-products structure does not contain types of kind |*|,
 but |Atom|s. All the types representing metadata at the type level must be
@@ -1800,8 +1802,8 @@ data DatatypeInfo :: [[Atom kon]] -> * where
 \end{code}
 \end{myhs}
 
-Unlike
-\texttt{generics-sop}, the metadata is not defined for a single type, but
+The most important difference to \texttt{generics-sop}, perhaps, 
+is that the metadata is not defined for a single type, but
 for a type \emph{within} a family. This is reflected in the new signature of 
 |datatypeInfo|, which receives proxies for both the family and the type.
 The type equalities in that signature reflect the fact that the given type
