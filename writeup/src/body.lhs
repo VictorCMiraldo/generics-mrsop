@@ -94,9 +94,8 @@ others.
 
 The other side of the spectrum are \emph{deep} representation, in which the
 entire value is turned into the representation that the generic library provides
-in one go. \victor{I don't get the next sentence} Since you know the entire shape of the datatype, including when
-recursion is places, deep techniques usually allow transformation of the
-datatype, not only generic functionality. This additional power has been used,
+in one go. In a deep representation, the positions where recursion takes
+place are marked distinctly. This additional power has been used,
 for example, to define regular expressions over Haskell datatypes~\cite{Serrano2016}.
 Depending on the use case, a shallow representation might be more efficient
 if only part of the value needs to be inspected. On the other hand, deep
@@ -799,7 +798,7 @@ first place in the list. There is only one constructor which has an |Int| field,
 represented by |KInt|, and another in which we recur to the second member of 
 our family (since lists are 0-indexed, we represent this by |S Z|). Similarly,
 the second constructor of |[Rose Int]| points back to both |Rose Int|
-using |I Z| and to |RoseTreeList| itself via |I (S Z)|.
+using |I Z| and to |[Rose Int]| itself via |I (S Z)|.
 
   Having settled on the definition of |Atom|, we now need to adapt |NA| to
 the new |Atom|s. In order to interpret any |Atom| into |*|, we now need
@@ -1723,34 +1722,94 @@ few differences that will be explained in \Cref{sec:metadata}
 \subsection{Metadata}
 \label{sec:metadata}
 
-  Like in \texttt{generics-sop}, having the code for a family of datatypes
-at hand allows for a completely separate treatment of metadata. Unlike
-\texttt{generics-sop}, the metadata is defined for a type within a family
-and needs to keep track of which arguments were passed to each type.
-We do this by the means of a |TypeName| that maintains the applications.
-A simplified version of our metadata model is shown below.
+  The representations described up to now are enough to write generic equalities
+and zippers. But there is one missing ingredient to derive generic
+pretty-printing or serialization to a text format, namely \emph{metadata}.
+The metadata of a datatype include its name, the module where it was defined,
+and the name of the constructors, among other information. Without this
+information you cannot write a function which outputs the string
+\begin{verbatim}
+1 :>: [2 :>: [], 3 :>: []]
+\end{verbatim}
+for a call to |genericShow (1 :>: [2 :>: [], 3 :>: []])|. The reason is that
+the code of |Rose Int| does not contain the information that the constructor
+of |Rose| is called |:>:|.
 
+
+  Like in \texttt{generics-sop}, having the code for a family of datatypes
+at hand allows for a completely separate treatment of metadata. This is yet
+another advantage from the sum-of-products approach when compared to the more
+traditional pattern functors. Here is a simplified version of the metadata
+used in that library~\cite{deVries2014}. We omit the definitions of some of the
+types for the sake of conciseness.
 \begin{myhs}
 \begin{code}
-data TypeName
-  =  ConT String
-  | TypeName :@: TypeName
+data DatatypeInfo :: [[*]] -> * where
+  ADT  :: ModuleName -> DatatypeName -> NP  ConstructorInfo cs       -> DatatypeInfo cs
+  New  :: ModuleName -> DatatypeName ->     ConstructorInfo (P [c])  -> DatatypeInfo (P [ P [ c ]])
+
+data ConstructorInfo :: [*] -> * where
+  Constructor  :: ConstructorName                             -> ConstructorInfo xs
+  Infix        :: ConstructorName -> Associativity -> Fixity  -> ConstructorInfo (P [ x, y ])
+  Record       :: ConstructorName -> NP FieldInfo xs          -> ConstructorInfo xs
+
+data FieldInfo :: * -> * where
+  FieldInfo :: FieldName -> FieldInfo a
+\end{code}
+\end{myhs}
+This information is tied to a datatype by means of an additional type class:
+\begin{myhs}
+\begin{code}
+class HasDatatypeInfo a where
+  type DatatypeInfoOf a  :: DatatypeInfo
+  datatypeInfo           :: proxy a -> DatatypeInfo (Code a)
+\end{code}
+\end{myhs}
+Generic functions may now query the metadata by means of functions like
+|datatypeName|, which reflect the type information into the term level.
+
+Our library uses the same approach to handle metadata. In fact, the code remains
+almost unchanged, except for a few changed forced by the larger universe of
+datatypes we can now handle. Unlike \texttt{generic-sop}, our list of lists
+representing the sum-of-products structure does not contain types of kind |*|,
+but |Atom|s. All the types representing metadata at the type level must be
+updated to reflect this new scenario:
+\begin{myhs}
+\begin{code}
+data DatatypeInfo     :: [  [  Atom kon ]]  -> * where
+data ConstructorInfo  ::    [  Atom kon ]   -> * where
+data FieldInfo        ::       Atom kon     -> * where
+\end{code}
+\end{myhs}
+
+As we have discussed above, our library is able to generate codes not only
+for single types of kind |*|, like |Int| or |Bool|, but also for types which
+result of type-level applications, such as |Rose Int| or |[Rose Int]|.
+The shape of the metadata information in |DatatypeInfo|, a module name plus
+a datatype name, is not enough to handle these cases. We introduce a new
+|TypeName| which may contain applications, and upgrade |DatatypeInfo| to
+use it instead.
+\begin{myhs}
+\begin{code}
+data TypeName  =  ConT ModuleName DatatypeName
+               |  TypeName :@: TypeName
 
 data DatatypeInfo :: [[Atom kon]] -> * where
   ADT  :: TypeName  -> NP  ConstructorInfo cs       -> DatatypeInfo cs
   New  :: TypeName  ->     ConstructorInfo (P [c])  -> DatatypeInfo (P [ P [ c ]])
-
-data ConstructorInfo :: [Atom kon] -> * where
-  Constructor :: Name -> ConstructorInfo xs
 \end{code}
 \end{myhs}
 
-  Finally, the |HasDatatypeInfo| class provides access to metadata information
-for a type \emph{within} a family:
-
+Unlike
+\texttt{generics-sop}, the metadata is not defined for a single type, but
+for a type \emph{within} a family. This is reflected in the new signature of 
+|datatypeInfo|, which receives proxies for both the family and the type.
+The type equalities in that signature reflect the fact that the given type
+|ty| is included with index |ix| within the family |fam|. This step is needed
+to look up the code for the type in the right position of |codes|.
 \begin{myhs}
 \begin{code}
-class (Family kappa fam codes) => HasDatatypeInfo kappa fam codes ix where
+class (Family kappa fam codes) => HasDatatypeInfo kappa fam codes ix | fam -> kappa codes where
   datatypeInfo  :: (ix ~ Idx ty fam , Lkup ix fam ~ ty , IsNat ix)
                 => Proxy fam -> Proxy ty -> DatatypeInfo (Lkup ix codes)
 \end{code}
@@ -1762,13 +1821,10 @@ the instance below for the first type in the family, |Rose Int|:
 \begin{myhs}
 \begin{code}
 instance HasDatatypeInfo Singl FamRose CodesRose Z where
-  datatypeInfo _ _  = ADT (Name "R" :@: Name "Int")
-                    $ (Constructor ":>:") :* NP0
+  datatypeInfo _ _  =  ADT (ConT "Example" "Rose" :@: ConT "Prelude" "Int")
+                    $  (Constructor ":>:") :* NP0
 \end{code} %$
 \end{myhs}
-
-  We invite the interested reader to read the documentation
-in the code and check \texttt{generics-sop} for more information. 
   
 
 \section{Conclusion and Future Work}
