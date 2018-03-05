@@ -319,7 +319,7 @@ instance (GSize f , GSize g) => GSize (f :+: g) where
 \end{myhs}
 
   We still have to handle the cases were 
-we might have an arbitrary type in a position, modelled by the
+we might have an arbitrary type in a position, modeled by the
 constant functor. We must require an instance of |Size|
 so we can successfully tie the recursive knot.
 
@@ -1913,7 +1913,7 @@ positions, from \texttt{multirec}, with the sums-of-products codes,
 from \texttt{generics-sop}, maintaining the advantages of both. The
 result is as expressive as other approaches such as \texttt{multirec},
 yet it allows for a more concise combinator-based approach to defining
-generic functions. Our library will be made publically available on
+generic functions. Our library will be made publicly available on
 Hackage once the review process is done. 
 
   Future work involves expanding the universe of datatypes that our library
