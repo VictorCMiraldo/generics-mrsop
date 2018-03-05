@@ -1886,7 +1886,7 @@ to look up the code for the type in the right position of |codes|.
 \begin{myhs}
 \begin{code}
 class (Family kappa fam codes) => HasDatatypeInfo kappa fam codes ix | fam -> kappa codes where
-  datatypeInfo  :: (ix ~ Idx ty fam , Lkup ix fam ~ ty , IsNat ix)
+  datatypeInfo  :: (ix ~ Idx ty fam , Lkup ix fam ~ ty)
                 => Proxy fam -> Proxy ty -> DatatypeInfo (Lkup ix codes)
 \end{code}
 \end{myhs}
