@@ -354,13 +354,13 @@ of the universe and are \emph{opaque} to the representation language.
 process more convenient. Note that the implementation of |size| for
 |Bin a| relies on the implementation for |gsize|, after converting a |Bin a|
 to its generic representation. We can instruct GHC to do this automatically
-using \texttt{-XDefaultSignatures}. The |Size| class then becomes:
+using \texttt{-XDefaultSignatures} and modifying the |Size| class to:
 
 \begin{myhs}
 \begin{code}
 class Size (a :: Star) where
   size :: a -> Int
-  default size  :: (Generic a , GSize (RepGen a))
+  default size  :: (GenericGen a , GSize (RepGen a))
                 => a -> Int
   size = gsize . fromGen
 \end{code}
