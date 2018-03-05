@@ -1390,7 +1390,7 @@ for |Var| and |Abs| constructors. The |App| can be eliminated generically.
 alphaEq :: LambdaTerm -> LambdaTerm -> Bool
 alphaEq x y = runState (galphaEq (deepFrom x) (deepFrom y)) [[]]
   where
-    galphaEq x y = maybe False (go TermP) (zipRep x y)
+    galphaEq x y = maybe False (go (Pat Term)) (zipRep x y)
 
     step = elimRepM  (return . uncurry (==))  -- Opaque types have to be equal!
                      (uncurry galphaEq)       -- recursive step
