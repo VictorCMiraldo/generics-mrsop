@@ -61,7 +61,7 @@
 %% Title information
 \title[Sums of Products for Mutually Recursive Datatypes]{Sums of Products for Mutually Recursive Datatypes}
 %\titlenote{with title note}
-\subtitle{An Appropriationistic View on Generic Programming}
+\subtitle{The Appropriationist's View on Generic Programming}
 %\subtitlenote{with subtitle note}
 
 
