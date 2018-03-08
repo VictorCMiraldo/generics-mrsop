@@ -1,4 +1,4 @@
-\documentclass[acmsmall,10pt,review]{acmart}%
+\documentclass[acmsmall,10pt,review,anonymous]{acmart}%
 \settopmatter{printfolios=true,printccs=false,printacmref=false}
 
 %%%%%%%%%%%%%%
@@ -59,9 +59,9 @@
 \begin{document}
 
 %% Title information
-\title[Mutually Recursive Sums-of-Products]{Mutually Recursive Sums-of-Products}
+\title[Sums of Products for Mutually Recursive Datatypes]{Sums of Products for Mutually Recursive Datatypes}
 %\titlenote{with title note}
-\subtitle{A Beautiful Draft on Generic Programming}
+\subtitle{An Appropriationistic View on Generic Programming}
 %\subtitlenote{with subtitle note}
 
 

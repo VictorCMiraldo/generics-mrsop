@@ -670,10 +670,16 @@ data View :: [[ Atom ]] -> Star -> Star where
 \end{myhs}
 
   The real convenience comes from being able to easily pattern
-match and inject into and from generic values. As we shall see
-in \Cref{sec:alphaequivalence}, this is a \emph{must have}. 
-Using the \texttt{-XPatternSynonyms} extension we can define
-the constructors |Bin| and |Leaf| into |View (Code (Bin Int)) x|:
+match and inject into and from generic values. This is a very powerful
+tool, as we discussed in \Cref{sec:alphaequivalence}.
+Unfortunately, matching on |Tag| requires describing in full detail
+the shape of the generic value using the elements of |Constr|.
+Using pattern synonyms~\cite{Pickering2016} we can define
+those patterns once and for all, and give them more descriptive names.
+For example, here are the synonyms describing
+the constructors |Bin| and |Leaf| as |View (Code (Bin Int)) x|:
+\footnote{Throughout this paper we use the syntax |(Pat C)| 
+to refer to the pattern describing a view for constructor |C|.}
 
 \begin{myhs}
 \begin{code}
@@ -705,6 +711,11 @@ mirror x = case sop of
              (Pat Leaf) x  -> inj $ (Pat Leaf) x
 \end{code}
 \end{myhs}
+
+  As we have seen, patterns for every constructor of a datatype as a |View|
+are very useful for the style of generic programming using sums-of-products.
+The Template Haskell functionality in \texttt{\nameofourlibrary} generates
+them as part of the derivation of generic functionality.
 
   Having the core of the \emph{sums-of-products} universe defined,
 we can turn our attention to writing the combinators that the programmer
@@ -999,7 +1010,8 @@ intermediate datatype. Our |fromMRec| function does not take one member of
 the family directly, but an |El|-wrapped one. However, to construct that value
 |El| needs to know its parameters, which amounts to the family we are 
 embedding our type into and the index in that family. Those values are not
-immediately obvious, but we can use Haskell's \texttt{-XTypeApplications} to work around
+immediately obvious, but we can use Haskell's visible type
+application~\cite{EisenbergWA16} to work around
 it. We shall not go into details about their implementation, but the final
 |into| function which injects a value into the corresponding |El| looks like:
 \begin{myhs}
