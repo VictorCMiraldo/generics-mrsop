@@ -8,6 +8,7 @@
 %%
 %% Our packages
 \usepackage{xcolor}
+\usepackage{booktabs}
 \usepackage{forest}
 
 %% Cleveref must be the last loaded package
@@ -17,6 +18,9 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
 %% Our defs
+
+%% More space between rows
+\newcommand{\ra}[1]{\renewcommand{\arraystretch}{#1}}
 
 %% Logistic Stuff
 
@@ -36,6 +40,8 @@
 
 \newcommand{\tmp}[1]{%
 {\color{gray} \textit{#1} }}
+
+\newenvironment{temp}{\bgroup \color{gray} \textit}{\egroup}
 
 \newcommand{\alejandro}[2][nolabel]{%
 {\color{C1} \refstepcounter{commentctr}\label{#1} \textbf{$[$ (\thecommentctr) Alejandro: } #2 \textbf{$]$}}}
