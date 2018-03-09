@@ -10,15 +10,24 @@ if [[ $# -ne 1 ]]; then
 fi
 
 file=$1
-ifs=$IFS
+ok=true
 
 IFS=","
 for pat in ${forbid[*]}; do
   if [[ "${pat:0:1}" == "!" ]]; then
     echo "[Enforcing: $pat]"
   else
-    echo ""
-    echo "[Looking for: '$pat']"
     grep -n --colour "$pat" $file
+    if [[ "$?" == "0" ]]; then
+      ok=false
+    fi
   fi
 done
+
+if $ok; then
+  echo "You're ok! :)"
+  exit 0
+else
+  echo "Be congruent!"
+  exit 1
+fi

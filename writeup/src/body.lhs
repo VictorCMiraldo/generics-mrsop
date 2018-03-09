@@ -190,7 +190,7 @@ must adhere to. Previously, in the pattern functor approach, the
 \emph{representation} was not guaranteed to have a certain
 structure. The expressivity of the language of \emph{codes} is
 proportional to the expressivity of the combinators the library can
-provide.
+provide. 
 
 \paragraph{Mutually recursive datatypes.}
 
