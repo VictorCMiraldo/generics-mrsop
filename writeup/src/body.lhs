@@ -113,8 +113,8 @@ In this paper we make the following contributions:
 care for recursion (\Cref{sec:explicitfix}), allowing for \emph{shallow} and
 \emph{deep} representations. We proceed generalizing even further to mutually 
 recursive families of datatypes (\Cref{sec:family}).
-\item We use our generic programming approach to abstract common patterns
-such as equality, $\alpha$-equivalence and zipper (\Cref{sec:mrecexamples}),
+\item We illustrate the use of our library on familiar examples
+such as equality, $\alpha$-equivalence and the zipper (\Cref{sec:mrecexamples}),
 illustrating how it supersedes the previous approaches.
 \item We provide Template Haskell functionality to derive all the
 boilerplate code needed to use our library (\Cref{sec:templatehaskell}).
@@ -208,8 +208,6 @@ data Expr  = ... | Do [Stmt] | ...
 data Stmt  = Assign Var Expr | Let Var Expr
 \end{code}
 \end{myhs}
-Usual problems such as $\alpha$-equality, although already treated using generic
-programming~\cite{Weirich2011}, still creeps back up when more than one datatype enters the stage.
 
 Another example is found in HTML and XML documents. 
 They are better described by a rose tree, 
@@ -274,8 +272,8 @@ description of the datatype.
 lets take a tour on the existing generic programming libraries. For that,
 will be looking at a generic |size| function from a few different angles,
 illustrating how different techniques relate and the nuances between them.
-This will let us gradually build up to our framework, that borrows the good
-pieces of each of the different approaches and combines them without compromising.
+This will let us gradually build up to our framework, that borrows 
+pieces of each of the different approaches and combines them without compromise.
 
   In this paper we follow the lead of generic programming libraries which use
 type-level representations. There is another strand of work, pioneered by Scrap
@@ -296,7 +294,7 @@ on the structure of its representation using \emph{pattern functors}.
 sum types (|Either| in Haskell lingo), and unit, empty and constant functors. These provide
 a unified view over data: the generic \emph{representation} of values.
 The values of a suitable type |a| are translated to this representation
-by the means of the |from :: a -> RepGen a|.
+by the means of the function |from :: a -> RepGen a|.
 
   Defining a generic function is done in two
 steps. First, we define a class that exposes the function
@@ -309,7 +307,7 @@ class Size (a :: Star) where
 \end{code}
 \end{myhs}
 
-  And we prove that |Bin a| has an instance:
+  We prove that |Bin a| has an instance of the |Size| class:
 
 \begin{myhs}
 \begin{code}
@@ -1336,6 +1334,10 @@ opaque types |eq_K| or recursing.
 
 \subsection{$\alpha$-Equivalence}
 \label{sec:alphaequivalence}
+
+% Usual problems such as $\alpha$-equality, although already treated using generic
+% programming~\cite{Weirich2011}, still creeps back up when more than one 
+% datatype enters the stage.
 
   Syntactic equality is definitely a must, but it is a ``no sweat''
 application of generic programming. A more involved exercise,
