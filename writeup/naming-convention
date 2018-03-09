@@ -1,0 +1,24 @@
+#! /bin/bash
+
+forbid="!datatype,data type,data-type,\
+!fixpoint,fixed point,fixed-point,fix point,fixed-point,\
+!pattern functor,pattern-functor"
+
+if [[ $# -ne 1 ]]; then
+  echo "I need a file!"
+  exit 1
+fi
+
+file=$1
+ifs=$IFS
+
+IFS=","
+for pat in ${forbid[*]}; do
+  if [[ "${pat:0:1}" == "!" ]]; then
+    echo "[Enforcing: $pat]"
+  else
+    echo ""
+    echo "[Looking for: '$pat']"
+    grep -n --colour "$pat" $file
+  fi
+done

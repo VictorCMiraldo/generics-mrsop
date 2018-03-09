@@ -39,15 +39,15 @@ which is a direct translation of |Either a (Bin a , Bin a)|, but using
 the combinators provided by \texttt{GHC.Generics}, namely |:+:| and
 |:*:|. In addition, we need two conversion functions |from :: a -> Rep
 a| and |to :: Rep a -> a| which form an isomorphism between |Bin a|
-and |RepGen (Bin a) x|.  All this information is tied to the original
+and |Rep (Bin a) x|.  All this information is tied to the original
 datatype using a type class:
 
 \begin{myhs}
 \begin{code}
 class Generic a where
-  type RepGen a :: Star
-  fromGen  :: a -> RepGen a 
-  toGen    :: RepGen a  -> a
+  type Rep a :: Star
+  from  :: a      -> Rep a 
+  to    :: Rep a  -> a
 \end{code}
 \end{myhs}
   Most generic programming libraries follow a similar pattern of
@@ -70,7 +70,7 @@ focus on.
 
   Static generic programming libraries rely on type-level information
 to provide their generic functionality. In more permissive
-\emph{pattern-functor} approach we have
+\emph{pattern functor} approach we have
 \texttt{GHC.Generics}~\cite{Magalhaes2010}, being the most commonly
 used one, that effectively replaced \texttt{regular}~\cite{Noort2008}.
 The former only allows for a \emph{shallow} representation whereas the
@@ -78,13 +78,12 @@ later allows for both \emph{deep} and \emph{shallow} representations
 by maintaining information about the recursive occurences of a
 type. Oftentimes though, one actually needs more than one recursive
 type, justifying the need to \texttt{multirec}~\cite{Yakushev2009}.
-These libraries are too permissive though, and would allow one to
-write nonsensical descriptions of data. For instance, |U1 :*: Maybe|
-is a perfectly valid \texttt{GHC.Generics} \emph{pattern-functor} but
+These libraries are too permissive though, for instance, |U1 :*: Maybe|
+is a perfectly valid \texttt{GHC.Generics} \emph{pattern functor} but
 will break generic functions.  The way to fix this is to ensure that the
-\emph{pattern-functors} abide by a certain format. That is, define the
-\emph{pattern-functors} by induction on some \emph{Code}, that can be
-inspected and pattern-matched on. This is the approach of
+\emph{pattern functors} abide by a certain format. That is, define the
+\emph{pattern functors} by induction on some \emph{Code}, that can be
+inspected and pattern matched on. This is the approach of
 \texttt{generics-sop}~\cite{deVries2014}. The more restrictire
 \emph{Code} approach allows one to write concise, combinator-based,
 generic programs. The novelty in our work is in the intersection of
@@ -150,8 +149,8 @@ reason is that the \emph{recursive} positions in your datatype must be
 marked explicitly. In our |Bin| example, the description of the |Bin|
 constructor changes from ``this constructors has two fields of the
 |Bin a| type'' to ``this constructor has two fields in which you
-recurse''. The usual technique is to abstract the recursion into a
-\emph{fixed-point} combinator. The \texttt{regular}
+recurse''. Therefore, a \emph{deep} encoding requires some
+a \emph{least fixpoint} combinator. The \texttt{regular}
 library~\cite{Noort2008}, for instance, supports this feature.
 
 \paragraph{Sum of Products}
@@ -160,11 +159,12 @@ Most generic programming libraries build their type-level descriptions out of th
 combinators: (1) \emph{constants}, which indicate a type which should appear
 as-is; (2) \emph{products} (usually written as |:*:|) which are used to
 build tuples; and (3) \emph{sums} (usually written as |:+:|) which
-encode the choice between constructors. |RepGen (Bin a)| above is expressed in
-this form.
+encode the choice between constructors. |Rep (Bin a)| above is expressed in
+this form. Note, however, that there is no restriction on \emph{how} these
+can be combined. 
 
 In practice, you always use a sum of products to represent a datatype -- a sum
-to express the choice of constructor, and within each of them a product to
+to express the choice of constructor, and within each constructor a product to
 declare which fields you have. However, this shape is \emph{not enforced} at
 any level. A recent approach to generic programming~\cite{deVries2014}
 explicitly uses a list of lists of types, the outer one representing the sum
@@ -180,20 +180,22 @@ CodeSOP (Bin a) = P [ P [a], P [Bin a, Bin a] ]
 The shape of this description follows more closely the shape of Haskell datatypes, and
 make it easier to implement generic functionality.
 
-  Note how the \emph{code}, |CodeSOP (Bin a)| is another entity that is added
-to ensure the \emph{representation} has a given structure. This is quite
-a subtle point and it is common to see both terms being used interchangeably.
-Being very precise, we call the \emph{representation} the functor that gives semantic 
-to \emph{codes}, if any. Some generic programming libraries define only \emph{representation}.
-When present, \emph{codes} are what allows one to perform induction over the structure
-of the \emph{representation}, since \emph{representations} are then defined by
-induction on \emph{codes}. The expressivity of the language of \emph{codes} is
-proportional to the expressivity of the combinators the library can provide.
+  Note how the \emph{code}, |CodeSOP (Bin a)| is another entity that
+is added to ensure that the \emph{representation} has a given
+structure. This is quite a subtle point and it is common to see both
+terms being used interchangeably.  Here, the \emph{representation} is
+mapping the \emph{codes}, of kind |P [ P [ Star ] ]|, into |Star|. The
+\emph{code} can be seen as the format that the \emph{representation}
+must adhere to. Previously, in the pattern functor approach, the
+\emph{representation} was not guaranteed to have a certain
+structure. The expressivity of the language of \emph{codes} is
+proportional to the expressivity of the combinators the library can
+provide.
 
 \paragraph{Mutually recursive datatypes.}
 
-We have described several axis taken by different approaches to generic
-programming in Haskell. Unfortunately, most of the works restrict themselves
+We have described several axes taken by different approaches to generic
+programming in Haskell. Unfortunately, most of the approaches restrict themselves
 to \emph{regular} types, in which recursion always goes to the \emph{same}
 datatype. This is not enough for some practical applications. 
 The syntax of many programming languages is also expressed more naturally using
