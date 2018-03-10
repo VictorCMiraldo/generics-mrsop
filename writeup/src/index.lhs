@@ -186,7 +186,7 @@ a wider range of choice for their generic functions.
 
 
 %% Bibliography
-\bibliography{references.bib}
+\bibliography{references}
 
 
 %% Appendix

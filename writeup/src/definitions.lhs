@@ -8,6 +8,7 @@
 %%
 %% Our packages
 \usepackage{xcolor}
+\usepackage{booktabs}
 \usepackage{forest}
 
 %% Cleveref must be the last loaded package
@@ -17,6 +18,9 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
 %% Our defs
+
+%% More space between rows
+\newcommand{\ra}[1]{\renewcommand{\arraystretch}{#1}}
 
 %% Logistic Stuff
 
@@ -36,6 +40,8 @@
 
 \newcommand{\tmp}[1]{%
 {\color{gray} \textit{#1} }}
+
+\newenvironment{temp}{\bgroup \color{gray} \textit}{\egroup}
 
 \newcommand{\alejandro}[2][nolabel]{%
 {\color{C1} \refstepcounter{commentctr}\label{#1} \textbf{$[$ (\thecommentctr) Alejandro: } #2 \textbf{$]$}}}
@@ -98,9 +104,11 @@
 %format CodeMRec   = "\HT{\textit{Code}_{\mathsf{mrec}}}"
 %format NPHole     = "\HT{NP_{\square}}"
 %format NPHoleE    = "\HT{\exists NP_{\square}}"
+%format Tag        = "\HT{\textit{Tag}}"
 
 
 %%% Functions
+%format from     = "\HV{\textit{from}}"
 %format fromGen  = "\HV{\textit{from}_{\mathsf{gen}}}"
 %format fromSOP  = "\HV{\textit{from}_{\mathsf{sop}}}"
 %format fromFix  = "\HV{\textit{from}_{\mathsf{fix}}}"
@@ -112,6 +120,8 @@
 %format firstE   = "\HV{first_\exists}"
 %format nextE    = "\HV{next_\exists}"
 %format fam      = "\HV{\mathit{fam}}"
+%format fmap     = "\HV{\textit{fmap}}"
+%format fold     = "\HV{\textit{fold}}"
 
 %format :>: = "\HT{\triangleright}"
 %format :*  = "\HT{\times}"
