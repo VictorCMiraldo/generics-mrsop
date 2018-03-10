@@ -70,3 +70,8 @@ sumTree = crush k sum . (into @FamRoseInt)
 testSum :: Bool
 testSum = sumTree value3 == sumTree (normalize value3)
 
+-- * Generic Size
+
+size :: (Family ki fam codes)
+     => El fam ix -> Int
+size = crush (const 1) sum
