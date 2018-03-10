@@ -104,9 +104,11 @@
 %format CodeMRec   = "\HT{\textit{Code}_{\mathsf{mrec}}}"
 %format NPHole     = "\HT{NP_{\square}}"
 %format NPHoleE    = "\HT{\exists NP_{\square}}"
+%format Tag        = "\HT{\textit{Tag}}"
 
 
 %%% Functions
+%format from     = "\HV{\textit{from}}"
 %format fromGen  = "\HV{\textit{from}_{\mathsf{gen}}}"
 %format fromSOP  = "\HV{\textit{from}_{\mathsf{sop}}}"
 %format fromFix  = "\HV{\textit{from}_{\mathsf{fix}}}"
@@ -118,6 +120,8 @@
 %format firstE   = "\HV{first_\exists}"
 %format nextE    = "\HV{next_\exists}"
 %format fam      = "\HV{\mathit{fam}}"
+%format fmap     = "\HV{\textit{fmap}}"
+%format fold     = "\HV{\textit{fold}}"
 
 %format :>: = "\HT{\triangleright}"
 %format :*  = "\HT{\times}"

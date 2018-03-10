@@ -586,16 +586,22 @@ The |Size| constraint also has to be passed around with a |Proxy| for the
 eliminator of the $n$-ary sum. This is a direct consequence of a \emph{shallow}
 encoding: since we only unfold one layer of recursion at a time, we have to 
 carry proofs that the recursive arguments can also be translated to
-a generic representation. We can relief this burden by recording,
+a generic representation. We can relieve this burden by recording,
 explicitly, which fields of a constructor are recursive or not.
 
 \section{Explicit Fix: Deep and Shallow for free}
 \label{sec:explicitfix}
 
-  Introducing information about the recursive positions in a type requires
-more expressive codes. In \Cref{sec:explicitsop} our \emph{codes} were 
-a list of lists of types, which could be anything. Instead, we
-will now have a list of lists of |Atom| to be our codes:
+  In this section we will start to look at our approach, essentially
+combining the techniques from the \texttt{regular} and \texttt{generics-sop}
+libraries. Later we extend the constructions to handle mutually recursive
+families instead of simple recursion.
+
+  Introducing information about the recursive positions in a type
+requires more expressive codes then in \Cref{sec:explicitsop}, where
+our \emph{codes} were a list of lists of types, which could be
+anything. Instead, we will now have a list of lists of |Atom| to be
+our codes:
 
 \begin{myhs}
 \begin{code}
@@ -612,22 +618,43 @@ are codes for a predetermined selection of primitive types, which we
 refer to as \emph{opaque types}.
 Favoring the simplicity of the presentation, we will stick with only
 hard coded |Int| as the only opaque type in the universe. Later on,
-in \Cref{sec:konparameter}, we parametrize the whole development.
+in \Cref{sec:konparameter}, we parametrize the whole development
+by the choice of opaque types.
 
-  Our \emph{codes} here are not polymorphic anymore.
-Back in \Cref{sec:explicitsop} we have defined |CodeSOP (Bin
-a)|, and this would work for any |a|. This might seen like a
-disadvantage at first, but it is in fact quite the opposite. This allows us to
-provide a deep conversion for free and relaxes the need to carry
-constraints around. Beyond
-doubt one needs to have access to the |CodeSOP a| when converting a
-|Bin a| to its deep representation. By specifying the types involved
-beforehand, we are able to get by without having to carry all of the
-constraints we needed in \Cref{sec:explicitsop}. We can benefit
-the most from this in the simplicity of combinators we are able to write.
+  We can no longer represent polymorphic types types in this universe
+-- the \emph{codes} themselves are not polymorphic.  Back in
+\Cref{sec:explicitsop} we have defined |CodeSOP (Bin a)|, and this
+would work for any |a|. This might seen like a disadvantage at first,
+but it is in fact quite the opposite. This allows us to provide a deep
+conversion for free and relaxes the need to carry constraints
+around. Beyond doubt one needs to have access to the |CodeSOP a| when
+converting a |Bin a| to its deep representation. By specifying the
+types involved beforehand, we are able to get by without having to
+carry all of the constraints we needed, for instance, for |gsize| at
+the end of \Cref{sec:explicitsop}.  We can benefit the most from this
+in the simplicity of combinators we are able to write.
 
+  Wrapping our |toFix| and |fromFix| isomorphism into a type class and writing the
+instance that witnesses that |Bin Int| has a |CodeFix| and is isomorphic
+to its representation is quite straight forward.
 
-  Giving semantic to our codes now requires a way to map an |Atom| into |Star|.
+\begin{myhs}
+\begin{code}
+class GenericFix a where
+  fromFix  :: a -> RepFix a a
+  toFix    :: RepFix a a -> a
+\end{code}
+\end{myhs}
+
+\begin{myhs}
+\begin{code}
+instance GenericFix (Bin Int) where
+  fromFix (Leaf x)   = Rep (        Here  (NA_K x  :* NP0))
+  fromFix (Bin l r)  = Rep (There ( Here  (NA_I l  :* NA_I r :* NP0)))
+\end{code}
+\end{myhs}
+
+  We just need to define a way to map an |Atom| into |Star|.
 Since an atom can be either an opaque type, known statically, or some other
 type that will be used as a recursive position later on, we simply receive
 it as another parameter. Hence:
@@ -644,32 +671,15 @@ newtype RepFix a x = Rep { unRep :: NS (NP (NA x)) (Code a) }
 
   It is a interesting exercise to implement the |Functor (RepFix a)| instance.
 We were only able to lift it to a functor by recording the information about
-the recursive positions.
+the recursive positions. Otherwise, there would be no way to know where to apply |f|
+when defining |fmap f|.
 
-  Wrapping our |to| and |from| isomorphism into a type class and writing the
-instance that witnesses that |Bin Int| has a |CodeFix| and is isomorphic
-to its representation is quite straight forward.
-
-\begin{myhs}
-\begin{code}
-class GenericFix a where
-  from  :: a -> RepFix a a
-  to    :: RepFix a a -> a
-\end{code}
-\end{myhs}
-
-\begin{myhs}
-\begin{code}
-type instance CodeFix (Bin Int) = P [ P [KInt] , P [I , I] ]
-instance GenericFix (Bin Int) where
-  from (Leaf x)   = Rep (        Here  (NA_K x  :* NP0))
-  from (Bin l r)  = Rep (There ( Here  (NA_I l  :* NA_I r :* NP0)))
-\end{code}
-\end{myhs}
-
-  The main convenience of the \emph{sums-of-products} structure is to let
-a user pattern match on generic representations just like they would
-on values of the original type. One 
+  Nevertheless, working directly with |RepFix| is hard -- we need
+to pattern match on |There| and |Here|, whereas we actually want to
+have the notion of \emph{constructor} generically too! 
+The main advantage of the \emph{sum-of-products} structure is to allow
+a user to pattern match on generic representations just like they would
+on values of the original type, constrasting eith \texttt{GHC.Generics}. One 
 can precisely state that a value of a representation is composed of a
 choice of constructor and its respective product of fields. The
 |View| type below exposes this very structure, where |Constr n sum| is
@@ -684,9 +694,35 @@ data View :: [[ Atom ]] -> Star -> Star where
 \end{code}
 \end{myhs}
 
+  Where |Constr| and |Lkup| are defined as:
+
+%\begin{minipage}[t]{.45\textwidth}
+\begin{myhs}
+\begin{code}
+data Constr :: Nat -> [k] -> Star where
+  CZ  ::              -> Constr Z      (x : xs)
+  CS  :: Constr n xs  -> Constr (S n)  (x : xs)
+\end{code}
+\end{myhs}
+
+%\end{minipage}
+%\begin{minipage}[t]{.45\textwidth}
+\begin{myhs}
+\begin{code}
+type family Lkup (ls :: [k]) (n :: Nat) :: k where
+  Lkup (P [])    _          = TypeError "Index out of bounds"
+  Lkup (x : xs)  (P Z)      = x
+  Lkup (x : xs)  ((P S) n)  = Lkup xs n
+\end{code}
+\end{myhs}
+%\end{minipage}
+
+  In order to improve type error messages, we generate a |TypeError| whenever we
+reach the given index |n| is out of bounds. Interestingly, our design
+guarantees that this case is never reached by the definition of |Constr|.
+
   The real convenience comes from being able to easily pattern
-match and inject into and from generic values. This is a very powerful
-tool, as we discussed in \Cref{sec:alphaequivalence}.
+match and inject into and from generic values. 
 Unfortunately, matching on |Tag| requires describing in full detail
 the shape of the generic value using the elements of |Constr|.
 Using pattern synonyms~\cite{Pickering2016} we can define
@@ -703,7 +739,6 @@ pattern (Pat Bin)   l r  = Tag (CS CZ)  (NA_I l :* NA_I r :* NP0)
 \end{code}
 \end{myhs}
 
-  Here, |CZ| and |CZ| are the constructors of the type |Constr n sum|.
 The functions that perform the pattern matching and injection are the
 |inj| and |sop| below.
 
@@ -761,10 +796,10 @@ example x         = compos example x
 \end{myhs}
 
   It is worth nothing the \emph{catch-all} case, allowing one to
-focus only on the interesting patterns and getting the traversal
-of the rest of the datatype for free.
+focus only on the interesting patterns and using a default implementation
+everywhere else.
   
-\paragraph{Getting a deep representation for free.}  Our |fromFix|
+\paragraph{Converting to a deep representation.}  Our |fromFix|
 still returns a shallow representation. But by constructing the least
 fixpoint of |RepFix a| we can easily obtain the deep encoding for
 free, by simply recursively translating each layer of the shallow
@@ -823,7 +858,7 @@ gsize = crush (const 1) sum
 \end{myhs}
 
   Let us take a step back and reflect upon the current setting we have
-so far achieved. Long story short, we have combined the insight from
+so far achieved. We have combined the insight from
 the \texttt{regular} library of keeping track of recursive positions
 with the convenience for the \texttt{generics-sop} for enforcing a
 specific \emph{normal form} to representations. By doing so, we were
@@ -910,8 +945,7 @@ The only missing piece is tying the recursive loop here. If we want our
 representation to describe a family of datatypes, the obvious choice
 for |phi| is to look a type up at |FamRose|. In fact,
 we are just performing a type-level lookup in the family.
-We can define this operation for any type-level list in Haskell by
-means of a \emph{closed} |type family| which we call |Lkup|.
+Recall the definition of |Lkup| from \Cref{sec:explicitfix}: 
 \begin{myhs}
 \begin{code}
 type family Lkup (ls :: [k]) (n :: Nat) :: k where
@@ -920,10 +954,6 @@ type family Lkup (ls :: [k]) (n :: Nat) :: k where
   Lkup (x : xs)  ((P S) n)  = Lkup xs n
 \end{code}
 \end{myhs}
-In order to improve type error messages, we generate a |TypeError| whenever we
-reach the given index |n| is out of bounds. Interestingly, our design
-guarantees that this case is never reached, all lookups in a representation
-of a code are well-typed.
 
 In principle, this is enough to provide a ground representation for the family
 of types. Let |fam| be the family of ground types, like
