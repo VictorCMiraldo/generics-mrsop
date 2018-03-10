@@ -15,6 +15,7 @@ module Generics.MRSOP.Examples.RoseTreeTH where
 
 {-# OPTIONS_GHC -ddump-splices #-}
 import Data.Function (on)
+import Data.Proxy
 
 import Generics.MRSOP.Base
 import Generics.MRSOP.Opaque
@@ -69,6 +70,12 @@ sumTree = crush k sum . (into @FamRoseInt)
 
 testSum :: Bool
 testSum = sumTree value3 == sumTree (normalize value3)
+
+pf :: Proxy FamRoseInt
+pf = Proxy
+
+pr :: Proxy [ Rose Int ]
+pr = Proxy
 
 -- * Generic Size
 

@@ -66,6 +66,10 @@
 %%% Datatype Promotion
 %format (P (a)) = "\HS{''}" a
 
+%%% Pattern Synonyms
+\newcommand{\overbar}[1]{\mkern 1.5mu\overline{\mkern-1.5mu#1\mkern-1.5mu}\mkern 1.5mu}
+%format (Pat a) = "\HT{\overbar{" a "}}"
+
 %%% Usefull Notation
 %format dots    = "\HS{\dots}"
 %format forall  = "\HS{\forall}"
@@ -113,7 +117,9 @@
 %format :*  = "\HT{\times}"
 %format :*: = "\HT{:\!*\!:}"
 %format :+: = "\HT{:\!+\!:}"
+%format :@: = "\HT{:\!@\!:}"
 %format <$$> = "\HS{<\!\!\$\!\!>}"
+%format $$  = "\HS{\$}"
 %format <*> = "\HS{<\!\!*\!\!>}"
 
 %format <-> = "\HS{\leftrightarrow}"

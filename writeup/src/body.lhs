@@ -51,7 +51,7 @@ original datatype using a type class:
 \begin{myhs}
 \begin{code}
 class Generic a where
-  type RepGen a :: * -> *
+  type RepGen a :: Star -> Star
   fromGen  :: a -> RepGen a x
   toGen    :: RepGen a x -> a
 \end{code}
@@ -94,9 +94,8 @@ others.
 
 The other side of the spectrum are \emph{deep} representation, in which the
 entire value is turned into the representation that the generic library provides
-in one go. \victor{I don't get the next sentence} Since you know the entire shape of the datatype, including when
-recursion is places, deep techniques usually allow transformation of the
-datatype, not only generic functionality. This additional power has been used,
+in one go. In a deep representation, the positions where recursion takes
+place are marked distinctly. This additional power has been used,
 for example, to define regular expressions over Haskell datatypes~\cite{Serrano2016}.
 Depending on the use case, a shallow representation might be more efficient
 if only part of the value needs to be inspected. On the other hand, deep
@@ -144,22 +143,17 @@ to ensure the \emph{representation} has a given structure. This is quite
 a subtle point and it is common to see both terms being used interchangeably.
 Being very precise, we call the \emph{representation} the functor that gives semantic 
 to \emph{codes}, if any. Some generic programming libraries define only \emph{representation}.
+When present, \emph{codes} are what allows one to perform induction over the structure
+of the \emph{representation}, since \emph{representations} are then defined by
+induction on \emph{codes}. The expressivity of the language of \emph{codes} is
+proportional to the expressivity of the combinators the library can provide.
 
 \paragraph{Mutually recursive datatypes.}
 
 We have described several axis taken by different approaches to generic
 programming in Haskell. Unfortunately, most of the works restrict themselves
 to \emph{regular} types, in which recursion always goes to the \emph{same}
-datatype. This is not enough for some practical applications. For example,
-HTML and XML documents are better described by a rose tree, which is a mutually 
-recursive family of datatypes:
-\begin{myhs}
-\begin{code}
-data Rose  a  =  a :>: [Rose a]
-data []    a  =  [] | a : [a]
-\end{code}
-\end{myhs}
-
+datatype. This is not enough for some practical applications. 
 The syntax of many programming languages is also expressed more naturally using
 a mutually recursive family. Talking about Haskell itself, one of the 
 possibilities of an expression is to be a |do| block, a |do| block itself is
@@ -172,6 +166,26 @@ data Stmt  = Assign Var Expr | Let Var Expr
 \end{myhs}
 Usual problems such as $\alpha$-equality, although already treated using generic
 programming~\cite{Weirich2011}, still creeps back up when more than one datatype enters the stage.
+
+Another example is found in HTML and XML documents. 
+They are better described by a rose tree, 
+which can be described by this family of datatypes\footnote{%
+It can actually be proved that |Rose a| is isomorphic to a regular
+datatype.}:
+\begin{myhs}
+\begin{code}
+data Rose  a  =  a :>: [Rose a]
+data []    a  =  [] | a : [a]
+\end{code}
+\end{myhs}
+The mutual recursion becomes apparent once one instantiaties |a| to some
+ground type, for instance:
+\begin{myhs}
+\begin{code}
+data RoseI  =  Int :>: ListI
+data ListI  =  Nil | RoseI : ListI
+\end{code}
+\end{myhs}
 
 The \texttt{multirec} library~\cite{Yakushev2009} is a generalization of
 \texttt{regular} which handles mutually recursive families. From \texttt{regular}
@@ -219,7 +233,7 @@ control over which style of generic programming one prefers in each
 different scenario.
 \item We extend the sum-of-products approach of \citet{deVries2014} to handle
 mutually recursive families of datatypes (\Cref{sec:family}).
-\item Codes and conversions to and from generic representations are
+\item We provide Codes and conversions to and from generic representations,
 derived using Template Haskell (\Cref{sec:templatehaskell}).
 The novelty lies in our handling of instantiated type constructors.
 \item We use our generic programming approach to abstract common patterns
@@ -264,33 +278,35 @@ a unified view over data: the generic \emph{representation} of values.
 The values of a suitable type |a| are translated to this representation
 by the means of the |from :: a -> RepGen a|.
 
-Defining a generic function is done in two
+  Defining a generic function is done in two
 steps. First, we define a class that exposes the function
 for arbitrary types, in our case, |size|.
 
 \begin{myhs}
 \begin{code}
-class Size (a :: *) where
+class Size (a :: Star) where
   size :: a -> Int
-  default size  :: (Generic a , GSize (RepGen a))
-                => a -> Int
-  size = gsize . fromGen
 \end{code}
 \end{myhs}
 
-  The |default| keyword instructs Haskell to use the provided
-implementation whenever none is provided and the constraint |(GenericGen a , GSize (RepGen a))| 
-can be satisfied when declaring an instance for |Size a|.
-
-The |gsize| function, on the other hand, operates on the representation of datatypes
-, being the second piece we need to define. We use
-another class and the instance mechanism to encode
-a definition by induction on representations.
-Here, they are \emph{pattern functors}.
+  And we prove that |Bin a| has an instance:
 
 \begin{myhs}
 \begin{code}
-class GSize (rep :: * -> *) where
+instance (Size a) => Size (Bin a) where
+  size = gsize . from
+\end{code}
+\end{myhs}
+
+  The |gsize| function, on the other hand, operates on the
+representation of datatypes , being the second piece we need to
+define. We use another class and the instance mechanism to encode a
+definition by induction on representations.  Here, they are
+\emph{pattern functors}.
+
+\begin{myhs}
+\begin{code}
+class GSize (rep :: Star -> Star) where
   gsize :: rep x -> Int
 instance GSize V1 where gsize _ = 0
 instance GSize U1 where gsize _ = 1
@@ -303,14 +319,14 @@ instance (GSize f , GSize g) => GSize (f :+: g) where
 \end{myhs}
 
   We still have to handle the cases were 
-we might have an arbitrary type in a position, modelled by the
+we might have an arbitrary type in a position, modeled by the
 constant functor. We must require an instance of |Size|
 so we can successfully tie the recursive knot.
 
 \begin{myhs}
 \begin{code}
-instance (Size a) => GSize (K1 R a) where
-  gsize (K1 a) = size a
+instance (Size x) => GSize (K1 R x) where
+  gsize (K1 x) = size x
 \end{code}
 \end{myhs}
 
@@ -329,11 +345,30 @@ instances for computing |size (Bin (Leaf 1) (Leaf 2))|:
     &= |size (1 :: Int) + size (2 :: Int)|   
 \end{align*}
 
-  Were we a compiler, we would happily issue a \texttt{"No instance
-for (Size Int)"} error message at this point. Nevertheless, the
-literals of type |Int| illustrate what we call \emph{opaque types}:
-those types that constitute the base of the universe and are
-\emph{opaque} to the representation language.
+  Finally, we would just need an instance for |Size Int| to compute
+the final result.  Nevertheless, the literals of type |Int| illustrate
+what we call \emph{opaque types}: those types that constitute the base
+of the universe and are \emph{opaque} to the representation language.
+
+  In practice, one usually applies yet another trick to make this
+process more convenient. Note that the implementation of |size| for
+|Bin a| relies on the implementation for |gsize|, after converting a |Bin a|
+to its generic representation. We can instruct GHC to do this automatically
+using \texttt{-XDefaultSignatures} and modifying the |Size| class to:
+
+\begin{myhs}
+\begin{code}
+class Size (a :: Star) where
+  size :: a -> Int
+  default size  :: (GenericGen a , GSize (RepGen a))
+                => a -> Int
+  size = gsize . fromGen
+\end{code}
+\end{myhs}
+
+  The |default| keyword instructs Haskell to use the provided
+implementation whenever none is provided and the constraint |(GenericGen a , GSize (RepGen a))| 
+can be satisfied when declaring an instance for |Size a|. 
 
   One interesting aspect we should note here is the clearly
 \emph{shallow} encoding that |from| provides. That is, we only
@@ -375,7 +410,7 @@ its informal description: sum up the sizes of the fields inside a value,
 ignoring the constructor.
 Unlike \texttt{GHC.Generics}, the representation of values is
 defined by induction on the \emph{code} of a datatype, this \emph{code}
-is a type-level list of lists of |*|, whose semantics is
+is a type-level list of lists of |Star|, whose semantics is
 consonant to a formula in disjunctive normal form.  The outer list is
 interpreted as a sum and the each of the inner lists as products.
 This section provides an overview of \texttt{generic-sop} as required
@@ -410,7 +445,7 @@ interpreted as products.
 
 \begin{myhs}
 \begin{code}
-type family    CodeSOP (a :: *) :: P ([ (P [*]) ])
+type family    CodeSOP (a :: Star) :: P ([ (P [Star]) ])
 
 type instance  CodeSOP (Bin a) = P ([ P [a] , P ([Bin a , Bin a]) ])
 \end{code}
@@ -460,7 +495,7 @@ informing the type checker of the structure of the |CodeSOP|.
 \begin{minipage}[t]{.45\textwidth}
 \begin{myhs}
 \begin{code}
-data NS :: (k -> *) -> [k] -> * where
+data NS :: (k -> Star) -> [k] -> Star where
   Here   :: f k      -> NS f (k (P (:)) ks)
   There  :: NS f ks  -> NS f (k (P (:)) ks)
 \end{code}
@@ -468,14 +503,14 @@ data NS :: (k -> *) -> [k] -> * where
 \end{minipage}\begin{minipage}[t]{.45\textwidth}
 \begin{myhs}
 \begin{code}
-data NP :: (k -> *) -> [k] -> * where
+data NP :: (k -> Star) -> [k] -> Star where
   NP0  ::                    NP f (P [])
   :*   :: f x -> NP f xs ->  NP f (x (P (:)) xs)
 \end{code}
 \end{myhs}
 \end{minipage}
 
-  Finally, since our atoms are of kind |*|, we can use the identity
+  Finally, since our atoms are of kind |Star|, we can use the identity
 functor, |I|, to interpret those and define the final representation
 of values of a type |a| under the \emph{SOP} view:
 
@@ -483,7 +518,7 @@ of values of a type |a| under the \emph{SOP} view:
 \begin{code}
 type RepSOP a = NS (NP I) (CodeSOP a)
 
-newtype I (a :: *) = I { unI :: a }
+newtype I (a :: Star) = I { unI :: a }
 \end{code}
 \end{myhs}
 
@@ -551,7 +586,7 @@ will now have a list of lists of |Atom| to be our codes:
 \begin{code}
 data Atom = I | KInt | dots
 
-type family    CodeFix (a :: *)   ::  P [ P [Atom] ]
+type family    CodeFix (a :: Star)   ::  P [ P [Atom] ]
 
 type instance  CodeFix (Bin Int)  =   P [ P [KInt] , P [I , I] ]
 \end{code}
@@ -577,14 +612,14 @@ constraints we needed in \Cref{sec:explicitsop}. We can benefit
 the most from this in the simplicity of combinators we are able to write.
 
 
-  Giving semantic to our codes now requires a way to map an |Atom| into |*|.
+  Giving semantic to our codes now requires a way to map an |Atom| into |Star|.
 Since an atom can be either an opaque type, known statically, or some other
 type that will be used as a recursive position later on, we simply receive
 it as another parameter. Hence:
 
 \begin{myhs}
 \begin{code}
-data NA :: * -> Atom -> * where
+data NA :: Star -> Atom -> Star where
   NA_I  :: x    -> NA x I
   NA_K  :: Int  -> NA x KInt
 
@@ -617,73 +652,82 @@ instance GenericFix (Bin Int) where
 \end{code}
 \end{myhs}
 
-  Note how |RepFix| still is a shallow representation. But by
-constructing the least fixpoint of |RepFix a| we can obtain the deep
-encoding for free, by simply recursively translating each
-layer of the shallow encoding.
-
-\begin{myhs}
-\begin{code}
-newtype Fix f = Fix { unFix :: f (Fix f) }
-
-deepFrom :: (Generic a) -> a -> Fix (RepFix a)
-deepFrom = Fix . fmap deepFrom . from
-\end{code}
-\end{myhs}
-
-  So far, we are handling the same class of types
-as the \texttt{regular}~\cite{Noort2008} library, but we are imposing 
-the representation to follow a \emph{sum-of-products} structure
-by the means of |CodeFix|. Those types are guaranteed to have
-initial algebra, and indeed, the generic fold is defined
-as expected: 
-
-\begin{myhs}
-\begin{code}
-fold :: (RepFix a b -> b) -> Fix (RepFix a) -> b
-fold f = f . fmap (fold f) . unFix
-\end{code}
-\end{myhs}
-
-  Another convenience of the \emph{sums-of-products} structure is that we
+  The main convenience of the \emph{sums-of-products} structure is to let
+a user pattern match on generic representations just like they would
+on values of the original type. One 
 can precisely state that a value of a representation is composed of a
 choice of constructor and its respective product of fields. The
 |View| type below exposes this very structure, where |Constr n sum| is
 a proof that |n| is a valid constructor for |sum|, essentially saying
-|n < length sum|, if we could. The |Lkup| is just a type-level list
+|n < length sum|. The |Lkup| is just a type-level list
 lookup, we will come back it in more details in \Cref{sec:family}.
 
 \begin{myhs}
 \begin{code}
-data View :: [[ Atom ]] -> * -> * where
+data View :: [[ Atom ]] -> Star -> Star where
   Tag :: Constr n sum -> NP (NA x) (Lkup sum n) -> View sum x
 \end{code}
 \end{myhs}
 
   The real convenience comes from being able to easily pattern
-match and inject into and from generic values. As we shall see
-in \Cref{sec:alphaequivalence}, this is a must have. The functions
-that perform the pattern matching and injection are the |inj|
-and |sop| below.
+match and inject into and from generic values. This is a very powerful
+tool, as we discussed in \Cref{sec:alphaequivalence}.
+Unfortunately, matching on |Tag| requires describing in full detail
+the shape of the generic value using the elements of |Constr|.
+Using pattern synonyms~\cite{Pickering2016} we can define
+those patterns once and for all, and give them more descriptive names.
+For example, here are the synonyms describing
+the constructors |Bin| and |Leaf| as |View (Code (Bin Int)) x|:
+\footnote{Throughout this paper we use the syntax |(Pat C)| 
+to refer to the pattern describing a view for constructor |C|.}
 
 \begin{myhs}
 \begin{code}
-inj :: Constr n sum -> NP (NA x) (Lkup n sum) -> RepFix sum x
-sop :: RepFix sum x -> View sum x
+pattern (Pat Leaf)  x    = Tag CZ       (NA_K x :* NP0)
+pattern (Pat Bin)   l r  = Tag (CS CZ)  (NA_I l :* NA_I r :* NP0)
 \end{code}
 \end{myhs}
 
-  With a solid representation that not only is guaranteed to follow a
-\emph{sum-of-products} structure but also has specific information
-about the recursive positions of a type, we can keep on defining a
-collection of combinators by induction on the |CodeFix| instead of
-having to rely on instances. For instance, lets look at |compos|,
-which applies a function |f| everywhere on the recursive structure.
+  Here, |CZ| and |CZ| are the constructors of the type |Constr n sum|.
+The functions that perform the pattern matching and injection are the
+|inj| and |sop| below.
+
+\begin{myhs}
+\begin{code}
+inj  :: View    sum  x  -> RepFix  sum  x
+sop  :: RepFix  sum  x  -> View    sum  x
+\end{code}
+\end{myhs}
+
+  We illustrate the use of |sop| and |inj| by the |mirror| function,
+that behaves as the identity on leaves but swaps the left and right subtree
+of every |Bin| node.
+
+\begin{myhs}
+\begin{code}
+mirror :: RepFix (Bin Int) (Bin Int) -> RepFix (Bin Int) (Bin Int)
+mirror x = case sop of
+             (Pat Bin) l r -> inj $ (Pat Bin) (mirror (from l)) (mirror (from r))
+             (Pat Leaf) x  -> inj $ (Pat Leaf) x
+\end{code}
+\end{myhs}
+
+  As we have seen, patterns for every constructor of a datatype as a |View|
+are very useful for the style of generic programming using sums-of-products.
+The Template Haskell functionality in \texttt{\nameofourlibrary} generates
+them as part of the derivation of generic functionality.
+
+  Having the core of the \emph{sums-of-products} universe defined,
+we can turn our attention to writing the combinators that the programmer
+will use. These will be defined by induction on the |CodeFix| instead of
+having to rely on instances, like in \Cref{sec:patternfunctors}. 
+For instance, lets look at |compos|, which applies a function |f| everywhere 
+on the recursive structure.
 
 \begin{myhs}
 \begin{code}
 compos :: (GenericFix a) => (a -> a) -> a -> a
-compos f = to . fmap f . from
+compos f = toFix . fmap f . fromFix
 \end{code}
 \end{myhs}
 
@@ -705,6 +749,35 @@ example x         = compos example x
 focus only on the interesting patterns and getting the traversal
 of the rest of the datatype for free.
   
+\paragraph{Getting a deep representation for free.}  Our |fromFix|
+still returns a shallow representation. But by constructing the least
+fixpoint of |RepFix a| we can easily obtain the deep encoding for
+free, by simply recursively translating each layer of the shallow
+encoding.
+
+\begin{myhs}
+\begin{code}
+newtype Fix f = Fix { unFix :: f (Fix f) }
+
+deepFrom :: (GenericFix a) => a -> Fix (RepFix a)
+deepFrom = Fix . fmap deepFrom . fromFix
+\end{code}
+\end{myhs}
+
+  So far, we are handling the same class of types
+as the \texttt{regular}~\cite{Noort2008} library, but we are imposing 
+the representation to follow a \emph{sum-of-products} structure
+by the means of |CodeFix|. Those types are guaranteed to have
+initial algebra, and indeed, the generic fold is defined
+as expected: 
+
+\begin{myhs}
+\begin{code}
+fold :: (RepFix a b -> b) -> Fix (RepFix a) -> b
+fold f = f . fmap (fold f) . unFix
+\end{code}
+\end{myhs}
+
   Sometimes we actually want to consume a value and produce
 a single value, but does not need the full expressivity of |fold|. 
 Instead, if we know how to consume the opaque types and combine
@@ -788,10 +861,10 @@ data Nat   = Z | S Nat
 The code of this recursive family of datatypes can be finally described as:
 \begin{myhs}
 \begin{code}
-type FamRose = P [Rose Int, [Rose Int]]
+type FamRose           = P [Rose Int, [Rose Int]]
 
-CodeMRec FamRose = (P  [ (P [ (P [ KInt, I (S Z)])])          -- code for Rose Int
-                       , (P [ (P []), P [ I Z, I (S Z)]])])   -- code for [Rose Int]
+type CodeMRec FamRose  = (P  [ (P [ (P [ KInt, I (S Z)])])          -- code for Rose Int
+                             , (P [ (P []), P [ I Z, I (S Z)]])])   -- code for [Rose Int]
 \end{code}
 \end{myhs}
 Let us have a closer look at the code for |Rose Int|, which appears in the
@@ -799,15 +872,15 @@ first place in the list. There is only one constructor which has an |Int| field,
 represented by |KInt|, and another in which we recur to the second member of 
 our family (since lists are 0-indexed, we represent this by |S Z|). Similarly,
 the second constructor of |[Rose Int]| points back to both |Rose Int|
-using |I Z| and to |RoseTreeList| itself via |I (S Z)|.
+using |I Z| and to |[Rose Int]| itself via |I (S Z)|.
 
   Having settled on the definition of |Atom|, we now need to adapt |NA| to
-the new |Atom|s. In order to interpret any |Atom| into |*|, we now need
+the new |Atom|s. In order to interpret any |Atom| into |Star|, we now need
 a way to interpret the different recursive positions. This information is given
 by an additional type parameter |phi| from natural numbers into types.
 \begin{myhs}
 \begin{code}
-data NA :: (Nat -> *) -> Atom -> * where
+data NA :: (Nat -> Star) -> Atom -> Star where
   NA_I  :: phi n  -> NA phi (I n)
   NA_K  :: Int    -> NA phi KInt
 \end{code}
@@ -815,7 +888,7 @@ data NA :: (Nat -> *) -> Atom -> * where
 The additional |phi| naturally bubbles up to the representation of codes.
 \begin{myhs}
 \begin{code}
-type RepMRec (phi :: Nat -> *) (c :: [[Atom]]) = NS (NP (NA phi)) c
+type RepMRec (phi :: Nat -> Star) (c :: [[Atom]]) = NS (NP (NA phi)) c
 \end{code}
 \end{myhs}
 The only missing piece is tying the recursive loop here. If we want our
@@ -835,7 +908,7 @@ type family Lkup (ls :: [k]) (n :: Nat) :: k where
 In order to improve type error messages, we generate a |TypeError| whenever we
 reach the given index |n| is out of bounds. Interestingly, our design
 guarantees that this case is never reached, all lookups in a representation
-of a code all well-typed.
+of a code are well-typed.
 
 In principle, this is enough to provide a ground representation for the family
 of types. Let |fam| be the family of ground types, like
@@ -866,14 +939,16 @@ Unfortunately, Haskell only allows saturated, that is, fully-applied type
 families. As a result, we need to introduce an intermediate datatype |El|,
 \begin{myhs}
 \begin{code}
-data El :: [*] -> Nat -> * where
+data El :: [Star] -> Nat -> Star where
   El :: Lkup fam ix -> El fam ix
 \end{code}
 \end{myhs}
 The representation of the family |fam| at index |ix| is thus given by
 |RepMRec (El fam) (Lkup codes ix)|. We only need to use |El| in the first
 argument, because that is the position in which we require partial application.
-The second position features |Lkup| fully-applied, and can stay as is.
+The second position features |Lkup| fully-applied, and can stay as is. Moreover,
+in the declaration of |Family|, using |El| spares us from having to use
+a proxy for |fam| in |fromMRec| and |toMRec|.
 
   Up to this point, we have talked about a type family and their codes as 
 independent entities. As in the rest of generic programming approaches, we
@@ -882,7 +957,7 @@ relation, and introduces functions to perform the conversion between our
 representation and the actual types:
 \begin{myhs}
 \begin{code}
-class Family (fam :: [*]) (codes :: [[[Atom]]]) where
+class Family (fam :: [Star]) (codes :: [[[Atom]]]) where
   
   fromMRec  :: SNat ix  -> El fam ix                         -> RepMRec (El fam) (Lkup codes ix)
   toMRec    :: SNat ix  -> RepMRec (El fam) (Lkup codes ix)  -> El fam ix
@@ -906,9 +981,9 @@ additional |SNat ix| parameter. For example, in the case of
 or family of rose trees, |fromMRec| has the following shape:
 \begin{myhs}
 \begin{code}
-fromMRec SZ       (El (x :>: children))  = Rep (          Here (NA_K x :* NA_I children :* NP0))
-fromMRec (SS SZ)  (El [])                = Rep (          Here NP0 ))
-fromMRec (SS SZ)  (El (x : xs))          = Rep ( There (  Here (NA_I x :* NA_I xs :* NP0)))
+fromMRec SZ       (El (x :>: ch))  = Rep (          Here (NA_K x :* NA_I ch :* NP0))
+fromMRec (SS SZ)  (El [])          = Rep (          Here NP0 ))
+fromMRec (SS SZ)  (El (x : xs))    = Rep ( There (  Here (NA_I x :* NA_I xs :* NP0)))
 \end{code}
 \end{myhs}
 By pattern matching on the index, the compiler knows which is the family member
@@ -935,12 +1010,13 @@ intermediate datatype. Our |fromMRec| function does not take one member of
 the family directly, but an |El|-wrapped one. However, to construct that value
 |El| needs to know its parameters, which amounts to the family we are 
 embedding our type into and the index in that family. Those values are not
-immediately obvious, but we can use Haskell's \texttt{-XTypeApplications} to work around
+immediately obvious, but we can use Haskell's visible type
+application~\cite{EisenbergWA16} to work around
 it. We shall not go into details about their implementation, but the final
 |into| function which injects a value into the corresponding |El| looks like:
 \begin{myhs}
 \begin{code}
-into  :: forall fam ty ix dot (ix ~ Idx ty fam , Lkup ix fam ~ ty , IsNat ix) 
+into  :: forall fam ty ix dot (ix ~ Idx ty fam , Lkup fam ix ~ ty) 
       => ty -> El fam ix
 into  = El
 \end{code}
@@ -948,7 +1024,7 @@ into  = El
 where |Idx| is a closed type family implementing the inverse of |Lkup|, that is,
 obtaining the index of the type |ty| in the list |fam|. Using this function
 we can turn a |rs :: [Rose Int]| into its generic representation by writing
-|into @FamRose rs|. The type application |@FamRose| is responsible
+|from $$ into @FamRose rs|. The type application |@FamRose| is responsible
 for fixing the mutually recursive family we are working with, which
 let the type checker reduce all the constraints and happily inject the element
 into |El|.
@@ -983,7 +1059,7 @@ This type signature tells us that if we want to change the |phi1| argument in
 the representation, we need to provide a natural transformation from
 |phi1| to |phi2|, that is, a function which works over each
 possible index this |phi1| can take and does not change this index. 
-This makes sense, as |phi1| has kind |Nat -> *|. 
+This makes sense, as |phi1| has kind |Nat -> Star|. 
 \begin{myhs}
 \begin{code}
 deepFrom :: Family fam codes => El fam ix -> Fix (RepFix codes ix)
@@ -1008,11 +1084,10 @@ those which lie in the range -- this is usually known as |Fin n|.
 data Atom (n :: Nat) = I (Fin n) | KInt | dots
 \end{code}
 \end{myhs}
-Unfortunately
-this approach has a major drawback in Haskell. The lack of dependent types would
-require us to turn on the \texttt{-XTypeInType} extension, which although does not
-break consistency, can cause the compiler to loop and is generally seen as an extreme
-resort.\victor{remove the \texttt{-XTypeInType} remark in the lights of 8.4.1?}
+The lack of dependent types makes this approach very hard, in Haskell.
+We would need to carry around the inhabitants |Fin n| and define functionality
+to manipulate them, which is more complex than what meets the eye. 
+This could greatly hinder the usability of the library.
 
 By looking a bit more closely, we find that we are not losing any type-safety
 by allowing codes which reference an arbitrary number of recursive positions.
@@ -1059,23 +1134,23 @@ final implementation just two constructors, one per constructor in |Atom|.
 The |NS| and |NP| datatypes do not require any change.
 \begin{myhs}
 \begin{code}
-data NA :: (kon -> *) -> (Nat -> *) -> Atom -> * where
+data NA :: (kon -> Star) -> (Nat -> Star) -> Atom -> Star where
   NA_I  :: phi    n  -> NA kappa phi (I  n)
   NA_K  :: kappa  k  -> NA kappa phi (K  k)
 
-type RepMRec (kappa :: kon -> *) (phi :: Nat -> *) (c :: [[Atom]]) = NS (NP (NA kappa phi)) c
+type RepMRec (kappa :: kon -> Star) (phi :: Nat -> Star) (c :: [[Atom]]) = NS (NP (NA kappa phi)) c
 \end{code}
 \end{myhs}
 The |NA_K| constructor in |NA| makes use of an additional argument |kappa|.
 The problem is that we are defining the code for the set of opaque types by
 a specific kind, such as |Numeric| above. On the other hand, values which
-appear in a field must have a type whose kind is |*|. Thus, we require a mapping
+appear in a field must have a type whose kind is |Star|. Thus, we require a mapping
 from each of the codes to the actual opaque type they represent, this
 is exactly the \emph{opaque type interpretation} |kappa|. Here is the
 datatype interpreting |NumericK| into ground types:
 \begin{myhs}
 \begin{code}
-data NumericI :: NumericK -> * where
+data NumericI :: NumericK -> Star where
   IInt      :: Int      -> NumericI KInt
   IInteger  :: Integer  -> NumericI KInteger
   IFloat    :: Float    -> NumericI KFloat
@@ -1088,7 +1163,7 @@ and |codes| are parametrized by an implicit argument |kon| which represents
 the set of opaque types.
 \begin{myhs}
 \begin{code}
-class Family (kappa :: kon -> *) (fam :: [*]) (codes :: [[[Atom kon]]]) where
+class Family (kappa :: kon -> Star) (fam :: [Star]) (codes :: [[[Atom kon]]]) where
   
   fromMRec  :: SNat ix  -> El fam ix -> RepMRec kappa (El fam) (Lkup codes ix)
   toMRec    :: SNat ix  -> RepMRec kappa (El fam) (Lkup codes ix) -> El fam ix
@@ -1111,7 +1186,7 @@ notational overhead, we shall write values of |RepMRec kappa phi c| just like
 we would write normal Haskell values. They have the same \emph{sums-of-products} 
 structure anyway. Whenever a function is defined
 using the |^=| symbol, |C x_1 dots x_n| will stand for a value of the corresponding
-|RepMRec phi c|, that is, |There (dots (Here (x_1 :* dots :* x_n :* NP0)))|. 
+|RepMRec kappa phi c|, that is, |There (dots (Here (x_1 :* dots :* x_n :* NP0)))|. 
 Since each of these |x_1 dots x_n| might be a recursive type or an opaque type,
 whenever we have two functions |f_I| and |f_K| in scope, |fSq x_j| will
 denote the application of the correct function for recursive positions, |f_I|,
@@ -1167,7 +1242,7 @@ as they are constructed with the same injection into the $n$-ary sum, |NS|.
 
 \begin{myhs}
 \begin{code}
-zipRep  :: Rep kappa1 phi1 c -> Rep kappa2 phi2 c -> Maybe (Rep (kappa1 :*: kappa2) (phi1 :*: phi2) c)
+zipRep  :: RepMRec kappa1 phi1 c -> RepMRec kappa2 phi2 c -> Maybe (RepMRec (kappa1 :*: kappa2) (phi1 :*: phi2) c)
 zipRep (C x_1 dots x_n) (D y_1 dots y_m)
   | C == D     ^= Just (C (x_1 :*: y_1) dots (x_n :*: y_n)) -- if C == D, then also n == m!
   | otherwise  ^= Nothing
@@ -1180,14 +1255,12 @@ that receives a good boost in expressivity is the beloved |compos|,
 introduced in \Cref{sec:explicitfix}. We are now able to change every
 subtree of whatever type we choose inside an arbitrary value of the
 mutually recursive family in question.
-\alejandro{Update to reflect different opaque types interpretation.}
-\victor{There is nothing to update; |El| receives no |kappa :: kon -> *|}
 
 \begin{myhs}
 \begin{code}
 compos  :: (forall iy dot El fam iy -> El fam iy)
         -> El fam ix -> El fam ix
-compos f = toMRec . mapRep f . fromMRec
+compos f = toMRec . bimapRep id f . fromMRec
 \end{code}
 \end{myhs}
 
@@ -1224,9 +1297,9 @@ elegant version of generic equality:
 
 \begin{myhs}
 \begin{code}
-geq ::  (Family kappa fam codes) 
-    =>  (forall k dot kappa k -> kappa k -> Bool)
-    ->  El fam ix -> El fam ix -> Bool
+geq  ::  (Family kappa fam codes) 
+     =>  (forall k dot kappa k -> kappa k -> Bool)
+     ->  El fam ix -> El fam ix -> Bool
 geq eq_K = go `on` deepFrom
   where
     go :: Fix codes ix -> Fix codes ix -> Bool
@@ -1256,16 +1329,29 @@ $\alpha$-equivalent requires one to focus on the the constructors that
 introduce scoping, declare variables or reference variables. All the
 other constructors of the language should be trivial a trivial
 combination of recursive results. Let us warm up with the
-$\lambda$-calculus:
+$\lambda$-calculus and their generic pattern synonyms:
 
 %format LambdaTerm = "\HT{Term_{\lambda}}"
+\begin{minipage}[t]{.32\textwidth}
 \begin{myhs}
 \begin{code}
-data LambdaTerm  =  Var  String
-                 |  Abs  String      LambdaTerm
-                 |  App  LambdaTerm  LambdaTerm
+data LambdaTerm  
+  =  Var  String
+  |  Abs  String      LambdaTerm
+  |  App  LambdaTerm  LambdaTerm
 \end{code}
 \end{myhs}
+\end{minipage}
+\begin{minipage}[t]{.45\textwidth}
+\vspace{1em}
+\begin{myhs}
+\begin{code}
+pattern (Pat Var) x    = Tag           CZ    (NA_K x :* NP0)
+pattern (Pat Abs) x t  = Tag      (CS  CZ))  (NA_K x :* NA_I t :* NP0)
+pattern (Pat App) t u  = Tag (CS  (CS  CZ))  (NA_I t :* NA_I u :* NP0) 
+\end{code}
+\end{myhs}
+\end{minipage}
 
   The process is conceptually simple. Firstly, for |t_1, t_2 :: LambdaTerm|
 to be $\alpha$-equivalent, they have to have the same structure, that
@@ -1316,16 +1402,16 @@ for |Var| and |Abs| constructors. The |App| can be eliminated generically.
 alphaEq :: LambdaTerm -> LambdaTerm -> Bool
 alphaEq x y = runState (galphaEq (deepFrom x) (deepFrom y)) [[]]
   where
-    galphaEq x y = maybe False (go TermP) (zipRep x y)
+    galphaEq x y = maybe False (go (Pat Term)) (zipRep x y)
 
     step = elimRepM  (return . uncurry (==))  -- Opaque types have to be equal!
                      (uncurry galphaEq)       -- recursive step
                      (return . and)           -- combining results
 
-    go TermP x = case sop x of
-      VarP (v_1 :*: v_2)                -> v_1 =~= v_2
-      AbsP (v_1 :*: v_2) (t_1 :*: t_2)  -> scoped (addRule v_1 v_2 >> galphaEq t_1 t_2)
-      _                                 -> step x
+    go (Pat LambdaTerm) x = case sop x of
+      (Pat Var) (v_1 :*: v_2)                -> v_1 =~= v_2
+      (Pat Abs) (v_1 :*: v_2) (t_1 :*: t_2)  -> scoped (addRule v_1 v_2 >> galphaEq t_1 t_2)
+      _                                      -> step x
 \end{code}
 \end{myhs}
 
@@ -1336,35 +1422,27 @@ When |zipRep| succeeds though, we get access to one constructor with
 paired fields inside. Then the |go| function enters the stage, it 
 is performing the necessary semantic actions for the |Var| and |Abs|
 constructors and applying a general eliminator for anything else.
-The names suffixed with an underscore are \emph{pattern synonyms} 
-that make programming in this framework more convenient. These are
-also automatically generated as we will see on \Cref{sec:templatehaskell}.
+In the actual library, the \emph{pattern synonyms} are automatically 
+generated as we will see on \Cref{sec:templatehaskell}.
 
   One might be inclined to believe that the generic programming here
 is more cumbersome than a straight forward pattern matching definition
 over |LambdaTerm|.  If we bring in a more intricate language to the
 spotlight, however, manual pattern matching becomes almost intractable
-very fast. 
+very fast.
 
-Take the a toy imperative language defined in
-\Cref{fig:alphatoy}.
+Take the a toy imperative language defined in \Cref{fig:alphatoy}.
 Transporting |alphaEq| from the lambda calculus is fairly simple. For
 one, |alhaEq|, |step| and |galphaEq| remain the same.  We just need to
-adapt the |go| function. On the other hand, having to write $\alpha$-equivalence
-by pattern matching might not be so straight forward anymore. Moreover,
-if we decide to change the toy language and add more statements or more expressions,
-the changes to the |go| function are minimal, if any. As long as we do not touch
-the constructors that |go| patterns matches on, we can use the very same function.
+adapt the |go| function. On the other hand, having to write
+$\alpha$-equivalence by pattern matching might not be so straight
+forward anymore. Moreover, if we decide to change the toy language and
+add more statements or more expressions, the changes to the |go|
+function are minimal, if any. As long as we do not touch the
+constructors that |go| patterns matches on, we can use the very same
+function.
 
 \begin{figure}
-%format StmtP    = "\HT{Stmt\_}"
-%format SAssignP = "\HT{SAssign\_}"
-%format DeclP    = "\HT{Decl\_}"
-%format DVarP    = "\HT{DVar\_}"
-%format DFunP    = "\HT{DFun\_}"
-%format ExpP     = "\HT{Exp\_}"
-%format EVarP    = "\HT{EVar\_}"
-%format ECallP   = "\HT{ECall\_}"
 \begin{minipage}[t]{.45\textwidth}
 \begin{myhs}
 \begin{code}
@@ -1392,21 +1470,21 @@ data Exp
 \begin{minipage}[t]{.50\textwidth}
 \begin{myhs}
 \begin{code}
-go StmtP  x = case sop x of
-      SAssignP (v_1 :*: v_2) (e_1 :*: e_2)  
+go (Pat Stmt)  x = case sop x of
+      (Pat SAssign) (v_1 :*: v_2) (e_1 :*: e_2)  
          ->  addRule v_1 v_2 >> galphaEq e_1 e_2
       _  ->  step x
-go DeclP  x = case sop x of
-      DVarP (v_1 :*: v_2) 
+go (Pat Decl)  x = case sop x of
+      (Pat DVar) (v_1 :*: v_2) 
          ->  addRule v_1 v_2 >> return True
-      DFunP (f_1 :*: f_2) (x_1 :*: x_2) (s_1 :*: s_2)
+      (Pat DFun) (f_1 :*: f_2) (x_1 :*: x_2) (s_1 :*: s_2)
          ->  addRule f_1 f_2   
          >>  scoped (addRule x_1 x_2 >> galphaEq s_1 s_2)
       _  ->  step x
-go ExpP   x = case sop x of
-      EVarP (v_1 :*: v_2)
+go (Pat Exp)   x = case sop x of
+      (Pat EVar) (v_1 :*: v_2)
          ->  v_1 =~= v_2
-      ECallP (f_1 :*: f_2) (e_1 :*: e_2)
+      (Pat ECall) (f_1 :*: f_2) (e_1 :*: e_2)
          ->  (&&) <$$> f_1 =~= f_2 <*> galphaEq e_1 e_2 
       _  ->  step x 
 go _      x = step x
@@ -1429,7 +1507,10 @@ for many different classes of types in the past. To the best of
 the authors knowledge, this is the first definition in a direct
 \emph{sums-of-products} style. Moreover, being able to define
 the generic zipper in one's generic programming framework is
-a non-trivial expressivity benchmark to be achieved.
+a non-trivial expressivity benchmark to be achieved. We will not
+be explaining what \emph{are} zippers in detail, the unfamiliar 
+reader should check the references. Instead, we will give a quick
+reminder and show how zippers fit within our framework instead.
 
   Generally speaking, the zipper keeps track of a focus point in a
 data structure and allows for the user to conveniently move this focus
@@ -1450,8 +1531,9 @@ update  :: (a -> a) -> Loc a -> Loc a
 means of |enter| and |leave| functions. For instance, the composition
 of |down|, |down|, |right| , |update f| will essentially move the
 focus two layers down from the root, then one element to the right and
-apply function |f| to the focused element:
+apply function |f| to the focused element, as shown in \Cref{fig:zipperpic}.
 
+\begin{figure}
 \begin{center}
 \begin{tabular}{m{.2\linewidth} m{.06\linewidth} m{.2\linewidth}}
 \begin{forest}
@@ -1463,14 +1545,17 @@ apply function |f| to the focused element:
 \end{forest}
 \end{tabular}
 \end{center}
+\caption{Graphical representation of |down| , |down| , |right| and |update f|}
+\label{fig:zipperpic}
+\end{figure}
 
   In our case, this location type consists in a distinguished element
 of type |ix| and a stack of contexts with a hole of type |ix|, where
 we can plug the distinguished element and \emph{leave} the zipper.
 This stack of contexts are used to keep track of how far deep from the
 root we are.  All of the following development is parametrized by an
-interpretation for opaque types |ki :: kon -> *|, a family |fam ::
-[*]| and its associated codes |codes :: [[[Atom kon]]]|; since these
+interpretation for opaque types |ki :: kon -> Star|, a family |fam ::
+[Star]| and its associated codes |codes :: [[[Atom kon]]]|; since these
 are the same for any given family, let us fix those and omit them
 from the declarations to simplify the presentation.
 
@@ -1481,7 +1566,7 @@ type |El fam ix| with a \emph{hole} of type |El fam iy|.
 
 \begin{myhs}
 \begin{code}
-data Loc :: Nat -> * where
+data Loc :: Nat -> Star where
   Loc :: El fam iy -> Ctxs ix iy -> Loc ix
 \end{code}
 \end{myhs}
@@ -1493,7 +1578,7 @@ the |Cons| constructor resembles some sort of composition operation.
 
 \begin{myhs}
 \begin{code}
-data Ctxs :: Nat -> Nat -> * where
+data Ctxs :: Nat -> Nat -> Star where
   Nil   :: Ctxs ix ix
   Cons  :: Ctx (Lkup codes iz) iy -> Ctxs ix iz -> Ctxs ix iy
 \end{code}
@@ -1506,10 +1591,10 @@ in |Loc| was supposed to be.
 
 \begin{myhs}
 \begin{code}
-data Ctx :: [[Atom kon]] -> Nat -> * where
+data Ctx :: [[Atom kon]] -> Nat -> Star where
   Ctx :: Constr n c -> NPHole (Lkup n c) iy -> Ctx c iy
 
-data NPHole :: [Atom kon] -> Nat -> * where
+data NPHole :: [Atom kon] -> Nat -> Star where
   Here   :: NP (NA ki (El fam)) xs            -> NPHole (I ix  : xs)  ix
   There  :: NA ki (El fam) x -> NPHole xs ix  -> NPHole (x     : xs)  ix
 \end{code}
@@ -1524,7 +1609,7 @@ existential in order to manipulate it conveniently:
 
 \begin{myhs}
 \begin{code}
-data NPHoleE :: [Atom kon] -> * where
+data NPHoleE :: [Atom kon] -> Star where
   Witness :: El fam ix -> NPHole c ix -> NPHoleE c
 \end{code}
 \end{myhs}
@@ -1559,10 +1644,10 @@ and |Loc ix|.
 tr :: LambdaTerm -> Maybe LambdaTerm
 tr = enter  >>>  down 
             >=>  right 
-            >=>  update (const $$ Var "c") 
+            >=>  update (const $ Var "c") 
             >>>  leave 
             >>>  return
-\end{code}
+\end{code} %$
 \end{myhs}
 \end{minipage}%
 \begin{minipage}[t]{.45\textwidth}
@@ -1650,7 +1735,9 @@ deriveFamily (tht (Rose Int))
 \end{myhs}
 
   The first thing that happens is registering that we seen the type |Rose Int|.
-This associates it with a fresh index, in this case, |Z|. We have not yet processed it, however!To do that, we need to reify the definition of |Rose|. At this point, \emph{Template Haskell} (TH) will return |data Rose x = x :>: [Rose x]|. This has kind |* -> *| and cant
+This associates it with a fresh index, in this case, |Z|. We have not yet processed it, however!
+To do that, we need to reify the definition of |Rose|. At this point, \emph{Template Haskell}
+will return |data Rose x = x :>: [Rose x]|. This has kind |Star -> Star| and cant
 be directly translated. In our case, we just need the specific case where |x = Int|.
 Essentially, we just apply the reified definition of |Rose| to |Int| and $\beta$-reduce it,
 giving us |Int :>: [Rose Int]|. The next processing step is looking into
@@ -1672,9 +1759,11 @@ each constructor.
 
   Since we have not seen any new type in (4) above, there is nothing else
 to process. Essentially, the hard part has been done. Now we just have to 
-generate the Haskell code. This is a very verbose but mechanical process
-and will be omitted from here. Nevertheless, we generate type synonyms 
-for the family and respective codes:
+generate the Haskell code. This is a very verbose and mechanical process, whose
+details will be omitted. Nevertheless, we generate type synonyms,
+pattern synonyms, the |Family| instance and metadata information. 
+The generated type synonyms are named after the topmost type of the family,
+passed to |deriveFamily|:
 
 \begin{myhs}
 \begin{code}
@@ -1683,27 +1772,26 @@ type CodesRoseInt  = P [ (P [P [K KInt , I (S Z)]])  , P [ P [] , P [I Z , I (S 
 \end{code}
 \end{myhs}
 
-  Pattern synonyms for convenient pattern matching and injecting over
-the |View| datatype and |SNat| representing the index of each
-type in the family. These have the same name but with an added \emph{underscore}:
+  Pattern synonyms are useful for convenient pattern matching and injecting over
+the |View| datatype. Some |SNat| representing the index of each
+type in the family also come in handy. These have the same name as the original 
+but with an added \emph{underscore}:
 
-%format nilP  = "\HT{[]\_}"
-%format forkP = "\HT{\triangleright\!\_}"
-%format consP = "\HT{:\!\_}"
-%format RoseIntP = "\HT{RoseInt\_}"
-%format ListRoseIntP = "\HT{ListRoseInt\_}"
 \begin{myhs}
+%format forkP = "\HT{\overline{\triangleright}}" 
+%format nilP  = "\HT{\overbar{[]}}" 
+%format consP = "\HT{\overline{:}}" 
 \begin{code}
 pattern x forkP xs  = Tag SZ       (NA_K x :* NA_I xs :* NP0)
 pattern nilP        = Tag SZ       NP0
 pattern x consP xs  = Tag (SS SZ)  (NA_I x :* NA_I xs :* NP0)
 
-pattern RoseIntP      = SZ
-pattern ListRoseIntP  = SS SZ
+pattern (Pat RoseInt)      = SZ
+pattern (Pat ListRoseInt)  = SS SZ
 \end{code}
 \end{myhs}
 
-  And last but not least, the actual |Family| instance:
+  The actual |Family| instance is exactly as the one shown in \Cref{sec:family}
 
 \begin{myhs}
 \begin{code}
@@ -1712,28 +1800,140 @@ instance Family Singl FamRoseInt CodesRoseInt where
 \end{code}
 \end{myhs}
 
-\subsubsection{Meta-information}
+  Finally, we also generate some metadata for being able to correlate
+the name of constructors and types with the generic representation. 
+We handle metadata almost entirely like \texttt{generics-sop}, with a 
+few differences that will be explained in \Cref{sec:metadata}
 
-\victor{Metainformation!!! We must say we can do meta information
-just like \texttt{generics-sop}, and these can also be easily generated}
+\subsection{Metadata}
+\label{sec:metadata}
+
+  The representations described up to now are enough to write generic equalities
+and zippers. But there is one missing ingredient to derive generic
+pretty-printing or conversion to JSON, for instance. We need to maintain
+the \emph{metadata} information of our datatypes.
+This metadata includes the datatype name, the module where it was defined,
+and the name of the constructors, among other information. Without this
+information you cannot write a function which outputs the string
+\begin{verbatim}
+1 :>: [2 :>: [], 3 :>: []]
+\end{verbatim}
+for a call to |genericShow (1 :>: [2 :>: [], 3 :>: []])|. The reason is that
+the code of |Rose Int| does not contain the information that the constructor
+of |Rose| is called |:>:|.
+
+
+  Like in \texttt{generics-sop}~\cite{deVries2014}, having the code
+for a family of datatypes at hand allows for a completely separate
+treatment of metadata. This is yet another advantage from the
+sum-of-products approach when compared to the more traditional pattern
+functors. In fact, our handling of metadata is heavily inspired from
+\texttt{generics-sop}, so much so that we start explaining a simplified version of how
+they handle metadata, then outline the differences to our approach. 
+
+\begin{myhs}
+\begin{code}
+data DatatypeInfo :: [[Star]] -> Star where
+  ADT  :: ModuleName -> DatatypeName -> NP  ConstructorInfo cs       -> DatatypeInfo cs
+  New  :: ModuleName -> DatatypeName ->     ConstructorInfo (P [c])  -> DatatypeInfo (P [ P [ c ]])
+
+data ConstructorInfo :: [Star] -> Star where
+  Constructor  :: ConstructorName                             -> ConstructorInfo xs
+  Infix        :: ConstructorName -> Associativity -> Fixity  -> ConstructorInfo (P [ x, y ])
+  Record       :: ConstructorName -> NP FieldInfo xs          -> ConstructorInfo xs
+
+data FieldInfo :: Star -> Star where
+  FieldInfo :: FieldName -> FieldInfo a
+\end{code}
+\end{myhs}
+This information is tied to a datatype by means of an additional type class:
+\begin{myhs}
+\begin{code}
+class HasDatatypeInfo a where
+  datatypeInfo :: proxy a -> DatatypeInfo (Code a)
+\end{code}
+\end{myhs}
+Generic functions may now query the metadata by means of functions like
+|datatypeName|, which reflect the type information into the term level.
+
+Our library uses the same approach to handle metadata. In fact, the code remains
+almost unchanged, except for adapting it to the larger universe of
+datatypes we can now handle. Unlike \texttt{generic-sop}, our list of lists
+representing the sum-of-products structure does not contain types of kind |Star|,
+but |Atom|s. All the types representing metadata at the type level must be
+updated to reflect this new scenario:
+\begin{myhs}
+\begin{code}
+data DatatypeInfo     :: [  [  Atom kon ]]  -> Star where
+data ConstructorInfo  ::    [  Atom kon ]   -> Star where
+data FieldInfo        ::       Atom kon     -> Star where
+\end{code}
+\end{myhs}
+
+As we have discussed above, our library is able to generate codes not only
+for single types of kind |Star|, like |Int| or |Bool|, but also for types which
+result of type-level applications, such as |Rose Int| or |[Rose Int]|.
+The shape of the metadata information in |DatatypeInfo|, a module name plus
+a datatype name, is not enough to handle these cases. We introduce a new
+|TypeName| which may contain applications, and upgrade |DatatypeInfo| to
+use it instead.
+\begin{myhs}
+\begin{code}
+data TypeName  =  ConT ModuleName DatatypeName
+               |  TypeName :@: TypeName
+
+data DatatypeInfo :: [[Atom kon]] -> Star where
+  ADT  :: TypeName  -> NP  ConstructorInfo cs       -> DatatypeInfo cs
+  New  :: TypeName  ->     ConstructorInfo (P [c])  -> DatatypeInfo (P [ P [ c ]])
+\end{code}
+\end{myhs}
+
+The most important difference to \texttt{generics-sop}, perhaps, 
+is that the metadata is not defined for a single type, but
+for a type \emph{within} a family. This is reflected in the new signature of 
+|datatypeInfo|, which receives proxies for both the family and the type.
+The type equalities in that signature reflect the fact that the given type
+|ty| is included with index |ix| within the family |fam|. This step is needed
+to look up the code for the type in the right position of |codes|.
+\begin{myhs}
+\begin{code}
+class (Family kappa fam codes) => HasDatatypeInfo kappa fam codes ix | fam -> kappa codes where
+  datatypeInfo  :: (ix ~ Idx ty fam , Lkup ix fam ~ ty)
+                => Proxy fam -> Proxy ty -> DatatypeInfo (Lkup ix codes)
+\end{code}
+\end{myhs}
+
+  The Template Haskell will then generate something similar to
+the instance below for the first type in the family, |Rose Int|:
+
+\begin{myhs}
+\begin{code}
+instance HasDatatypeInfo Singl FamRose CodesRose Z where
+  datatypeInfo _ _  =  ADT (ConT "Example" "Rose" :@: ConT "Prelude" "Int")
+                    $  (Constructor ":>:") :* NP0
+\end{code} %$
+\end{myhs}
+  
 
 \section{Conclusion and Future Work}
 
-In this paper we have presented \texttt{\nameofourlibrary}, a library for
-generic programming in Haskell which support both deep and shallow
-representations of mutually recursive families of datatypes. We follow the
-sums-of-products approach: datatypes are described by a code
-consisting of lists (one per datatype) of lists (one per constructor)
-of lists (one per field) of atoms. The result is as expressive as other
-approaches such as \texttt{multirec}, yet it allows for a more concise
-combinator-based approach to defining generic functions.
+  In this paper we have presented \texttt{\nameofourlibrary}, a
+library for generic programming in Haskell that combines the
+advantages of previous approaches to generic programming. We have
+carefully blended the information about (mutually) recursive
+positions, from \texttt{multirec}, with the sums-of-products codes,
+from \texttt{generics-sop}, maintaining the advantages of both. The
+result is as expressive as other approaches such as \texttt{multirec},
+yet it allows for a more concise combinator-based approach to defining
+generic functions. Our library will be made publicly available on
+Hackage once the review process is done. 
 
-Future work involves expanding the universe of datatypes that our library
+  Future work involves expanding the universe of datatypes that our library
 can handle. Currently, every type involved in a recursive family must be
-a ground type (of kind |*| in Haskell terms); our Template Haskell derivations
+a ground type (of kind |Star| in Haskell terms); our Template Haskell derivations
 acknowledges this fact by implementing some amount of reduction for types.
 This limits the functions we can implement generically, for example we cannot
-write a generic |fmap| function, since it operates on types of kind |* -> *|.
+write a generic |fmap| function, since it operates on types of kind |Star -> Star|.
 \texttt{GHC.Generics} supports type constructors with exactly one argument
 via the \texttt{Generic1} type class. We foresee most of the complexity to
 be in the definition of |Atom|, as it must support some kind of application

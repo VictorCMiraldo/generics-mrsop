@@ -14,5 +14,6 @@ import Generics.MRSOP.Base.NS          as Export
 import Generics.MRSOP.Base.NP          as Export
 import Generics.MRSOP.Base.Universe    as Export
 import Generics.MRSOP.Base.Class       as Export
+import Generics.MRSOP.Base.Metadata    as Export
 import Generics.MRSOP.Base.Combinators as Export
 
