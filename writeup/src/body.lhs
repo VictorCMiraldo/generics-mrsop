@@ -291,10 +291,13 @@ allows one to define a function for a datatype by induction
 on the structure of its representation using \emph{pattern functors}.
 
   These \emph{pattern functors} are parametrized versions of tuples,
-sum types (|Either| in Haskell lingo), and unit, empty and constant functors. These provide
-a unified view over data: the generic \emph{representation} of values.
-The values of a suitable type |a| are translated to this representation
-by the means of the function |from :: a -> RepGen a|.
+sum types (|Either| in Haskell lingo), and unit, empty and constant
+functors. These provide a unified view over data: the generic
+\emph{representation} of values.  The values of a suitable type |a|
+are translated to this representation by the means of the function
+|fromGen :: a -> RepGen a|. Note that the subscripts are there 
+solely to disambiguate names that appear in many libraries. Hence,
+|fromGen| is, in fact, |GHC.Generics.from|.
 
   Defining a generic function is done in two
 steps. First, we define a class that exposes the function
@@ -312,15 +315,14 @@ class Size (a :: Star) where
 \begin{myhs}
 \begin{code}
 instance (Size a) => Size (Bin a) where
-  size = gsize . from
+  size = gsize . fromGen
 \end{code}
 \end{myhs}
 
-  The |gsize| function, on the other hand, operates on the
-representation of datatypes , being the second piece we need to
-define. We use another class and the instance mechanism to encode a
-definition by induction on representations.  Here, they are
-\emph{pattern functors}.
+  The |gsize| function, that operates on the representation of
+datatypes, is the second piece we need to define. We use another class
+and the instance mechanism to encode a definition by induction on
+representations.  Here, they are \emph{pattern functors}.
 
 \begin{myhs}
 \begin{code}
@@ -350,18 +352,23 @@ instance (Size x) => GSize (K1 R x) where
 
   This technique of \emph{mutually recursive classes} is quite 
 specific to \texttt{GHC.Generics} flavor of generic programming.
-It is worthwhile to illustrate how the compiler would go about choosing
-instances for computing |size (Bin (Leaf 1) (Leaf 2))|:
+\Cref{fig:sizederiv} illustrates how the compiler go about choosing
+instances for computing |size (Bin (Leaf 1) (Leaf 2))|.
+
+\begin{figure}\centering
 \begin{align*}
   |size (Bin (Leaf 1) (Leaf 2))| 
-    &= |gsize (from (Bin (Leaf 1) (Leaf 2)))| \\
+    &= |gsize (fromGen (Bin (Leaf 1) (Leaf 2)))| \\
     &= |gsize (R1 (K1 (Leaf 1) :*: K1 (Leaf 2)))| \\
     &= |gsize (K1 (Leaf 1)) + gsize (K1 (Leaf 2))| \\
     &= |size (Leaf 1) + size (Leaf 2)| \tag{$\dagger$}\\
-    &= |gsize (from (Leaf 1)) + gsize (from (Leaf 2))|\\
+    &= |gsize (fromGen (Leaf 1)) + gsize (fromGen (Leaf 2))|\\
     &= |gsize (L1 (K1 1)) + gsize (L1 (K1 2))|\\
     &= |size (1 :: Int) + size (2 :: Int)|   
 \end{align*}
+\caption{Reduction of |size (Bin (Leaf 1) (Leaf 2))|}
+\label{fig:sizederiv}
+\end{figure}
 
   Finally, we would just need an instance for |Size Int| to compute
 the final result.  Nevertheless, the literals of type |Int| illustrate
@@ -390,43 +397,46 @@ can be satisfied when declaring an instance for |Size a|.
 
   One interesting aspect we should note here is the clearly
 \emph{shallow} encoding that |from| provides. That is, we only
-represent \emph{one layer} at a time. For example, in
-$(\dagger)$, after unwrapping the calculation of the first
-\emph{layer}, we are back to having to calculate |size| for |Bin Int|,
-not their generic representation.
+represent \emph{one layer} at a time. For example, take the step
+$(\dagger)$ in \Cref{fig:sizederiv}: after unwrapping the calculation
+of the first \emph{layer}, we are back to having to calculate |size|
+for |Bin Int|, not their generic representation.
 
-  Upon reflecting on the generic |size| function above, we see
-a number of issues. Most notably is the amount of boilerplate to
-achieve a conceptually simple task: sum up all the sizes of the fields
-of whichever constructors make up the value. This is a direct
-consequence of not having access to the \emph{sum-of-products}
-structure that Haskell's |data| declarations follow. 
-A second issue is the fact that the
+  Upon reflecting on the generic |size| function above, we see a
+number of issues. Most notably is the amount of boilerplate to achieve
+a conceptually simple task: sum up all the sizes of the fields of
+whichever constructors make up the value. This is a direct consequence
+of not having access to the \emph{sum-of-products} structure that
+Haskell's |data| declarations follow.  A second issue is that the
 generic representation does not carry any information about the
 recursive structure of the type.  Instead, we are relying on the
 instance search mechanism to figure out that the recursive arguments
 can be consumed with the |default size| function. The
-\texttt{regular}~\cite{Noort2008} addresses this issue by having a
-specific \emph{pattern functor} for recursive positions.
+\texttt{regular}~\cite{Noort2008} library addresses this issue by
+having a specific \emph{pattern functor} for recursive positions.
 
   Perhaps even more subtle, but also more worrying, is that we have no
 guarantees that the |RepGen a| of a type |a| will be defined using
 only the supported \emph{pattern functors}. Fixing this would require
-one to pin down the language that the representations follow, that is,
-the \emph{code} of the datatype, whose semantics give rise to the
-\emph{representation} of values. Besides correctness issues, the
-absence \emph{codes} greatly limits the number of generic combinators
-one can define. Every generic function has to follow the
+one to pin down a single language for representations, that is,
+the \emph{code} of the datatype. Besides correctness issues, the
+having \emph{codes} greatly improves the definition of \emph{ad-hoc} 
+generic combinators. Every generic function has to follow the
 \emph{mutually recursive classes} technique we shown.
 
 \subsection{Explicit Sums of Products}
 \label{sec:explicitsop}
 
+  We will now examine the approach used by the \texttt{generics-sop}~\cite{deVries2014}
+library. The main difference is in the introduction of \emph{Codes},
+that limit the structure of representations.
+
   Had we had access to a representation of the \emph{sum-of-products}
-structure of |Bin|, we could have defined our |gsize| function just like
-its informal description: sum up the sizes of the fields inside a value,
+structure of |Bin|, we could have defined our |gsize| function following
+a informal description: sum up the sizes of the fields inside a value,
 ignoring the constructor.
-Unlike \texttt{GHC.Generics}, the representation of values is
+
+  Unlike \texttt{GHC.Generics}, the representation of values is
 defined by induction on the \emph{code} of a datatype, this \emph{code}
 is a type-level list of lists of |Star|, whose semantics is
 consonant to a formula in disjunctive normal form.  The outer list is
@@ -435,9 +445,8 @@ This section provides an overview of \texttt{generic-sop} as required
 to understand our techniques, we refer the reader to the original
 paper~\cite{deVries2014} for a more comprehensive explanation.
 
-This additional portion of information allows for a plethora of combinators
-to be written. It ultimately allows one to write, with a pinch of
-sugar, the |gsize| function as:
+  Using a \emph{sum-of-products} approach one could write the |gsize|
+function as easily as:
 
 \begin{myhs}
 \begin{code}
@@ -446,16 +455,15 @@ gsize  = sum . elim (map size) . fromSOP
 \end{code}
 \end{myhs}
 
-  Ignoring the details of the improved |gsize| for a moment, let us focus
-just on its high level structure. Remembering that |from| now
-returns a \emph{sum-of-products} view over the data,
-we are using an eliminator, |elim|, to apply a function to the fields
-of whatever constructor makes up the value. This eliminator then applies
-|map size| to the fields of the constructor, returning something akin
-to a |[Int]|. We then |sum| them up to obtain the final
-size.
+  Ignoring the details of |gsize| for a moment, let us focus just on
+its high level structure. Remembering that |from| now returns a
+\emph{sum-of-products} view over the data, we are using an eliminator,
+|elim|, to apply a function to the fields of the constructor used to
+create a value of type |a|. This eliminator then applies |map size| to
+the fields of the constructor, returning something akin to a
+|[Int]|. We then |sum| them up to obtain the final size.
 
-  As we hinted earlier, the generic codes consists in 
+  As we hinted earlier, the generic codes consist of
 a type-level list of lists. The outer list represents the 
 constructors of a type, and will be interpreted as a sum, whereas
 the inner lists are interpreted as the fields of the respective constructors,
@@ -469,21 +477,9 @@ type instance  CodeSOP (Bin a) = P ([ P [a] , P ([Bin a , Bin a]) ])
 \end{code}
 \end{myhs}
 
-  Back when we were using \emph{pattern functors}, these could be
-assembled in any order, we did not even have guarantee that the
-arguments to \emph{pattern functors} were themselves \emph{pattern
-functors} again! This made the handling of the generic
-representations cumbersome. Now, each datatype has a \emph{code},
-|CodeSOP|, which is then interpreted giving rise to the
-\emph{representation} of the values of the datatype. The
-key insight here is that we can write combinators that work for
-\emph{any} \emph{representation} by induction on the |CodeSOP|, 
-without using instances to explore the structure of the representation. 
-
-  Expectedly, the very \emph{representation}, defined by induction on
+  The \emph{representation} is then defined by induction on
 |CodeSOP| by the means of generalized $n$-ary sums, |NS|, and $n$-ary products,
-|NP|.  
-  Overlooking a slight abuse of notation, one can view at |NS| and |NP|
+|NP|. Overlooking a slight abuse of notation, one can view at |NS| and |NP|
 through the lens of the following isomorphisms:
 \begin{align*}
   | NS f [k_1 , k_2 , dots]| &\equiv |f k_1 :+: (f k_2 :+: dots)| \\
@@ -492,7 +488,8 @@ through the lens of the following isomorphisms:
 
   We could then define the representation |RepSOP| to be
 |NS (NP (K1 R))|, echoing the isomorphisms above, where |data K1 R a = K1 a| 
-is being borrowed from \texttt{GHC.Generics}. 
+is being borrowed from \texttt{GHC.Generics}. Note that we already
+need the parameter |f| to pass |NP| to |NS| here. 
 This is exactly the representation we get
 from \texttt{GHC.Generics}.
 \begin{align*}
@@ -506,9 +503,9 @@ from \texttt{GHC.Generics}.
 explicit \emph{sums-of-products} structure to simply forget this
 information in the representation, however. Indeed, instead of
 piggybacking on \emph{pattern functors}, we define |NS| and |NP| from
-scratch using \emph{GADTs}~\cite{Xi2003}, whom play a central role
-here.  By pattern matching on the values of |NS| and |NP| we are
-informing the type checker of the structure of the |CodeSOP|.
+scratch using \emph{GADTs}~\cite{Xi2003}.
+By pattern matching on the values of |NS| and |NP| we
+inform the type checker of the structure of the |CodeSOP|.
 
 \begin{minipage}[t]{.45\textwidth}
 \begin{myhs}
@@ -540,7 +537,7 @@ newtype I (a :: Star) = I { unI :: a }
 \end{code}
 \end{myhs}
 
-  Evidencing the claim that one can define general combinators for
+  To support the claim that one can define general combinators for
 working with these representations, let us look at |elim| and |map|,
 used for the |gsize| function in the beginning of the section.
 
