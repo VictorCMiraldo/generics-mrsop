@@ -2,7 +2,8 @@
 
 forbid="!datatype,data type,data-type,\
 !fixpoint,fixed point,fixed-point,fix point,fixed-point,\
-!pattern functor,pattern-functor"
+!pattern functor,pattern-functor\
+!type level,type-level,typelevel"
 
 if [[ $# -ne 1 ]]; then
   echo "I need a file!"
