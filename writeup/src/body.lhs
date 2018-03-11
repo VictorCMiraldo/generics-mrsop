@@ -875,7 +875,7 @@ to traverse and consume mutually recursive structures.
 \section{Mutual Recursion}
 \label{sec:family}
 
-  Conceptually, going from regular types, \Cref{sec:explicitfix}, to
+  Conceptually, going from regular types (\Cref{sec:explicitfix}) to
 mutually recursive families is simple. We just need to be able to reference
 not only one type variable, but one for each element in the family.
 As a running example, we use the \emph{rose tree} family from the
@@ -890,15 +890,17 @@ data []    a  =  [] | a : [a]
 The previously introduced |CodeFix| is not expressive enough to
 describe this datatype. In particular, when we try to write
 |CodeFix (Rose Int)|, there is no immediately recursive appearance of
-|Rose| itself, so we cannot use the atom |I| in that position.
+|Rose| itself, so we cannot use the atom |I| in that position. Furthermore
 |[Rose a]| is not an opaque type either, so we cannot
-use any of the other combinators provided by |Atom|. Furthermore, we would
-like to not forget about |[Rose Int]| referring to itself via another datatype.
+use any of the other combinators provided by |Atom|. We would
+like to record information about |[Rose Int]| referring to itself via another datatype.
 
 Our solution is to move from codes of datatypes to \emph{codes for families of
 datatypes}. We no longer talk about |CodeFix (Rose Int)| or
-|CodeFix [Rose Int]| in isolation, but rather about
-|CodeMRec (P [Rose Int,  [Rose Int]])|. Then we extend the language
+|CodeFix [Rose Int]| in isolation. Codes only make sense
+within a family, that is, a list of types. Hence, we talk about
+|CodeMRec (P [Rose Int,  [Rose Int]])|. That is, the codes of the
+two types in the family. Then we extend the language
 of |Atom|s by appending to |I| a natural number which specifies 
 the member of the family to recurse:
 \begin{myhs}
@@ -968,8 +970,9 @@ RepMRec (Lkup fam) (Lkup codes ix)
 This definition states that to obtain the representation of the type at index
 |ix|, we first lookup its code. Then, in the recursive positions we interpret
 each |I n| by looking up the type at that index in the original family. This
-gives us a \emph{shallow} representation. As an example, here is the expansion
-for index 0 of the rose tree family:
+gives us a \emph{shallow} representation. As an example, below is the expansion
+for index 0 of the rose tree family. Note how it is isomorphic to the representation
+that \texttt{GHC.Generics} would have chosen.
 \begin{myhs}
 \begin{code}
  RepMRec  (Lkup FamRose) (Lkup (CodeMRec FamRose) Z)
@@ -981,7 +984,8 @@ for index 0 of the rose tree family:
 \end{myhs}
 
 Unfortunately, Haskell only allows saturated, that is, fully-applied type
-families. As a result, we need to introduce an intermediate datatype |El|,
+families. Hence, we cannot partially apply |Lkup| like we did it in the example above.
+As a result, we need to introduce an intermediate datatype |El|,
 \begin{myhs}
 \begin{code}
 data El :: [Star] -> Nat -> Star where
@@ -1011,7 +1015,7 @@ class Family (fam :: [Star]) (codes :: [[[Atom]]]) where
 One of the differences between other approaches and ours is that we do not
 use an associated type to define the |codes| for a mutually recursive family
 |fam|. One of the reasons to choose this path is that it alleviates the
-nomenclature burden of writing the longer |CodeMRec fam| every time we want to
+burden of writing the longer |CodeMRec fam| every time we want to
 refer to |codes|. Furthermore, there are types like lists which appear in
 many different families, and in that case it makes more sense to speak about a
 relation instead of a function. In any case, we can choose the other point of
@@ -1021,7 +1025,7 @@ functional dependency |fam -> codes|.
 Since now |fromMRec| and |toMRec| operate on families of datatypes, they have
 to specify how to translate \emph{each} of the members of the family back and
 forth the generic representation. This translation needs to know which is the
-index of the datatype we are dealing with in each case,  hence the
+index of the datatype we are converting between in each case,  hence the
 additional |SNat ix| parameter. For example, in the case of
 or family of rose trees, |fromMRec| has the following shape:
 \begin{myhs}
@@ -1057,8 +1061,9 @@ the family directly, but an |El|-wrapped one. However, to construct that value
 embedding our type into and the index in that family. Those values are not
 immediately obvious, but we can use Haskell's visible type
 application~\cite{EisenbergWA16} to work around
-it. We shall not go into details about their implementation, but the final
-|into| function which injects a value into the corresponding |El| looks like:
+it. The final |into| function, which injects a value into the corresponding |El|
+is defined as follows:
+
 \begin{myhs}
 \begin{code}
 into  :: forall fam ty ix dot (ix ~ Idx ty fam , Lkup fam ix ~ ty) 
@@ -1066,10 +1071,12 @@ into  :: forall fam ty ix dot (ix ~ Idx ty fam , Lkup fam ix ~ ty)
 into  = El
 \end{code}
 \end{myhs}
+
+%format (TApp a) = "\HS{@}" a
 where |Idx| is a closed type family implementing the inverse of |Lkup|, that is,
 obtaining the index of the type |ty| in the list |fam|. Using this function
-we can turn a |rs :: [Rose Int]| into its generic representation by writing
-|from $$ into @FamRose rs|. The type application |@FamRose| is responsible
+we can turn a |[Rose Int]| into its generic representation by writing
+|fromMRec . into (TApp FamRose)|. The type application |(TApp FamRose)| is responsible
 for fixing the mutually recursive family we are working with, which
 let the type checker reduce all the constraints and happily inject the element
 into |El|.
@@ -1088,8 +1095,8 @@ newtype Fix (codes :: [[[Atom]]]) (ix :: Nat)
 Intuitively, since now we can recurse on different positions, we need to keep
 track of the representations for all those positions in the type. This is the
 job of the |codes| argument. Furthermore, our |Fix| does not represent a single
-datatype, but rather the \emph{whole} family. Thus, we need on each value an
-additional index to declare which is the element of the family we are working on.
+datatype, but rather the \emph{whole} family. Thus, we need each value to have an
+additional index to declare on which element of the family it is working on.
 
 As in the previous section, we can obtain the deep representation by iteratively
 applying the shallow representation. Last time we used |fmap| since the |RepFix|
@@ -1113,12 +1120,12 @@ deepFrom = Fix . mapRec deepFrom . from
 \end{myhs}
 
 \paragraph{Only well-formed representations are accepted.}
-At first glance, it looks like the |Atom| datatype gives too much freedom.
-Its |I| constructor receives a natural number, but there is no apparent static check
+At first glance, it may seem like the |Atom| datatype gives too much freedom:
+its |I| constructor receives a natural number, but there is no apparent static check
 about this number referring to an actual member of the recursive family we
 are describing. For example, the list of codes
 |(P [ (P [ (P [ KInt, I (S (S Z))])])])|  is accepted by the compiler
-although it does not represent any family of datatypes.
+although it does not represent any family of datatypes. 
 
 A direct solution to this problem is to introduce yet another index, this
 time to the |Atom| datatype, which specifies which indices are allowed.
@@ -1147,6 +1154,7 @@ preventing the program from compiling.
 Up to this point we have considered |Atom| to include a predetermined selection of
 \emph{opaque types}, such as |Int|, each of them represented by one of the
 constructors other than |I|. This is far from ideal, for two conflicting reasons:
+
 \begin{enumerate}
 \item The choice of opaque types might be too narrow. For example, the user
 of our library may decide to use |ByteString| in their datatypes. Since that
@@ -1158,7 +1166,8 @@ specific use case, we might be interested only in |Int|s and |Float|s, so why
 bother ourselves with possibly ill-formed representations and pattern matches
 which should never be reached?
 \end{enumerate}
-The solution is to \emph{parametrize} |Atom|, allowing programmers to choose
+
+Our solution is to \emph{parametrize} the |Atom| type, allowing programmers to choose
 which opaque types they want to deal with:
 \begin{myhs}
 \begin{code}
@@ -1174,8 +1183,8 @@ type NumericAtom = Atom NumericK
 \end{myhs}
 
 The representation of codes must be updated to reflect the possibility of
-choosing different sets of opaque types. The |NA| datatype provides in this
-final implementation just two constructors, one per constructor in |Atom|.
+choosing different sets of opaque types. The |NA| datatype in this
+final implementation provides two constructors, one per constructor in |Atom|.
 The |NS| and |NP| datatypes do not require any change.
 \begin{myhs}
 \begin{code}
@@ -1225,6 +1234,9 @@ most common primitive Haskell datatypes.
   Through the rest of this section we wish to showcase a selection of particularly
 powerful combinators that are remarkably simple to define by exploiting the
 \emph{sums-of-products} structure coupled with the mutual recursion information.
+Defining the same combinators in \texttt{multirec} would produce much more complicated
+code. In \texttt{GHC.Generics} these are even impossible to write due to the
+absence of recursion information.
 
 For the sake of fostering intuition instead of worrying about
 notational overhead, we shall write values of |RepMRec kappa phi c| just like
@@ -1252,7 +1264,7 @@ bimapNA f_K f_I x ^= fSq x
 
 The first obvious combinator which we can write using the sum-of-products
 structure is |map|. 
-Our |RepMRec kappa phi c| does not make a regular functor anymore, but a higher
+Our |RepMRec kappa phi c| is no longer a regular functor, but a higher
 bifunctor. In other words, it requires two functions, one for mapping over
 opaque types and other for mapping over |I| positions.
 
@@ -1295,11 +1307,11 @@ zipRep (C x_1 dots x_n) (D y_1 dots y_m)
 \end{myhs}
 
   Note that it is trivial to write |zipRep| with an arbitrary
-|(Alternative f)| constraint instead of |Maybe|. Another combinator
-that receives a good boost in expressivity is the beloved |compos|,
-introduced in \Cref{sec:explicitfix}. We are now able to change every
-subtree of whatever type we choose inside an arbitrary value of the
-mutually recursive family in question.
+|(Alternative f)| constraint instead of |Maybe|. The |compos|
+combinator, already introduced in \Cref{sec:explicitfix}, shows up in
+a yet more expressive form.  We are now able to change every subtree
+of whatever type we choose inside an arbitrary value of the mutually
+recursive family in question.
 
 \begin{myhs}
 \begin{code}
