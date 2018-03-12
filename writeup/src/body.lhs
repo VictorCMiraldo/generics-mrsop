@@ -75,7 +75,7 @@ to provide their generic functionality. In more permissive
 used one, that effectively replaced \texttt{regular}~\cite{Noort2008}.
 The former only allows for a \emph{shallow} representation whereas the
 later allows for both \emph{deep} and \emph{shallow} representations
-by maintaining information about the recursive occurences of a
+by maintaining information about the recursive occurrences of a
 type. Oftentimes though, one actually needs more than one recursive
 type, justifying the need to \texttt{multirec}~\cite{Yakushev2009}.
 These libraries are too permissive though, for instance, |U1 :*: Maybe|
@@ -84,7 +84,7 @@ will break generic functions.  The way to fix this is to ensure that the
 \emph{pattern functors} abide by a certain format. That is, define the
 \emph{pattern functors} by induction on some \emph{code}, that can be
 inspected and pattern matched on. This is the approach of
-\texttt{generics-sop}~\cite{deVries2014}. The more restrictire
+\texttt{generics-sop}~\cite{deVries2014}. The more restrictive
 code approach allows one to write concise, combinator-based,
 generic programs. The novelty in our work is in the intersection of
 both the expressivity of \texttt{multirec}, allowing the encoding of
@@ -121,7 +121,7 @@ boilerplate code needed to use our library (\Cref{sec:templatehaskell}).
 The novelty lies in our handling of instantiated type constructors.
 \end{itemize}
 We have packaged our results as a Haskell library, \texttt{\nameofourlibrary},
-which is being delivered as suplementary material. 
+which is being delivered as supplementary material. 
 This library fills the hole in \Cref{fig:gplibraries} for a code-based
 approach with support for mutual recursion.
 
@@ -370,7 +370,7 @@ instances for computing |size (Bin (Leaf 1) (Leaf 2))|.
 \end{figure}
 
   Finally, we would just need an instance for |Size Int| to compute
-the final result. Theless, the literals of type |Int| illustrate
+the final result. Literals of type |Int| illustrate
 what we call \emph{opaque types}: those types that constitute the base
 of the universe and are \emph{opaque} to the representation language.
 
@@ -677,7 +677,7 @@ pattern match on |There| and |Here|, whereas we actually want to have
 the notion of \emph{constructor} for the generic setting too!  The
 main advantage of the \emph{sum-of-products} structure is to allow a
 user to pattern match on generic representations just like they would
-on values of the original type, constrasting with
+on values of the original type, contrasting with
 \texttt{GHC.Generics}. One can precisely state that a value of a
 representation is composed of a choice of constructor and its
 respective product of fields by the |View| type.  A value of |Constr n
@@ -1312,7 +1312,7 @@ zipRep (C x_1 dots x_n) (D y_1 dots y_m)
 \end{code}
 \end{myhs}
 
-  This definition |zipRep| can be translated  to wotk with an arbitrary
+  This definition |zipRep| can be translated  to work with an arbitrary
 |(Alternative f)| instead of |Maybe|. The |compos|
 combinator, already introduced in \Cref{sec:explicitfix}, shows up in
 a yet more expressive form.  We are now able to change every subtree
@@ -1349,7 +1349,7 @@ There are many other applications for generic programming which
 greatly benefit from supporting mutual recursion, if not requiring it.
 One great source of examples consists of operations on abstract syntax
 trees of realistic languages, such as generic
-diff-ing~\cite{CacciariMiraldo2017} or
+diffing~\cite{CacciariMiraldo2017} or
 pretty-printing~\cite{Magalhaes2010}.
 
 \subsection{Equality}
@@ -1892,7 +1892,7 @@ their handling of metadata, then outline the differences to our approach.
 
   The general idea is to store the meta information following the structure of
 the datatype itself. So, instead of data, we keep track of the names of the
-different parts and other metainformation that can be useful. It is advantageous
+different parts and other meta information that can be useful. It is advantageous
 to keep metadata separate from the generic representation as it would only
 clutter the definition of generic functionality.
 

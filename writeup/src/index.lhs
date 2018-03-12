@@ -117,7 +117,7 @@ abstract syntax trees are indeed mutually recursive families, for example.
 These also provide a great opportunity for generic programming techniques.
 We present a new approach to generic programming that uses modern
 Haskell features to handle mutually recursive families with
-explicit \emph{sum-of-products} structure. This addeed structure
+explicit \emph{sum-of-products} structure. This added structure
 allows us to remove much of the complexity previously associated
 with generic mutually recursive types.
 \end{abstract}

@@ -3,6 +3,7 @@
 forbid="!datatype,data type,data-type,\
 !fixpoint,fixed point,fixed-point,fix point,fixed-point,\
 !pattern functor,pattern-functor\
+!subtree,sub tree,sub-tree\
 !type level,type-level,typelevel"
 
 if [[ $# -ne 1 ]]; then
