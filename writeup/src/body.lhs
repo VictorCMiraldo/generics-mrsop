@@ -716,7 +716,7 @@ type family Lkup (ls :: [k]) (n :: Nat) :: k where
 %\end{minipage}
 
   In order to improve type error messages, we generate a |TypeError| whenever we
-reach the given index |n| is out of bounds. Interestingly, our design
+reach a given index |n| that is out of bounds. Interestingly, our design
 guarantees that this case is never reached by the definition of |Constr|.
 
   Now we are able to easily pattern match and inject into and from
@@ -796,8 +796,8 @@ example x         = compos example x
 focus only on the interesting patterns and using a default implementation
 everywhere else.
   
-\paragraph{Converting to a deep representation.}  Our |fromFix|
-still returns a shallow representation. But by constructing the least
+\paragraph{Converting to a deep representation.}  The |fromFix| function
+returns a shallow representation. But by constructing the least
 fixpoint of |RepFix a| we can easily obtain the deep encoding for
 free, by simply recursively translating each layer of the shallow
 encoding.
@@ -811,10 +811,10 @@ deepFrom = Fix . fmap deepFrom . fromFix
 \end{code}
 \end{myhs}
 
-  So far, we are handling the same class of types
+  So far, we handle the same class of types
 as the \texttt{regular}~\cite{Noort2008} library, but we are imposing 
 the representation to follow a \emph{sum-of-products} structure
-by the means of |CodeFix|. Those types are guaranteed to have
+by the means of |CodeFix|. Those types are guaranteed to have an
 initial algebra, and indeed, the generic fold is defined
 as expected: 
 
@@ -844,7 +844,7 @@ crush k cat = crushFix . deepFrom
 \end{myhs}
 
   Finally, we come full circle to our running |gsize| example
-as it was promised in the introduction. Noticeably the smallest
+as it was promised in the introduction. This is noticeably the smallest
 implementation so far, and very straight to the point.
 
 \begin{myhs}
@@ -854,17 +854,17 @@ gsize = crush (const 1) sum
 \end{code}
 \end{myhs}
 
-  Let us take a step back and reflect upon the current setting we have
-so far achieved. We have combined the insight from
+  Let us take a step back and reflect upon what we have achieved
+so far. We have combined the insight from
 the \texttt{regular} library of keeping track of recursive positions
-with the convenience for the \texttt{generics-sop} for enforcing a
-specific \emph{normal form} to representations. By doing so, we were
-able to provide a \emph{deep} encoding for free. Essentially freeing
+with the convenience of the \texttt{generics-sop} for enforcing a
+specific \emph{normal form} on representations. By doing so, we were
+able to provide a \emph{deep} encoding for free. This essentially frees
 us from the burden of maintaining complicated constraints needed for
 handling the types within the topmost constructor. The information
 about the recursive position allows us to write neat combinators like
 |crush| and |compos| together with a convenient |View| type for
-keeping a choice of constructor handy. The only thing keeping us from
+easy generic pattern matching. The only thing keeping us from
 handling real life applications is the limited form of recursion. When
 a user requires a generic programming library, chances are they need
 to traverse and consume mutually recursive structures.
@@ -899,7 +899,7 @@ within a family, that is, a list of types. Hence, we talk about
 |CodeMRec (P [Rose Int,  [Rose Int]])|. That is, the codes of the
 two types in the family. Then we extend the language
 of |Atom|s by appending to |I| a natural number which specifies 
-the member of the family to recurse:
+the member of the family to recurse into:
 \begin{myhs}
 \begin{code}
 data Atom  = I Nat | KInt | dots
@@ -907,7 +907,7 @@ data Atom  = I Nat | KInt | dots
 data Nat   = Z | S Nat
 \end{code}
 \end{myhs}
-The code of this recursive family of datatypes can be finally described as:
+The code of this recursive family of datatypes can finally be described as:
 \begin{myhs}
 \begin{code}
 type FamRose           = P [Rose Int, [Rose Int]]
@@ -918,7 +918,7 @@ type CodeMRec FamRose  = (P  [ (P [ (P [ KInt, I (S Z)])])          -- code for 
 \end{myhs}
 Let us have a closer look at the code for |Rose Int|, which appears in the
 first place in the list. There is only one constructor which has an |Int| field,
-represented by |KInt|, and another in which we recur to the second member of 
+represented by |KInt|, and another in which we recurse via the second member of 
 our family (since lists are 0-indexed, we represent this by |S Z|). Similarly,
 the second constructor of |[Rose Int]| points back to both |Rose Int|
 using |I Z| and to |[Rose Int]| itself via |I (S Z)|.
@@ -926,7 +926,7 @@ using |I Z| and to |[Rose Int]| itself via |I (S Z)|.
   Having settled on the definition of |Atom|, we now need to adapt |NA| to
 the new |Atom|s. In order to interpret any |Atom| into |Star|, we now need
 a way to interpret the different recursive positions. This information is given
-by an additional type parameter |phi| from natural numbers into types.
+by an additional type parameter |phi| that maps natural numbers into types.
 \begin{myhs}
 \begin{code}
 data NA :: (Nat -> Star) -> Atom -> Star where
@@ -940,10 +940,10 @@ The additional |phi| naturally bubbles up to the representation of codes.
 type RepMRec (phi :: Nat -> Star) (c :: [[Atom]]) = NS (NP (NA phi)) c
 \end{code}
 \end{myhs}
-The only missing piece is tying the recursive loop here. If we want our
+The only piece missing here is tying the recursive loop. If we want our
 representation to describe a family of datatypes, the obvious choice
-for |phi| is to look a type up at |FamRose|. In fact,
-we are just performing a type level lookup in the family.
+for |phi n| is to look the type at index |n| in |FamRose|. In fact,
+we are simply performing a type level lookup in the family in question.
 Recall the definition of |Lkup| from \Cref{sec:explicitfix}: 
 \begin{myhs}
 \begin{code}
@@ -955,7 +955,7 @@ type family Lkup (ls :: [k]) (n :: Nat) :: k where
 \end{myhs}
 
 In principle, this is enough to provide a ground representation for the family
-of types. Let |fam| be the family of ground types, like
+of types. Let |fam| be a family of types, like
 |(P [Rose Int, [Rose Int]])|, and |codes| the corresponding list
 of codes. Then the representation of the type at index |ix| in the list |fam|
 is given by:
@@ -993,15 +993,16 @@ data El :: [Star] -> Nat -> Star where
 The representation of the family |fam| at index |ix| is thus given by
 |RepMRec (El fam) (Lkup codes ix)|. We only need to use |El| in the first
 argument, because that is the position in which we require partial application.
-The second position features |Lkup| fully-applied, and can stay as is. Moreover,
+The second position has |Lkup| already fully-applied, and can stay as is. Moreover,
 in the declaration of |Family|, using |El| spares us from having to use
 a proxy for |fam| in |fromMRec| and |toMRec|.
 
-  Up to this point, we have talked about a type family and their codes as 
-independent entities. As in the rest of generic programming approaches, we
-want to make their relation explicit. The |Family| type class realizes this
-relation, and introduces functions to perform the conversion between our
-representation and the actual types:
+  We still have to relate a family of types to their respective codes.
+As in other generic programming approaches, we want to make their
+relation explicit. The |Family| type class below realizes this
+relation, and introduces functions to perform the conversion between
+our representation and the actual types:
+
 \begin{myhs}
 \begin{code}
 class Family (fam :: [Star]) (codes :: [[[Atom]]]) where
@@ -1010,6 +1011,7 @@ class Family (fam :: [Star]) (codes :: [[[Atom]]]) where
   toMRec    :: SNat ix  -> RepMRec (El fam) (Lkup codes ix)  -> El fam ix
 \end{code}
 \end{myhs}
+
 One of the differences between other approaches and ours is that we do not
 use an associated type to define the |codes| for a mutually recursive family
 |fam|. One of the reasons to choose this path is that it alleviates the
@@ -1033,8 +1035,8 @@ fromMRec (SS SZ)  (El [])           = Rep (          Here NP0 ))
 fromMRec (SS SZ)  (El (x : xs))     = Rep ( There (  Here (NA_I x :* NA_I xs :* NP0)))
 \end{code}
 \end{myhs}
-By pattern matching on the index, the compiler knows which is the family member
-to expect as second argument. In dependently-typed languages such as Agda or
+By pattern matching on the index, the compiler knows which family member
+to expect as a second argument. In dependently-typed languages such as Agda or
 Idris, this index would be expressed as a normal |Nat| value,
 \begin{myhs}
 \begin{code}
@@ -1053,8 +1055,8 @@ data SNat (n :: Nat) where
 \end{myhs}
 
 The limitations of the Haskell type system lead us to introduce |El| as an
-intermediate datatype. Our |fromMRec| function does not take one member of
-the family directly, but an |El|-wrapped one. However, to construct that value
+intermediate datatype. Our |fromMRec| function does not take a member of
+the family directly, but an |El|-wrapped one. However, to construct that value,
 |El| needs to know its parameters, which amounts to the family we are 
 embedding our type into and the index in that family. Those values are not
 immediately obvious, but we can use Haskell's visible type
@@ -1076,7 +1078,7 @@ obtaining the index of the type |ty| in the list |fam|. Using this function
 we can turn a |[Rose Int]| into its generic representation by writing
 |fromMRec . into (TApp FamRose)|. The type application |(TApp FamRose)| is responsible
 for fixing the mutually recursive family we are working with, which
-let the type checker reduce all the constraints and happily inject the element
+allows the type checker to reduce all the constraints and happily inject the element
 into |El|.
   
 \paragraph{Deep representation.} In \Cref{sec:explicitfix} we have described a
@@ -1097,7 +1099,7 @@ datatype, but rather the \emph{whole} family. Thus, we need each value to have a
 additional index to declare on which element of the family it is working on.
 
 As in the previous section, we can obtain the deep representation by iteratively
-applying the shallow representation. Last time we used |fmap| since the |RepFix|
+applying the shallow representation. Earlier we used |fmap| since the |RepFix|
 type was a functor. |RepMRec| on the other hand cannot be given a |Functor|
 instance, but we can still define a similar function |mapRec|,
 \begin{myhs}
@@ -1120,13 +1122,13 @@ deepFrom = Fix . mapRec deepFrom . from
 \paragraph{Only well-formed representations are accepted.}
 At first glance, it may seem like the |Atom| datatype gives too much freedom:
 its |I| constructor receives a natural number, but there is no apparent static check
-about this number referring to an actual member of the recursive family we
+that this number refers to an actual member of the recursive family we
 are describing. For example, the list of codes
 |(P [ (P [ (P [ KInt, I (S (S Z))])])])|  is accepted by the compiler
 although it does not represent any family of datatypes. 
 
 A direct solution to this problem is to introduce yet another index, this
-time to the |Atom| datatype, which specifies which indices are allowed.
+time in the |Atom| datatype, which specifies which indices are allowed.
 The |I| constructor is then refined to take not any natural number, but only
 those which lie in the range -- this is usually known as |Fin n|.
 \begin{myhs}
@@ -1157,9 +1159,9 @@ constructors other than |I|. This is far from ideal, for two conflicting reasons
 \item The choice of opaque types might be too narrow. For example, the user
 of our library may decide to use |ByteString| in their datatypes. Since that
 type is not covered by |Atom|, nor by our generic approach, this implies that
-\texttt{\nameofourlibrary} becomes useless for them.
+\texttt{\nameofourlibrary} becomes useless to them.
 \item The choice of opaque types might be too wide. If we try to encompass any
-possible situation, we might end up with an huge |Atom| type. But for a
+possible situation, we might end up with a huge |Atom| type. But for a
 specific use case, we might be interested only in |Int|s and |Float|s, so why
 bother ourselves with possibly ill-formed representations and pattern matches
 which should never be reached?
@@ -1229,7 +1231,7 @@ most common primitive Haskell datatypes.
 
 \subsection{Combinators}
 
-  Through the rest of this section we wish to showcase a selection of particularly
+  In the remainder of this section we wish to showcase a selection of particularly
 powerful combinators that are simple to define by exploiting the
 \emph{sums-of-products} structure coupled with the mutual recursion information.
 Defining the same combinators in \texttt{multirec} would produce much more complicated
@@ -1264,7 +1266,7 @@ The first obvious combinator which we can write using the sum-of-products
 structure is |map|. 
 Our |RepMRec kappa phi c| is no longer a regular functor, but a higher
 bifunctor. In other words, it requires two functions, one for mapping over
-opaque types and other for mapping over |I| positions.
+opaque types and another for mapping over |I| positions.
 
 \begin{myhs}
 \begin{code}
@@ -1331,16 +1333,17 @@ combinators in \Cref{sec:alphaequivalence}.
 In this section we present several applications of our generic programming
 approach. The applications themselves -- equality, $\alpha$-equivalence, and
 zippers -- are commonly introduced with any new generic library. Our goal
-is to show \texttt{\nameofourlibrary} is at least as powerful as other comparable
-libraries, but brings in the union of their advantages. 
+is to show that \texttt{\nameofourlibrary} is at least as powerful as any other comparable
+library, but brings in the union of their advantages. 
 Note also that even though some examples use a single recursive
 datatype for the sake of conciseness, those can be readily generalized to
 mutually recursive families.
 
-There are many other applications for generic programming which greatly benefit
-from supporting mutual recursion, if not requiring it. 
-One great pool of examples is operations with abstract syntax trees of realistic
-languages, such as generic diff-ing~\cite{CacciariMiraldo2017} or
+There are many other applications for generic programming which
+greatly benefit from supporting mutual recursion, if not requiring it.
+One great source of examples consists of operations on abstract syntax
+trees of realistic languages, such as generic
+diff-ing~\cite{CacciariMiraldo2017} or
 pretty-printing~\cite{Magalhaes2010}.
 
 \subsection{Equality}
