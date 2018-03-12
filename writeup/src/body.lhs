@@ -1565,17 +1565,17 @@ go _      x = step x
 
 \subsection{The Generic Zipper}
 
-  To conclude our examples section, we introduce a more complex
-application of generic programming.  Zippers~\cite{Huet1997} are a
-well established technique for traversing a recursive data structure
-keeping track of the current \emph{focus point}. Defining generic
-zippers is nothing new, this has been done by many
-authors~\cite{Hinze2004,Adams2010,Yakushev2009} for many different
-classes of types in the past. To the best of the authors knowledge,
-this is the first definition in a direct \emph{sums-of-products}
-style.  We will not be explaining what \emph{are} zippers in detail,
-instead, we will give a quick reminder and show how zippers fit within
-our framework.
+  To conclude our examples section we will conduct a validation
+exercise involving a more complex application of generic
+programming. Zippers~\cite{Huet1997} are a well established technique
+for traversing a recursive data structure keeping track of the current
+\emph{focus point}. Defining generic zippers is nothing new, this has
+been done by many authors~\cite{Hinze2004,Adams2010,Yakushev2009} for
+many different classes of types in the past. To the best of the
+authors knowledge, this is the first definition in a direct
+\emph{sums-of-products} style.  We will not be explaining what
+\emph{are} zippers in detail, instead, we will give a quick reminder
+and show how zippers fit within our framework.
 
   Generally speaking, the zipper keeps track of a focus point in a
 data structure and allows for the user to conveniently move this focus
@@ -1726,7 +1726,11 @@ tr (App (Var "a") (Var "b"))
 
   We invite the reader to check the source code for a more detailed
 account of the generic zipper, which is the last example we introduce.
-The selection of examples show that by keeping the good ideas from
+In fact, we were able to provide the same zipper interface 
+as the \texttt{multirec} library. Our implementation is shorter, however.
+This is because we do not need type classes to implement |firstE| and |nextE|.
+
+  The overall selection of examples show that by keeping the good ideas from
 the generic programming community and putting them all under the same roof
 we are able to achieve powerful functionality in a convenient fashion.
 
