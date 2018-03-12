@@ -114,7 +114,7 @@ is hard. We either end up with complicated code or
 give up on using the mutually recursive structure. At the same time,
 it is an instance that shows over and over again. Most interesting
 abstract syntax trees are indeed mutually recursive families, for example.
-These also provide optimal opportunity for generic programming techniques.
+These also provide a great opportunity for generic programming techniques.
 We present a new approach to generic programming that uses modern
 Haskell features to handle mutually recursive families with
 explicit \emph{sum-of-products} structure. This addeed structure

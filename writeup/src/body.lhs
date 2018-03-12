@@ -96,12 +96,12 @@ mutually recursive families, with the convenience of the more modern
 \begin{tabular}{@@{}llll@@{}}\toprule
                    & \multirow{2}{*}{\it Dynamic}             & \multicolumn{2}{c}{\it Static} \\ \cmidrule{3-4}
                    & &                   Pattern Functors      & \multicolumn{1}{c}{Codes} \\ \midrule
-  Simple Recursion & \texttt{SYB}        & \texttt{GHC.Generics} & \texttt{generics-sop} \\
+  Simple Recursion & Scrap Your Boilerplate (\texttt{syb}) & \texttt{GHC.Generics} & \texttt{generics-sop} \\
                    & \texttt{uniplate}   & \texttt{regular}      &  \\
   Mutual Recursion & \texttt{multiplate} & \texttt{multirec}     & \textbf{\texttt{\nameofourlibrary}} \\
 \bottomrule
 \end{tabular}
-\caption{Spectrum of Generic Programming Libraries}
+\caption{Spectrum of generic programming libraries}
 \label{fig:gplibraries}
 \end{figure}
 
@@ -780,9 +780,10 @@ compos f = toFix . fmap f . fromFix
 
   Although more interesting in the mutually recursive setting,
 \Cref{sec:family}, we can illustrate its use for traversing a
-tree and adding one to its leaves\footnote{%
-This is, in fact, just a very convoluted way
-writing |fmap (+1) :: Bin Int -> Bin Int|}.
+tree and adding one to its leaves. This example is a bit convoluted,
+since one could get the same result by simply writing 
+|fmap (+1) :: Bin Int -> Bin Int|, but shows the intended usage
+of the |compos| combinator just defined.
 
 \begin{myhs}
 \begin{code}
@@ -825,11 +826,7 @@ fold f = f . fmap (fold f) . unFix
 \end{code}
 \end{myhs}
 
-  Sometimes we actually want to consume a value and produce
-a single value, but does not need the full expressivity of |fold|. 
-Instead, if we know how to consume the opaque types and combine
-those results, we can consume any |GenericFix| type.
-
+\begin{figure}
 \begin{myhs}
 \begin{code}
 crush :: (Generic a) => (forall x dot Atom KInt x -> b) -> ([b] -> b) -> a -> b
@@ -842,6 +839,15 @@ crush k cat = crushFix . deepFrom
     go (NA_K i) = k i
 \end{code}
 \end{myhs}
+\caption{Generic |crush| combinator}
+\label{fig:crush}
+\end{figure}
+
+  Sometimes we actually want to consume a value and produce
+a single value, but does not need the full expressivity of |fold|. 
+Instead, if we know how to consume the opaque types and combine
+those results, we can consume any |GenericFix| type using |crush|,
+which is defined in \cref{fig:crush}.
 
   Finally, we come full circle to our running |gsize| example
 as it was promised in the introduction. This is noticeably the smallest
@@ -994,7 +1000,7 @@ The representation of the family |fam| at index |ix| is thus given by
 |RepMRec (El fam) (Lkup codes ix)|. We only need to use |El| in the first
 argument, because that is the position in which we require partial application.
 The second position has |Lkup| already fully-applied, and can stay as is. Moreover,
-in the declaration of |Family|, using |El| spares us from having to use
+in the declaration of |Family|, using |El| spares us from using
 a proxy for |fam| in |fromMRec| and |toMRec|.
 
   We still have to relate a family of types to their respective codes.
@@ -1107,7 +1113,7 @@ instance, but we can still define a similar function |mapRec|,
 mapRep :: (forall ix dot phi1 ix -> phi2 ix) -> RepMRec phi1 c -> RepMRec phi2 c
 \end{code}
 \end{myhs}
-This type signature tells us that if we want to change the |phi1| argument in 
+This signature tells us that if we want to change the |phi1| argument in 
 the representation, we need to provide a natural transformation from
 |phi1| to |phi2|, that is, a function which works over each
 possible index this |phi1| can take and does not change this index. 
@@ -1448,10 +1454,7 @@ We will not show the implementation of these functions as these can be checked i
 the \texttt{Examples} directory of \texttt{\nameofourlibrary}. We implemented
 them for the |MonadAlphaEq (State [[ (String , String) ]])| instance. 
 
-  Returning to the main focus of this illustration and leaving book-keeping functionality
-aside, we define our alpha equivalence decision procedure by encoding what to do
-for |Var| and |Abs| constructors. The |App| can be eliminated generically.
-
+\begin{figure}
 %format TermP  = "\HT{Term\_}"
 %format VarP   = "\HT{Var\_}"
 %format AbsP   = "\HT{Abs\_}"
@@ -1472,6 +1475,13 @@ alphaEq x y = runState (galphaEq (deepFrom x) (deepFrom y)) [[]]
       _                                      -> step x
 \end{code}
 \end{myhs}
+\caption{$\alpha$-quivalence for a $\lambda$-calculus}
+\label{fig:alphalambda}
+\end{figure}
+
+  Returning to the main focus of this illustration and leaving book-keeping functionality
+aside, we define in \Cref{fig:alphalmabda} our alpha equivalence decision procedure by encoding what to do
+for |Var| and |Abs| constructors. The |App| can be eliminated generically.
 
   There is a number of things going on with this example. First,
 note the application of |zipRep|. If two |LambdaTerm|s are made with different
@@ -1549,7 +1559,7 @@ go _      x = step x
 \end{code}
 \end{myhs}
 \end{minipage}
-\caption{$\alpha$-equality for a toy imperative language}
+\caption{$\alpha$-quivalence for a toy imperative language}
 \label{fig:alphatoy}
 \end{figure}
 
@@ -1972,7 +1982,7 @@ instance HasDatatypeInfo Singl FamRose CodesRose Z where
 Haskell language evolves, the more interesting generic programming
 libraries we can create. Indeed, some of the language extensions we require 
 in our work were not available at the time that some of the
-compared libraries were developed.  
+libraries in the related work were developed.  
 
   Future work involves expanding the universe of datatypes that our
 library can handle. Currently, every type involved in a recursive
