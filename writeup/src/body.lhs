@@ -1480,7 +1480,7 @@ alphaEq x y = runState (galphaEq (deepFrom x) (deepFrom y)) [[]]
 \end{figure}
 
   Returning to the main focus of this illustration and leaving book-keeping functionality
-aside, we define in \Cref{fig:alphalmabda} our alpha equivalence decision procedure by encoding what to do
+aside, we define in \Cref{fig:alphalambda} our alpha equivalence decision procedure by encoding what to do
 for |Var| and |Abs| constructors. The |App| can be eliminated generically.
 
   There is a number of things going on with this example. First,
