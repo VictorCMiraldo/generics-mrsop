@@ -109,19 +109,17 @@
 %% Note: \begin{abstract}...\end{abstract} environment must come
 %% before \maketitle command
 \begin{abstract}
-  The technique of writting programs that operate on a uniform
-representation of class of datatypes, \emph{Generic Programming}, has
-its expressivity bounded by the quality of the choice of
-representation.  Each having different drawbacks altogether.  The
-Haskell ecosystem has many different libraries, but none is cabaple of
-handling mutually recursive types in a convenient and simple form.  We
-present a library for type-safe generic programming with mutually
-recursive families and explicit \emph{sums-of-products} structure. The
-\emph{sums-of-products} structure allows for simple, combinator-based,
-generic functions that operate on arbitrarily complex families of
-datatypes, including those comming from external libraries. Furthermore,
-the library supports both shallow and deep encodings, giving programmers
-a wider range of choice for their generic functions.
+  Generic programming for mutually recursive families of datatypes
+is hard. Either we end up with code that is too complicated or we
+give up on using the mutually recursive structure. At the same time,
+it is an instance that shows over and over again. Most interesting
+abstract syntax trees are indeed mutually recursive families, for example.
+These also provide optimal opportunity for generic programming techniques.
+We present a new approach to generic programming that uses modern
+Haskell features to handle mutually recursive families with
+explicit \emph{sum-of-products} structure. This addeed structure
+allows us to remove much of the complexity previously associated
+with generic mutually recursive types.
 \end{abstract}
 
 
