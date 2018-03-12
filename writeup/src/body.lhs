@@ -1966,30 +1966,38 @@ instance HasDatatypeInfo Singl FamRose CodesRose Z where
 
 \section{Conclusion and Future Work}
 
-  In this paper we have presented \texttt{\nameofourlibrary}, a
-library for generic programming in Haskell that combines the
-advantages of previous approaches to generic programming. We have
-carefully blended the information about (mutually) recursive
-positions, from \texttt{multirec}, with the sums-of-products codes,
-from \texttt{generics-sop}, maintaining the advantages of both. The
-result is as expressive as other approaches such as \texttt{multirec},
-yet it allows for a more concise combinator-based approach to defining
-generic functions. Our library will be made publicly available on
-Hackage once the review process is done. 
+  Generic programming is an ever changing field. The more the
+Haskell language evolves, the more interesting generic programming
+libraries we can create. Indeed, some of the language extensions we require 
+in our work were not available at the time that some of the
+compared libraries were developed.  
 
-  Future work involves expanding the universe of datatypes that our library
-can handle. Currently, every type involved in a recursive family must be
-a ground type (of kind |Star| in Haskell terms); our Template Haskell derivations
-acknowledges this fact by implementing some amount of reduction for types.
-This limits the functions we can implement generically, for example we cannot
-write a generic |fmap| function, since it operates on types of kind |Star -> Star|.
-\texttt{GHC.Generics} supports type constructors with exactly one argument
-via the \texttt{Generic1} type class. We foresee most of the complexity to
-be in the definition of |Atom|, as it must support some kind of application
-of type constructors to other parameters or opaque types.
+  Future work involves expanding the universe of datatypes that our
+library can handle. Currently, every type involved in a recursive
+family must be a ground type (of kind |Star| in Haskell terms); our
+Template Haskell derivations acknowledges this fact by implementing
+some amount of reduction for types.  This limits the functions we can
+implement generically, for example we cannot write a generic |fmap|
+function, since it operates on types of kind |Star -> Star|.
+\texttt{GHC.Generics} supports type constructors with exactly one
+argument via the \texttt{Generic1} type class. We foresee most of the
+complexity to be in the definition of |Atom|, as it must support some
+kind of application of type constructors to other parameters or opaque
+types.
 
-The original sum-of-products approach does not handle all the ground types either,
-only regular ones~\cite{deVries2014}. We inherit this restriction, and cannot
-represent recursive families which involve existentials or GADTs. The problem
-in this case is representing the constraints that each constructor imposes
-on the type arguments.
+  The original sum-of-products approach does not handle all the ground
+types either, only regular ones~\cite{deVries2014}. We inherit this
+restriction, and cannot represent recursive families which involve
+existentials or GADTs. The problem in this case is representing the
+constraints that each constructor imposes on the type arguments.
+
+  Our \texttt{\nameofourlibrary} is a powerful library for generic
+programming that combines the advantages of previous approaches to
+generic programming. We have carefully blended the information about
+(mutually) recursive positions, from \texttt{multirec}, with the
+sums-of-products codes, from \texttt{generics-sop}, maintaining the
+advantages of both. The Haskell programmer is now able to use
+simple, combinator-based generic programming for a more expressive
+class of types than \texttt{generics-sop} allows. This is
+interesting, especially since mutually recursive types were hard 
+to handle in a generic fashion previous to \texttt{\nameofourlibrary}.
