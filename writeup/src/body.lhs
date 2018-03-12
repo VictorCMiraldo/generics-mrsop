@@ -672,23 +672,23 @@ We were only able to lift it to a functor by recording the information about
 the recursive positions. Otherwise, there would be no way to know where to apply |f|
 when defining |fmap f|.
 
-  Nevertheless, working directly with |RepFix| is hard -- we need
-to pattern match on |There| and |Here|, whereas we actually want to
-have the notion of \emph{constructor} generically too! 
-The main advantage of the \emph{sum-of-products} structure is to allow
-a user to pattern match on generic representations just like they would
-on values of the original type, constrasting eith \texttt{GHC.Generics}. One 
-can precisely state that a value of a representation is composed of a
-choice of constructor and its respective product of fields. The
-|View| type below exposes this very structure, where |Constr n sum| is
-a proof that |n| is a valid constructor for |sum|, essentially saying
-|n < length sum|. The |Lkup| is just a type level list
-lookup, we will come back it in more details in \Cref{sec:family}.
+  Nevertheless, working directly with |RepFix| is hard -- we need to
+pattern match on |There| and |Here|, whereas we actually want to have
+the notion of \emph{constructor} for the generic setting too!  The
+main advantage of the \emph{sum-of-products} structure is to allow a
+user to pattern match on generic representations just like they would
+on values of the original type, constrasting with
+\texttt{GHC.Generics}. One can precisely state that a value of a
+representation is composed of a choice of constructor and its
+respective product of fields by the |View| type.  A value of |Constr n
+sum| is a proof that |n| is a valid constructor for |sum|, essentially
+saying |n < length sum|. The |Lkup| is just a type level list lookup,
+we will come back it in more details in \Cref{sec:family}.
 
 \begin{myhs}
 \begin{code}
 data View :: [[ Atom ]] -> Star -> Star where
-  Tag :: Constr n sum -> NP (NA x) (Lkup sum n) -> View sum x
+  Tag :: Constr n sop -> NP (NA x) (Lkup sop n) -> View sop x
 \end{code}
 \end{myhs}
 
@@ -719,16 +719,15 @@ type family Lkup (ls :: [k]) (n :: Nat) :: k where
 reach the given index |n| is out of bounds. Interestingly, our design
 guarantees that this case is never reached by the definition of |Constr|.
 
-  The real convenience comes from being able to easily pattern
-match and inject into and from generic values. 
-Unfortunately, matching on |Tag| requires describing in full detail
-the shape of the generic value using the elements of |Constr|.
-Using pattern synonyms~\cite{Pickering2016} we can define
+  Now we are able to easily pattern match and inject into and from
+generic values.  Unfortunately, matching on |Tag| requires describing
+in full detail the shape of the generic value using the elements of
+|Constr|. Using pattern synonyms~\cite{Pickering2016} we can define
 those patterns once and for all, and give them more descriptive names.
-For example, here are the synonyms describing
-the constructors |Bin| and |Leaf| as |View (Code (Bin Int)) x|:
-\footnote{Throughout this paper we use the syntax |(Pat C)| 
-to refer to the pattern describing a view for constructor |C|.}
+For example, here are the synonyms describing the constructors |Bin|
+and |Leaf| as |View (Code (Bin Int)) x|: \footnote{Throughout this
+paper we use the syntax |(Pat C)| to refer to the pattern describing a
+view for constructor |C|.}
 
 \begin{myhs}
 \begin{code}
@@ -742,8 +741,8 @@ The functions that perform the pattern matching and injection are the
 
 \begin{myhs}
 \begin{code}
-inj  :: View    sum  x  -> RepFix  sum  x
-sop  :: RepFix  sum  x  -> View    sum  x
+inj  :: View    sop  x  -> RepFix  sop  x
+sop  :: RepFix  sop  x  -> View    sop  x
 \end{code}
 \end{myhs}
 
