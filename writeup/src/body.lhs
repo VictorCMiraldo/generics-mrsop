@@ -164,8 +164,8 @@ library~\cite{Noort2008}, for instance, is based on this feature.
 \paragraph{Sum of Products}
 
 Most generic programming libraries build their type level descriptions out of three basic
-combinators: (1) \emph{constants}, which indicate a type which should appear
-as-is; (2) \emph{products} (usually written as |:*:|) which are used to
+combinators: (1) \emph{constants}, which indicate a type is atomic and should not
+be expanded further; (2) \emph{products} (usually written as |:*:|) which are used to
 build tuples; and (3) \emph{sums} (usually written as |:+:|) which
 encode the choice between constructors. |Rep (Bin a)| above is expressed in
 this form. Note, however, that there is no restriction on \emph{how} these
@@ -223,7 +223,7 @@ It can actually be proved that |Rose a| is isomorphic to a regular
 datatype.}:
 \begin{myhs}
 \begin{code}
-data Rose  a  =  a :>: [Rose a]
+data Rose  a  =  Fork a [Rose a]
 data []    a  =  [] | a : [a]
 \end{code}
 \end{myhs}
@@ -231,7 +231,7 @@ The mutual recursion becomes apparent once one instantiaties |a| to some
 ground type, for instance:
 \begin{myhs}
 \begin{code}
-data RoseI  =  Int :>: ListI
+data RoseI  =  Fork Int ListI
 data ListI  =  Nil | RoseI : ListI
 \end{code}
 \end{myhs}
@@ -634,7 +634,7 @@ in the simplicity of combinators we are able to write.
 
   Wrapping our |toFix| and |fromFix| isomorphism into a type class and writing the
 instance that witnesses that |Bin Int| has a |CodeFix| and is isomorphic
-to its representation is quite straight forward.
+to its representation is straight forward:
 
 \begin{myhs}
 \begin{code}
@@ -652,10 +652,10 @@ instance GenericFix (Bin Int) where
 \end{code}
 \end{myhs}
 
-  We just need to define a way to map an |Atom| into |Star|.
+  In order to define |RepFix| we just need to a way to map an |Atom| into |Star|.
 Since an atom can be either an opaque type, known statically, or some other
 type that will be used as a recursive position later on, we simply receive
-it as another parameter. Hence:
+it as another parameter. The |NA| datatype relates an |Atom| to its semantics:
 
 \begin{myhs}
 \begin{code}
@@ -663,7 +663,7 @@ data NA :: Star -> Atom -> Star where
   NA_I  :: x    -> NA x I
   NA_K  :: Int  -> NA x KInt
 
-newtype RepFix a x = Rep { unRep :: NS (NP (NA x)) (Code a) }
+newtype RepFix a x = Rep { unRep :: NS (NP (NA x)) (CodeFix a) }
 \end{code}
 \end{myhs}
 
@@ -880,7 +880,7 @@ As a running example, we use the \emph{rose tree} family from the
 introduction.
 \begin{myhs}
 \begin{code}
-data Rose  a  =  a :>: [Rose a]
+data Rose  a  =  Fork a [Rose a]
 data []    a  =  [] | a : [a]
 \end{code}
 \end{myhs}
@@ -970,7 +970,7 @@ This definition states that to obtain the representation of the type at index
 each |I n| by looking up the type at that index in the original family. This
 gives us a \emph{shallow} representation. As an example, below is the expansion
 for index 0 of the rose tree family. Note how it is isomorphic to the representation
-that \texttt{GHC.Generics} would have chosen.
+that \texttt{GHC.Generics} would have chosen for |Rose Int|:
 \begin{myhs}
 \begin{code}
  RepMRec  (Lkup FamRose) (Lkup (CodeMRec FamRose) Z)
@@ -978,6 +978,7 @@ that \texttt{GHC.Generics} would have chosen.
   =    NS (NP (NA (Lkup FamRose)))  (P [ (P [ KInt, I (S Z)])])
   ==   K1 R Int :*: K1 R (Lkup FamRose (S Z))
   =    K1 R Int :*: K1 R [Rose Int]
+  =    RepGen (Rose Int)
 \end{code}
 \end{myhs}
 
@@ -1028,9 +1029,9 @@ additional |SNat ix| parameter. For example, in the case of
 or family of rose trees, |fromMRec| has the following shape:
 \begin{myhs}
 \begin{code}
-fromMRec SZ       (El (x :>: ch))  = Rep (          Here (NA_K x :* NA_I ch :* NP0))
-fromMRec (SS SZ)  (El [])          = Rep (          Here NP0 ))
-fromMRec (SS SZ)  (El (x : xs))    = Rep ( There (  Here (NA_I x :* NA_I xs :* NP0)))
+fromMRec SZ       (El (Fork x ch))  = Rep (          Here (NA_K x :* NA_I ch :* NP0))
+fromMRec (SS SZ)  (El [])           = Rep (          Here NP0 ))
+fromMRec (SS SZ)  (El (x : xs))     = Rep ( There (  Here (NA_I x :* NA_I xs :* NP0)))
 \end{code}
 \end{myhs}
 By pattern matching on the index, the compiler knows which is the family member
@@ -1159,7 +1160,7 @@ of our library may decide to use |ByteString| in their datatypes. Since that
 type is not covered by |Atom|, nor by our generic approach, this implies that
 \texttt{\nameofourlibrary} becomes useless for them.
 \item The choice of opaque types might be too wide. If we try to encompass any
-possible situation, we might end up with an humongous |Atom| type. But for a
+possible situation, we might end up with an huge |Atom| type. But for a
 specific use case, we might be interested only in |Int|s and |Float|s, so why
 bother ourselves with possibly ill-formed representations and pattern matches
 which should never be reached?
@@ -1345,9 +1346,9 @@ pretty-printing~\cite{Magalhaes2010}.
 
 \subsection{Equality}
 
-  Following the unspoken law of generic programming papers,
-one is obliged to define generic equality in one's generic programming
-framework. Using \texttt{\nameofourlibrary} one can define a particularly
+  As usually done on generic programming papers,
+we should define generic equality in our own framework. 
+In fact, with \texttt{\nameofourlibrary} we can define a particularly
 elegant version of generic equality:
 
 \begin{myhs}
@@ -1355,11 +1356,11 @@ elegant version of generic equality:
 geq  ::  (Family kappa fam codes) 
      =>  (forall k dot kappa k -> kappa k -> Bool)
      ->  El fam ix -> El fam ix -> Bool
-geq eq_K = go `on` deepFrom
+geq eq_K x y = go (deepFrom x) (deepFrom y)
   where
     go :: Fix codes ix -> Fix codes ix -> Bool
     go (Fix x) (Fix y)  = maybe False (elimRep (uncurry eq_K) (uncurry go) and) 
-                        $ zipRep x y 
+                        $ zipRep x y  
 \end{code} %$
 \end{myhs}
 
@@ -1372,16 +1373,12 @@ opaque types |eq_K| or recursing.
 \subsection{$\alpha$-Equivalence}
 \label{sec:alphaequivalence}
 
-% Usual problems such as $\alpha$-equality, although already treated using generic
-% programming~\cite{Weirich2011}, still creeps back up when more than one 
-% datatype enters the stage.
-
-  Syntactic equality is definitely a must, but it is a ``no sweat''
-application of generic programming. A more involved exercise,
-requiring some muscle, is the definition of
+A more involved exercise is the definition of
 \emph{$\alpha$-equivalence} for a language. On this section we start
 showing a straight forward version for the $\lambda$-calculus then go
-on to a more elaborate language.
+on to a more elaborate language. Although such problem has already been treated
+using generic programming~\cite{Weirich2011}, it provides a good
+example to illustrate our library. 
 
   Regardless of the language, determining whether two programs are
 $\alpha$-equivalent requires one to focus on the the constructors that
@@ -1419,11 +1416,11 @@ $\alpha$-equivalent.  We then traverse both terms at the same time and
 every time we go through a binder, in this case |Abs|, we register a
 new \emph{rule} saying that the bound variable names are equivalent
 for the terms under that scope. Whenever we find a reference to a
-variable, |Var|, we check if the referenced variable is either exactly
-the same or equivalent under the registered \emph{rules} so far.
+variable, |Var|, we check if the referenced variable is 
+equivalent under the registered \emph{rules} so far.
 
   Let us abstract away this book-keeping functionality by the means of
-a monad with a couple associated functions. The idea is that |m| will
+a monad with a couple associated functions. The idea is that monad |m| will
 keep track of a stack of scopes, each scope will be registering a list
 of \emph{name-equivalences}. In fact, this is very close to how one
 should go about defining equality for \emph{nominal terms}~\cite{Calves2008}.
@@ -1440,17 +1437,17 @@ class Monad m => MonadAlphaEq m where
   Running a |scoped f| computation will push a new scope for running |f|
 and pop it after |f| is done. The |addRule v_1 v_2| function registers an equivalence
 of |v_1| and |v_2| in the top of the scope stack. Finally, |v_1 =~= v_2| is define
-by pattern matching on the scope stack. If the stack is empty, then |v_1 =~= v_2 = v_1 == v_2|.
+by pattern matching on the scope stack. If the stack is empty, then |(=~=) v_1 v_2 = (v_1 == v_2)|.
 Otherwise, let the stack be |s:ss|. We first traverse |s| gathering the rules
 referencing either |v_1| or |v_2|. If there is none, we check if |v_1 =~= v_2| under |ss|.
 If there are rules referencing either variable name in the topmost stack, we must
 ensure there is only one such rule, and it states a name equivalence between |v_1| and |v_2|.
 We will not show the implementation of these functions as these can be checked in 
-the \texttt{Examples} directory of \texttt{\nameofourlibrary}. It is a good exercise
-to implement the |MonadAlphaEq (State [[ (String , String) ]])| nevertheless. 
+the \texttt{Examples} directory of \texttt{\nameofourlibrary}. We implemented
+them for the |MonadAlphaEq (State [[ (String , String) ]])| instance. 
 
   Returning to the main focus of this illustration and leaving book-keeping functionality
-aside, we define our alpha equivalence decider by encoding what to do
+aside, we define our alpha equivalence decision procedure by encoding what to do
 for |Var| and |Abs| constructors. The |App| can be eliminated generically.
 
 %format TermP  = "\HT{Term\_}"
@@ -1556,20 +1553,17 @@ go _      x = step x
 
 \subsection{The Generic Zipper}
 
-  To conclude our examples section and stress-test our framework, 
-we introduce a more complex application of generic programming. 
-Zippers~\cite{Huet1997} are a well established technique for 
-traversing a recursive data structure keeping track of the current
-\emph{focus point}. Defining generic zippers is nothing new,
-this has been done by many authors~\cite{Hinze2004,Adams2010,Yakushev2009}
-for many different classes of types in the past. To the best of
-the authors knowledge, this is the first definition in a direct
-\emph{sums-of-products} style. Moreover, being able to define
-the generic zipper in one's generic programming framework is
-an expressivity benchmark to be achieved. We will not
-be explaining what \emph{are} zippers in detail, the unfamiliar 
-reader should check the references. Instead, we will give a quick
-reminder and show how zippers fit within our framework instead.
+  To conclude our examples section, we introduce a more complex
+application of generic programming.  Zippers~\cite{Huet1997} are a
+well established technique for traversing a recursive data structure
+keeping track of the current \emph{focus point}. Defining generic
+zippers is nothing new, this has been done by many
+authors~\cite{Hinze2004,Adams2010,Yakushev2009} for many different
+classes of types in the past. To the best of the authors knowledge,
+this is the first definition in a direct \emph{sums-of-products}
+style.  We will not be explaining what \emph{are} zippers in detail,
+instead, we will give a quick reminder and show how zippers fit within
+our framework.
 
   Generally speaking, the zipper keeps track of a focus point in a
 data structure and allows for the user to conveniently move this focus
@@ -1611,8 +1605,8 @@ apply function |f| to the focused element, as shown in \Cref{fig:zipperpic}.
   In our case, this location type consists in a distinguished element
 of type |ix| and a stack of contexts with a hole of type |ix|, where
 we can plug the distinguished element and \emph{leave} the zipper.
-This stack of contexts are used to keep track of how far deep from the
-root we are.  All of the following development is parametrized by an
+This stack of contexts is used to keep track of how deep the current
+subtree in focus is.  All of the following development is parametrized by an
 interpretation for opaque types |ki :: kon -> Star|, a family |fam ::
 [Star]| and its associated codes |codes :: [[[Atom kon]]]|; since these
 are the same for any given family, let us fix those and omit them
@@ -1660,7 +1654,7 @@ data NPHole :: [Atom kon] -> Nat -> Star where
 \end{myhs}
 
   The navigation functions are exactly direct translation of those defined 
-for the \texttt{multirec}~\cite{Yakushev2008} library, that use the
+for the \texttt{multirec}~\cite{Yakushev2009} library, that use the
 |first|, |fill|, and |next| primitives for working over |Ctx|s.
 The |fill| function can be taken over almost unchanged, whereas |first| and |next| require
 a slight trick.  We have to wrap the |Nat| parameter of |NPHole| in an
@@ -1736,15 +1730,14 @@ as we shall see in \Cref{sec:templatehaskell}
   Having a convenient and robust way to get the |Family| instance for
 a certain selection of datatypes is paramount for the usability of the
 library. The goal is to take mechanical work away from the
-programmer. In a real scenario, the typical mutually recursive family
-will be constituted of dozens of datatypes with tens of dozens of
+programmer. In a real scenario, a mutually recursive family
+may consist of many datatypes with dozens of
 constructors. Sometimes these datatypes are written with parameters,
 or come from external libraries. We wish to handle all of those,
 but first, there are some challenges we need to overcome.
 
-  The design goal here is that the programmer can derive her |Family|
-instance with minimum effort by calling some \emph{Template Haskell}~\cite{Sheard2002}
-functionality, ie:
+  Our goal is that to generate the |Family| instance associated
+with a user-defined datatype using \emph{Template Haskell}~\cite{Sheard2002}.
 
 \newcommand{\shspc}{\hspace{-0.05em}}
 %format (tht (a)) = "\HSSym{[\shspc t\shspc|}" a "\HSSym{|\shspc]}"
@@ -1759,12 +1752,12 @@ deriveFamily (tht (Prog String))
 \end{code}
 \end{myhs}
 
-  The |deriveFamily| receives only the topmost (ie, the first) type of
+  The |deriveFamily| receives only the topmost (i.e. the first) type of
 the family and should unfold the (type level) recursion until it
 reaches a fixpoint.  In this case, the |type FamProgString = P [Prog
 String , dots]| will be generated, together with its |Family|
 instance. Optionally, one can also give a custom function to decide
-whether something is an Opaque type or not. By default, it uses a
+whether something is an opaque type or not. By default, it uses a
 selection of Haskell built-in types as opaque types.
 
 \subsection{Unfolding the Family}
@@ -1786,7 +1779,7 @@ the |deriveFamily| clause.
 
 \begin{myhs}
 \begin{code}
-data Rose a  = a :>: [Rose a]
+data Rose a  = Fork a [Rose a]
 data [a]     = nil | a : [a]
 
 deriveFamily (tht (Rose Int))
@@ -1794,13 +1787,13 @@ deriveFamily (tht (Rose Int))
 \end{myhs}
 
   The first thing that happens is registering that we seen the type |Rose Int|.
-This associates it with a fresh index, in this case, |Z|. We have not yet processed it, however!
-To do that, we need to reify the definition of |Rose|. At this point, \emph{Template Haskell}
-will return |data Rose x = x :>: [Rose x]|. This has kind |Star -> Star| and cant
+This associates it with a fresh index, in this case, |Z|.
+Next we need to reify the definition of |Rose|. At this point, \emph{Template Haskell}
+will return |data Rose x = Fork x [Rose x]|. This has kind |Star -> Star| and cant
 be directly translated. In our case, we just need the specific case where |x = Int|.
 Essentially, we just apply the reified definition of |Rose| to |Int| and $\beta$-reduce it,
-giving us |Int :>: [Rose Int]|. The next processing step is looking into
-the types of the fields of the (single) constructor |:>:|: First we see |Int| and
+giving us |Fork Int [Rose Int]|. The next processing step is looking into
+the types of the fields of the (single) constructor |Fork|: First we see |Int| and
 decide it is an opaque type, say |KInt|. Secondly, we see |[Rose Int]| and
 notice it is the first time we see this type. Hence, we register it with a fresh
 index, which now has to be |S Z| and return |P [P [K KInt, I (S Z)]]| as the
@@ -1808,21 +1801,12 @@ processed type of |Rose Int|. We now go into |[Rose Int]| for processing. The
 idea is the same: reify, then substitute, then process each field of
 each constructor.
 
-\begin{enumerate}
-  \item |reify [] =~= data [x] = nil || x : [x]|
-  \item Substituting |x| for |Rose Int| gives |nil || (Rose Int) : [ Rose Int ]|.
-  \item |nil| has no fields. We have already seen |Rose Int|, it is indexed by |Z|.
-        We have also seen |[Rose Int]|, it is indexed by |S Z|.
-  \item return |P [ P [] , P [I Z , I (S Z)] ]| as the processed type of |[Rose Int]|.
-\end{enumerate}
-
-  Since we have not seen any new type in (4) above, there is nothing else
-to process. Essentially, the hard part has been done. Now we just have to 
-generate the Haskell code. This is a very verbose and mechanical process, whose
-details will be omitted. Nevertheless, we generate type synonyms,
-pattern synonyms, the |Family| instance and metadata information. 
-The generated type synonyms are named after the topmost type of the family,
-passed to |deriveFamily|:
+  Now we just have to generate the Haskell code. This is a very
+verbose and mechanical process, whose details will be
+omitted. Nevertheless, we generate type synonyms, pattern synonyms,
+the |Family| instance and metadata information.  The generated type
+synonyms are named after the topmost type of the family, passed to
+|deriveFamily|:
 
 \begin{myhs}
 \begin{code}
@@ -1837,11 +1821,11 @@ type in the family also come in handy. These have the same name as the original
 but with an added \emph{underscore}:
 
 \begin{myhs}
-%format forkP = "\HT{\overline{\triangleright}}" 
+%format forkP = "\HT{\overline{Fork}}" 
 %format nilP  = "\HT{\overbar{[]}}" 
 %format consP = "\HT{\overline{:}}" 
 \begin{code}
-pattern x forkP xs  = Tag SZ       (NA_K x :* NA_I xs :* NP0)
+pattern forkP x xs  = Tag SZ       (NA_K x :* NA_I xs :* NP0)
 pattern nilP        = Tag SZ       NP0
 pattern x consP xs  = Tag (SS SZ)  (NA_I x :* NA_I xs :* NP0)
 
@@ -1859,7 +1843,7 @@ instance Family Singl FamRoseInt CodesRoseInt where
 \end{code}
 \end{myhs}
 
-  Finally, we also generate some metadata for being able to correlate
+  Finally, we also generate some metadata to correlate
 the name of constructors and types with the generic representation. 
 We handle metadata almost entirely like \texttt{generics-sop}, with a 
 few differences that will be explained in \Cref{sec:metadata}
@@ -1875,11 +1859,11 @@ This metadata includes the datatype name, the module where it was defined,
 and the name of the constructors, among other information. Without this
 information you cannot write a function which outputs the string
 \begin{verbatim}
-1 :>: [2 :>: [], 3 :>: []]
+Fork 1 [Fork 2 [], Fork 3 []]
 \end{verbatim}
-for a call to |genericShow (1 :>: [2 :>: [], 3 :>: []])|. The reason is that
+for a call to |genericShow (Fork 1 [Fork 2 [], Fork 3 []])|. The reason is that
 the code of |Rose Int| does not contain the information that the constructor
-of |Rose| is called |:>:|.
+of |Rose| is called |"Fork"|.
 
 
   Like in \texttt{generics-sop}~\cite{deVries2014}, having the code
@@ -1887,8 +1871,14 @@ for a family of datatypes at hand allows for a completely separate
 treatment of metadata. This is yet another advantage from the
 sum-of-products approach when compared to the more traditional pattern
 functors. In fact, our handling of metadata is heavily inspired from
-\texttt{generics-sop}, so much so that we start explaining a simplified version of how
-they handle metadata, then outline the differences to our approach. 
+\texttt{generics-sop}, so much so that we will start by explaining a simplified version of
+their handling of metadata, then outline the differences to our approach. 
+
+  The general idea is to store the meta information following the structure of
+the datatype itself. So, instead of data, we keep track of the names of the
+different parts and other metainformation that can be useful. It is advantageous
+to keep metadata separate from the generic representation as it would only
+clutter the definition of generic functionality.
 
 \begin{myhs}
 \begin{code}
@@ -1969,7 +1959,7 @@ the instance below for the first type in the family, |Rose Int|:
 \begin{code}
 instance HasDatatypeInfo Singl FamRose CodesRose Z where
   datatypeInfo _ _  =  ADT (ConT "Example" "Rose" :@: ConT "Prelude" "Int")
-                    $  (Constructor ":>:") :* NP0
+                    $  (Constructor "Fork") :* NP0
 \end{code} %$
 \end{myhs}
   
