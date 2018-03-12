@@ -82,20 +82,20 @@ These libraries are too permissive though, for instance, |U1 :*: Maybe|
 is a perfectly valid \texttt{GHC.Generics} \emph{pattern functor} but
 will break generic functions.  The way to fix this is to ensure that the
 \emph{pattern functors} abide by a certain format. That is, define the
-\emph{pattern functors} by induction on some \emph{Code}, that can be
+\emph{pattern functors} by induction on some \emph{code}, that can be
 inspected and pattern matched on. This is the approach of
 \texttt{generics-sop}~\cite{deVries2014}. The more restrictire
-\emph{Code} approach allows one to write concise, combinator-based,
+code approach allows one to write concise, combinator-based,
 generic programs. The novelty in our work is in the intersection of
 both the expressivity of \texttt{multirec}, allowing the encoding of
 mutually recursive families, with the convenience of the more modern
-\texttt{generics-sop}~\cite{deVries2014} style.
+\texttt{generics-sop} style.
 
 \begin{figure}\centering
 \ra{1.3}
 \begin{tabular}{@@{}llll@@{}}\toprule
-                   & Dynamic             & \multicolumn{2}{c}{Static} \\ \cmidrule{3-4}
-                   &                     & Pattern Functors      & Codes \\ \midrule
+                   & \multirow{2}{*}{\it Dynamic}             & \multicolumn{2}{c}{\it Static} \\ \cmidrule{3-4}
+                   & &                   Pattern Functors      & \multicolumn{1}{c}{Codes} \\ \midrule
   Simple Recursion & \texttt{SYB}        & \texttt{GHC.Generics} & \texttt{generics-sop} \\
                    & \texttt{uniplate}   & \texttt{regular}      &  \\
   Mutual Recursion & \texttt{multiplate} & \texttt{multirec}     & \textbf{\texttt{\nameofourlibrary}} \\
@@ -122,9 +122,17 @@ The novelty lies in our handling of instantiated type constructors.
 \end{itemize}
 We have packaged our results as a Haskell library, \texttt{\nameofourlibrary},
 which is being delivered as suplementary material. 
+This library fills the hole in \Cref{fig:gplibraries} for a code-based
+approach with support for mutual recursion.
 
 \subsection{Design Space}
 \label{sec:designspace}
+
+The availability of several libraries for generic programming witnesses
+the fact that there are trade-offs between expressivity,
+ease of use, and underlying techniques in the design of such a library.
+In this section we describe some of these trade-offs, especially those
+to consider when using the static approach.
 
 \paragraph{Deep versus shallow.}
 There are two ways to represent a generic value. When using a
@@ -370,7 +378,7 @@ of the universe and are \emph{opaque} to the representation language.
 process more convenient. Note that the implementation of |size| for
 |Bin a| relies on the implementation of |gsize|, after converting a |Bin a|
 to its generic representation. We can instruct GHC to do this automatically
-using \texttt{-XDefaultSignatures} and modifying the |Size| class to:
+using \emph{default method signatures}~\cite[section 9.8.1.4]{ghcUsersGuide} and modifying the |Size| class to:
 
 \begin{myhs}
 \begin{code}
@@ -389,7 +397,7 @@ can be satisfied when declaring an instance for |Size a|.
   One interesting aspect we should note here is the clearly
 \emph{shallow} encoding that |from| provides. That is, we only
 represent \emph{one layer} at a time. For example, take the step
-$(\dagger)$ in \Cref{fig:sizederiv}: after unwrapping the calculation
+marked as $(\dagger)$ in \Cref{fig:sizederiv}: after unwrapping the calculation
 of the first \emph{layer}, we are back to having to calculate |size|
 for |Bin Int|, not their generic representation.
 
@@ -490,7 +498,7 @@ from \texttt{GHC.Generics}.
 \end{align*}
 
   It makes no sense to go through all the trouble of adding the
-explicit \emph{sums-of-products} structure to simply forget this
+explicit \emph{sums-of-products} structure to forget this
 information in the representation, however. Indeed, instead of
 piggybacking on \emph{pattern functors}, we define |NS| and |NP| from
 scratch using \emph{GADTs}~\cite{Xi2003}.
@@ -530,7 +538,6 @@ newtype I (a :: Star) = I { unI :: a }
   To support the claim that one can define general combinators for
 working with these representations, let us look at |elim| and |map|,
 used to implement the |gsize| function in the beginning of the section.
-
 \begin{minipage}[t]{.45\textwidth}
 \begin{myhs}
 \begin{code}
@@ -557,10 +564,10 @@ generated \emph{pattern functor} representation of a Haskell datatype
 will already be in a \emph{sums-of-products}, we do not lose anything
 by enforcing this structure.
 
-  As it stands, There are still downsides to this approach. A notable
+  There are still downsides to this approach. A notable
 one is the need to carry constraints around: the actual |gsize|
-written with the \texttt{generics-sop} library and no sugar looks
-like:
+written with the \texttt{generics-sop} library and no sugar
+reads as follows.
 
 \begin{myhs}
 \begin{code}
@@ -838,8 +845,8 @@ crush k cat = crushFix . deepFrom
 \end{myhs}
 
   Finally, we come full circle to our running |gsize| example
-as it was promised in the introduction. Noticeably the simplest
-implementation so far.
+as it was promised in the introduction. Noticeably the smallest
+implementation so far, and very straight to the point.
 
 \begin{myhs}
 \begin{code}
@@ -1008,7 +1015,7 @@ use an associated type to define the |codes| for a mutually recursive family
 |fam|. One of the reasons to choose this path is that it alleviates the
 burden of writing the longer |CodeMRec fam| every time we want to
 refer to |codes|. Furthermore, there are types like lists which appear in
-many different families, and in that case it makes more sense to speak about a
+many different families, and in that case it makes sense to speak about a
 relation instead of a function. In any case, we can choose the other point of
 the design space by moving |codes| into an associated type or introduce a
 functional dependency |fam -> codes|.
@@ -1102,7 +1109,7 @@ This type signature tells us that if we want to change the |phi1| argument in
 the representation, we need to provide a natural transformation from
 |phi1| to |phi2|, that is, a function which works over each
 possible index this |phi1| can take and does not change this index. 
-This makes sense, as |phi1| has kind |Nat -> Star|. 
+This follows from |phi1| having kind |Nat -> Star|. 
 \begin{myhs}
 \begin{code}
 deepFrom :: Family fam codes => El fam ix -> Fix (RepFix codes ix)
@@ -1223,7 +1230,7 @@ most common primitive Haskell datatypes.
 \subsection{Combinators}
 
   Through the rest of this section we wish to showcase a selection of particularly
-powerful combinators that are remarkably simple to define by exploiting the
+powerful combinators that are simple to define by exploiting the
 \emph{sums-of-products} structure coupled with the mutual recursion information.
 Defining the same combinators in \texttt{multirec} would produce much more complicated
 code. In \texttt{GHC.Generics} these are even impossible to write due to the
@@ -1297,8 +1304,8 @@ zipRep (C x_1 dots x_n) (D y_1 dots y_m)
 \end{code}
 \end{myhs}
 
-  Note that it is trivial to write |zipRep| with an arbitrary
-|(Alternative f)| constraint instead of |Maybe|. The |compos|
+  This definition |zipRep| can be translated  to wotk with an arbitrary
+|(Alternative f)| instead of |Maybe|. The |compos|
 combinator, already introduced in \Cref{sec:explicitfix}, shows up in
 a yet more expressive form.  We are now able to change every subtree
 of whatever type we choose inside an arbitrary value of the mutually
@@ -1379,8 +1386,8 @@ on to a more elaborate language.
   Regardless of the language, determining whether two programs are
 $\alpha$-equivalent requires one to focus on the the constructors that
 introduce scoping, declare variables or reference variables. All the
-other constructors of the language should be trivial a trivial
-combination of recursive results. Let us warm up with the
+other constructors of the language should just
+combine the recursive results. Let us warm up with the
 $\lambda$-calculus and their generic pattern synonyms:
 
 %format LambdaTerm = "\HT{Term_{\lambda}}"
@@ -1405,7 +1412,7 @@ pattern (Pat App) t u  = Tag (CS  (CS  CZ))  (NA_I t :* NA_I u :* NP0)
 \end{myhs}
 \end{minipage}
 
-  The process is conceptually simple. Firstly, for |t_1, t_2 :: LambdaTerm|
+  Let us explain the process step by step. Firstly, for |t_1, t_2 :: LambdaTerm|
 to be $\alpha$-equivalent, they have to have the same structure, that
 is, the same constructors. Otherwise, we can already say they are not
 $\alpha$-equivalent.  We then traverse both terms at the same time and
@@ -1484,7 +1491,7 @@ spotlight, however, manual pattern matching becomes almost intractable
 very fast.
 
 Take the a toy imperative language defined in \Cref{fig:alphatoy}.
-Transporting |alphaEq| from the lambda calculus is fairly simple. For
+Transporting |alphaEq| from the lambda calculus is simple. For
 one, |alhaEq|, |step| and |galphaEq| remain the same.  We just need to
 adapt the |go| function. On the other hand, having to write
 $\alpha$-equivalence by pattern matching might not be so straight
@@ -1559,7 +1566,7 @@ for many different classes of types in the past. To the best of
 the authors knowledge, this is the first definition in a direct
 \emph{sums-of-products} style. Moreover, being able to define
 the generic zipper in one's generic programming framework is
-a non-trivial expressivity benchmark to be achieved. We will not
+an expressivity benchmark to be achieved. We will not
 be explaining what \emph{are} zippers in detail, the unfamiliar 
 reader should check the references. Instead, we will give a quick
 reminder and show how zippers fit within our framework instead.
@@ -1655,7 +1662,7 @@ data NPHole :: [Atom kon] -> Nat -> Star where
   The navigation functions are exactly direct translation of those defined 
 for the \texttt{multirec}~\cite{Yakushev2008} library, that use the
 |first|, |fill|, and |next| primitives for working over |Ctx|s.
-The |fill| is trivial to translate, whereas |first| and |next| require
+The |fill| function can be taken over almost unchanged, whereas |first| and |next| require
 a slight trick.  We have to wrap the |Nat| parameter of |NPHole| in an
 existential in order to manipulate it conveniently:
 
@@ -1666,9 +1673,9 @@ data NPHoleE :: [Atom kon] -> Star where
 \end{code}
 \end{myhs}
 
-  Finally, we can define the |firstE| and |nextE| that are used
-instead of the |first| and |next| from \texttt{multirec}. The intuition
-behind those is pretty simple: |firstE| returns the |NPHole| with the 
+  Finally, we can define the |firstE| and |nextE|, the counterparts of
+|first| and |next| from \texttt{multirec}. Intuitively,
+|firstE| returns the |NPHole| with the 
 first recursive position (if any) selected, |nextE| tries to find the
 next recursive position in a |NPHole|. The |ix| is packed up in an existential
 type since we do not really know before hand which member of the mutually

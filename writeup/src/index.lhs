@@ -55,6 +55,7 @@
 %%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%
 
+\usepackage{multirow}
 
 \begin{document}
 
