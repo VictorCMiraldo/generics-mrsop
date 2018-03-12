@@ -110,7 +110,7 @@
 %% before \maketitle command
 \begin{abstract}
   Generic programming for mutually recursive families of datatypes
-is hard. Either we end up with code that is too complicated or we
+is hard. We either end up with complicated code or 
 give up on using the mutually recursive structure. At the same time,
 it is an instance that shows over and over again. Most interesting
 abstract syntax trees are indeed mutually recursive families, for example.
