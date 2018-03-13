@@ -634,7 +634,7 @@ in the simplicity of combinators we are able to write.
 
   Wrapping our |toFix| and |fromFix| isomorphism into a type class and writing the
 instance that witnesses that |Bin Int| has a |CodeFix| and is isomorphic
-to its representation is straight forward:
+to its representation is straightforward:
 
 \begin{myhs}
 \begin{code}
@@ -1374,7 +1374,7 @@ geq eq_K x y = go (deepFrom x) (deepFrom y)
 
   Reading through the code we see that we convert both
 arguments of |geq| to their deep representation, then compare their
-top level constructor with |zipRep|, if their constructor agrees
+top level constructor with |zipRep|. If they agree
 we go through each of their fields calling either the equality on
 opaque types |eq_K| or recursing.
 
@@ -1382,14 +1382,16 @@ opaque types |eq_K| or recursing.
 \label{sec:alphaequivalence}
 
 A more involved exercise is the definition of
-\emph{$\alpha$-equivalence} for a language. On this section we start
-showing a straight forward version for the $\lambda$-calculus then go
+\emph{$\alpha$-equivalence} for a language
+defined as a Haskell datatype.
+On this section we start by
+showing a straightforward version for the $\lambda$-calculus and then move
 on to a more elaborate language. Although such problem has already been treated
 using generic programming~\cite{Weirich2011}, it provides a good
 example to illustrate our library. 
 
   Regardless of the language, determining whether two programs are
-$\alpha$-equivalent requires one to focus on the the constructors that
+$\alpha$-equivalent requires one to focus on the constructors that
 introduce scoping, declare variables or reference variables. All the
 other constructors of the language should just
 combine the recursive results. Let us warm up with the
@@ -1417,10 +1419,11 @@ pattern (Pat App) t u  = Tag (CS  (CS  CZ))  (NA_I t :* NA_I u :* NP0)
 \end{myhs}
 \end{minipage}
 
-  Let us explain the process step by step. Firstly, for |t_1, t_2 :: LambdaTerm|
-to be $\alpha$-equivalent, they have to have the same structure, that
-is, the same constructors. Otherwise, we can already say they are not
-$\alpha$-equivalent.  We then traverse both terms at the same time and
+  Let us explain the process step by step. First, for |t_1, t_2 :: LambdaTerm|
+to be $\alpha$-equivalent, they have to have the constructors
+on the same positions. Otherwise, they cannot be
+$\alpha$-equivalent. Then we check the bound variables: we 
+traverse both terms at the same time and
 every time we go through a binder, in this case |Abs|, we register a
 new \emph{rule} saying that the bound variable names are equivalent
 for the terms under that scope. Whenever we find a reference to a
@@ -1428,9 +1431,9 @@ variable, |Var|, we check if the referenced variable is
 equivalent under the registered \emph{rules} so far.
 
   Let us abstract away this book-keeping functionality by the means of
-a monad with a couple associated functions. The idea is that monad |m| will
-keep track of a stack of scopes, each scope will be registering a list
-of \emph{name-equivalences}. In fact, this is very close to how one
+a monad with a couple of associated functions. The idea is that monad |m| will
+keep track of a stack of scopes, and each scope will register a list
+of \emph{name-equivalences}. Indeed, this is very close to how one
 should go about defining equality for \emph{nominal terms}~\cite{Calves2008}.
 
 \begin{myhs}
@@ -1444,10 +1447,10 @@ class Monad m => MonadAlphaEq m where
 
   Running a |scoped f| computation will push a new scope for running |f|
 and pop it after |f| is done. The |addRule v_1 v_2| function registers an equivalence
-of |v_1| and |v_2| in the top of the scope stack. Finally, |v_1 =~= v_2| is define
+of |v_1| and |v_2| in the top of the scope stack. Finally, |v_1 =~= v_2| is defined
 by pattern matching on the scope stack. If the stack is empty, then |(=~=) v_1 v_2 = (v_1 == v_2)|.
 Otherwise, let the stack be |s:ss|. We first traverse |s| gathering the rules
-referencing either |v_1| or |v_2|. If there is none, we check if |v_1 =~= v_2| under |ss|.
+referencing either |v_1| or |v_2|. If there are none, we check if |v_1 =~= v_2| under |ss|.
 If there are rules referencing either variable name in the topmost stack, we must
 ensure there is only one such rule, and it states a name equivalence between |v_1| and |v_2|.
 We will not show the implementation of these functions as these can be checked in 
@@ -1479,35 +1482,38 @@ alphaEq x y = runState (galphaEq (deepFrom x) (deepFrom y)) [[]]
 \label{fig:alphalambda}
 \end{figure}
 
-  Returning to the main focus of this illustration and leaving book-keeping functionality
+  Returning to our main focus and leaving book-keeping functionality
 aside, we define in \Cref{fig:alphalambda} our alpha equivalence decision procedure by encoding what to do
 for |Var| and |Abs| constructors. The |App| can be eliminated generically.
 
-  There is a number of things going on with this example. First,
+  There is a number of remarks to be made for this example. First,
 note the application of |zipRep|. If two |LambdaTerm|s are made with different
 constructors, |galphaEq| will already return |False| because |zipRep| will fail.
 When |zipRep| succeeds though, we get access to one constructor with
-paired fields inside. Then the |go| function enters the stage, it 
-is performing the necessary semantic actions for the |Var| and |Abs|
+paired fields inside. The |go| is then responsible for performing
+the necessary semantic actions for the |Var| and |Abs|
 constructors and applying a general eliminator for anything else.
-In the actual library, the \emph{pattern synonyms} are automatically 
-generated as we will see on \Cref{sec:templatehaskell}.
+In the actual library, the \emph{pattern synonyms} |(Pat LambdaTerm)|, |(Pat Var)|,
+ and |(Pat Abs)| are automatically 
+generated as we will see in \Cref{sec:templatehaskell}.
 
   One might be inclined to believe that the generic programming here
-is more cumbersome than a straight forward pattern matching definition
-over |LambdaTerm|.  If we bring in a more intricate language to the
-spotlight, however, manual pattern matching becomes almost intractable
+is more cumbersome than a straightforward pattern matching definition
+over |LambdaTerm|. If we consider a more intricate language,
+however, manual pattern matching becomes almost intractable
 very fast.
 
-Take the a toy imperative language defined in \Cref{fig:alphatoy}.
-Transporting |alphaEq| from the lambda calculus is simple. For
-one, |alhaEq|, |step| and |galphaEq| remain the same.  We just need to
-adapt the |go| function. On the other hand, having to write
-$\alpha$-equivalence by pattern matching might not be so straight
-forward anymore. Moreover, if we decide to change the toy language and
+Take the toy imperative language defined in \Cref{fig:alphatoy}.
+$\alpha$-equivalence for this language can be defined with just a 
+couple of changes to the definition for |LambdaTerm|.
+For one thing, |alhaEq|, |step| and |galphaEq| remain the same.  We just need to
+adapt the |go| function. Here writing
+$\alpha$-equivalence by pattern matching is not straightforward anymore.
+Moreover, if we decide to change this language and
 add more statements or more expressions, the changes to the |go|
-function are minimal, if any. As long as we do not touch the
-constructors that |go| patterns matches on, we can use the very same
+function are minimal, none if we do not introduce any additional construct
+which declares or uses variables. As long as we do not touch the
+constructors that |go| patterns matches on, we can even use the very same
 function.
 
 \begin{figure}
@@ -1614,20 +1620,17 @@ apply function |f| to the focused element, as shown in \Cref{fig:zipperpic}.
 \label{fig:zipperpic}
 \end{figure}
 
-  In our case, this location type consists in a distinguished element
-of type |ix| and a stack of contexts with a hole of type |ix|, where
-we can plug the distinguished element and \emph{leave} the zipper.
-This stack of contexts is used to keep track of how deep the current
-subtree in focus is.  All of the following development is parametrized by an
-interpretation for opaque types |ki :: kon -> Star|, a family |fam ::
-[Star]| and its associated codes |codes :: [[[Atom kon]]]|; since these
-are the same for any given family, let us fix those and omit them
-from the declarations to simplify the presentation.
+  In our case, this location type consists of a distinguished element
+of the family |El fam ix| and a stack of contexts with a hole of type |ix|, where
+we can plug in the distinguished element. This stack of contexts may build
+a value whose type is a different member of the family; we recall its index
+as |iy|. 
 
-  A location for the |ix| element of the family, |El fam ix|
-is defined by having a distinguished element of the family, possibly of
-a different index, |iy| and a stack of contexts that represent a value of
-type |El fam ix| with a \emph{hole} of type |El fam iy|.
+For the sake of conciseness we present the datatypes for a fixed interpretation
+of opaque types |ki :: kon -> Star|, a family |fam ::
+[Star]| and its associated codes |codes :: [[[Atom kon]]]|.
+In the actual implementation all those elements appear as additional
+parameters to |Loc| and |Ctxs|.
 
 \begin{myhs}
 \begin{code}
@@ -1636,9 +1639,10 @@ data Loc :: Nat -> Star where
 \end{code}
 \end{myhs}
 
-  The stack of contexts represent how deep into the recursive
+  The second field of |Loc|, the stack of contexts,
+represents how deep into the recursive
 tree we have descended so far. Each time we unwrap another layer of recursion,
-we push some context into the stack to be able to ascend back up. Note how
+we push some context onto the stack to be able to go back up. Note how
 the |Cons| constructor resembles some sort of composition operation.
 
 \begin{myhs}
@@ -1649,9 +1653,10 @@ data Ctxs :: Nat -> Nat -> Star where
 \end{code}
 \end{myhs}
 
-  Each individual context, |Ctx c iy| is a choice of a constructor
-for the code |c| with a product of the correct type missing an element
-of type |El fam iy|, representing the hole where the distinguished element
+  Each element in this stack is an individual context, |Ctx c iy|.
+A context is defined by a choice of a constructor
+for the code |c|, paired a product of the correct type where one 
+of the elements is a hole. This hole represents where the distinguished element
 in |Loc| was supposed to be. 
 
 \begin{myhs}
@@ -1665,12 +1670,14 @@ data NPHole :: [Atom kon] -> Nat -> Star where
 \end{code}
 \end{myhs}
 
-  The navigation functions are exactly direct translation of those defined 
+  The navigation functions are a direct translation of those defined 
 for the \texttt{multirec}~\cite{Yakushev2009} library, that use the
 |first|, |fill|, and |next| primitives for working over |Ctx|s.
 The |fill| function can be taken over almost unchanged, whereas |first| and |next| require
-a slight trick.  We have to wrap the |Nat| parameter of |NPHole| in an
-existential in order to manipulate it conveniently:
+a simple trick: we have to wrap the |Nat| parameter of |NPHole| in an
+existential in order to manipulate it conveniently. The |ix| is packed up in an existential
+type since we do not really know beforehand which member of the mutually
+recursive family is seen first in an arbitrary product.
 
 \begin{myhs}
 \begin{code}
@@ -1679,14 +1686,11 @@ data NPHoleE :: [Atom kon] -> Star where
 \end{code}
 \end{myhs}
 
-  Finally, we can define the |firstE| and |nextE|, the counterparts of
+  Now we can define the |firstE| and |nextE|, the counterparts of
 |first| and |next| from \texttt{multirec}. Intuitively,
 |firstE| returns the |NPHole| with the 
 first recursive position (if any) selected, |nextE| tries to find the
-next recursive position in a |NPHole|. The |ix| is packed up in an existential
-type since we do not really know before hand which member of the mutually
-recursive family is seen first in an arbitrary product. These altered
-functions have types:
+next recursive position in an |NPHole|. These functions have the following types:
 
 \begin{myhs}
 \begin{code}
@@ -1699,7 +1703,7 @@ nextE   :: NPHoleE xs              -> Maybe (NPHoleE xs)
 |(>>>) :: (a -> b) -> (b -> c) -> a -> c| and monadic functions
 |(>=>) :: (Monad m) => (a -> m b) -> (b -> m c) -> a -> m c| to elegantly
 write some \emph{location based} instruction to transform some value
-of a |LambdaTerm| (\Cref{sec:alphaequivalence}), for instance.
+of the type |LambdaTerm| defined in \Cref{sec:alphaequivalence}.
 Here |enter| and |leave| witness the isomorphism between |El fam ix|
 and |Loc ix|.
 
@@ -1725,15 +1729,19 @@ tr (App (Var "a") (Var "b"))
 \end{minipage}
 
   We invite the reader to check the source code for a more detailed
-account of the generic zipper, which is the last example we introduce.
+account of the generic zipper.
 In fact, we were able to provide the same zipper interface 
 as the \texttt{multirec} library. Our implementation is shorter, however.
 This is because we do not need type classes to implement |firstE| and |nextE|.
 
-  The overall selection of examples show that by keeping the good ideas from
-the generic programming community and putting them all under the same roof
-we are able to achieve powerful functionality in a convenient fashion.
+\
 
+  In this section we have shown several recurring examples from the
+generic programming community. Using \texttt{\nameofourlibrary} we can have
+both expressive power and convenience.
+%  The overall selection of examples show that by keeping the good ideas from
+%the generic programming community and putting them all under the same roof
+%we are able to achieve powerful functionality in a convenient fashion.
   The last point we have to address is that we still have to write
 the |Family| instance for the types we want to use. For instance,
 the |Family| instance for example in \Cref{fig:alphatoy} is not going
@@ -1744,16 +1752,16 @@ as we shall see in \Cref{sec:templatehaskell}
 \label{sec:templatehaskell}
 
   Having a convenient and robust way to get the |Family| instance for
-a certain selection of datatypes is paramount for the usability of the
-library. The goal is to take mechanical work away from the
-programmer. In a real scenario, a mutually recursive family
+a given selection of datatypes is paramount for the usability of our
+library. In a real scenario, a mutually recursive family
 may consist of many datatypes with dozens of
 constructors. Sometimes these datatypes are written with parameters,
-or come from external libraries. We wish to handle all of those,
-but first, there are some challenges we need to overcome.
+or come from external libraries.
 
-  Our goal is that to generate the |Family| instance associated
-with a user-defined datatype using \emph{Template Haskell}~\cite{Sheard2002}.
+Our goal is to automate the generation of |Family| instances under all
+those circumstances using \emph{Template Haskell}~\cite{Sheard2002}.
+From the programmers' point of view, they only need to call |deriveFamily|
+with the topmost (that is, the first) type of the family. For example:
 
 \newcommand{\shspc}{\hspace{-0.05em}}
 %format (tht (a)) = "\HSSym{[\shspc t\shspc|}" a "\HSSym{|\shspc]}"
@@ -1768,29 +1776,30 @@ deriveFamily (tht (Prog String))
 \end{code}
 \end{myhs}
 
-  The |deriveFamily| receives only the topmost (i.e. the first) type of
-the family and should unfold the (type level) recursion until it
+  The |deriveFamily| takes care of unfoldinf the (type level) recursion until it
 reaches a fixpoint.  In this case, the |type FamProgString = P [Prog
 String , dots]| will be generated, together with its |Family|
-instance. Optionally, one can also give a custom function to decide
-whether something is an opaque type or not. By default, it uses a
+instance. Optionally, one can also pass along a custom function to decide
+whether a type should be considered opaque. By default, it uses a
 selection of Haskell built-in types as opaque types.
 
 \subsection{Unfolding the Family}
 \label{sec:underthehood}
 
   The process of deriving a whole mutually recursive family from a single
-member is mainly divided in two disjoint process. First we unfold all definitions
-and follow all the recursive paths until we reach a fixpoint and, hence,
-have discovered all types in the family. Second, we translate the definition
-of the previously discovered types to the format our library expects.
+member is conceptually divided into two disjoint process. First we unfold all definitions
+and follow all the recursive paths until we reach a fixpoint. At that moment
+we know that we
+have discovered all the types in the family. Second, we translate the definition
+of those types to the format our library expects.
 During the unfolding process we keep a key-value map in a 
 |State| monad, keeping track of the types we have seen, the types we have
-seen \emph{and} processed and the indexes of those within the family.
+seen \emph{and} processed and the indices of those within the family.
 
-  Let us illustrate this process in a bit more detail using the canonical
-mutually recursive family example and walking through what
-happens inside \emph{Template Haskell}~\cite{Sheard2002} when it starts unfolding 
+  Let us illustrate this process in a bit more detail using our running example
+of a
+mutually recursive family and consider through what
+happens within \emph{Template Haskell} when it starts unfolding 
 the |deriveFamily| clause.
 
 \begin{myhs}
@@ -1803,24 +1812,35 @@ deriveFamily (tht (Rose Int))
 \end{myhs}
 
   The first thing that happens is registering that we seen the type |Rose Int|.
-This associates it with a fresh index, in this case, |Z|.
-Next we need to reify the definition of |Rose|. At this point, \emph{Template Haskell}
-will return |data Rose x = Fork x [Rose x]|. This has kind |Star -> Star| and cant
-be directly translated. In our case, we just need the specific case where |x = Int|.
+Since it is the first type to be discovered, it is assigned index zero
+within the family.
+Next we need to reify the definition of |Rose|. At this point,
+we query \emph{Template Haskell} for the definition, and we obtain
+|data Rose x = Fork x [Rose x]|. Since |Rose| has kind |Star -> Star|, it cannot
+be directly translated -- our library only supports ground types, which
+are those with kind |Star|.
+But we do not need a generic definition for |Rose|, we just need the specific case where |x = Int|.
 Essentially, we just apply the reified definition of |Rose| to |Int| and $\beta$-reduce it,
-giving us |Fork Int [Rose Int]|. The next processing step is looking into
-the types of the fields of the (single) constructor |Fork|: First we see |Int| and
-decide it is an opaque type, say |KInt|. Secondly, we see |[Rose Int]| and
-notice it is the first time we see this type. Hence, we register it with a fresh
-index, which now has to be |S Z| and return |P [P [K KInt, I (S Z)]]| as the
-processed type of |Rose Int|. We now go into |[Rose Int]| for processing. The
-idea is the same: reify, then substitute, then process each field of
-each constructor.
+giving us |Fork Int [Rose Int]|.
 
-  Now we just have to generate the Haskell code. This is a very
-verbose and mechanical process, whose details will be
-omitted. Nevertheless, we generate type synonyms, pattern synonyms,
-the |Family| instance and metadata information.  The generated type
+The next processing step is looking into
+the types of the fields of the (single) constructor |Fork|. First we see |Int| and
+decide it is an opaque type, say |KInt|. Second, we see |[Rose Int]| and
+notice it is the first time we see this type. Hence, we register it with a fresh
+index, |S Z| in this case. The final result for |Rose Int| is |P [P [K KInt, I (S Z)]]|.
+
+We now go into |[Rose Int]| for processing.
+Once again we need to perform some amount of $\beta$-reduction
+at the type level before inspecting its fields.
+The rest of the process is the same that for |Rose Int|.
+However, when we encounter the field of type |Rose Int| this is already
+registered, so we just need to use the index |Z| in that position.
+
+  The final step is generating the actual Haskell code from the data obtained
+in the previous process. This is a very
+verbose and mechanical process, whose details we
+omit. In short, we generate the necessary type synonyms, pattern synonyms,
+the |Family| instance, and metadata information.  The generated type
 synonyms are named after the topmost type of the family, passed to
 |deriveFamily|:
 
@@ -1831,10 +1851,11 @@ type CodesRoseInt  = P [ (P [P [K KInt , I (S Z)]])  , P [ P [] , P [I Z , I (S 
 \end{code}
 \end{myhs}
 
-  Pattern synonyms are useful for convenient pattern matching and injecting over
-the |View| datatype. Some |SNat| representing the index of each
-type in the family also come in handy. These have the same name as the original 
-but with an added \emph{underscore}:
+  Pattern synonyms are useful for convenient pattern matching and injecting into
+the |View| datatype. We produce two different kinds of pattern synonyms.
+First, synonyms for generic representations, one per constructor. Second,
+synonyms which associate each type in the recursive family with their
+position in the list of codes.
 
 \begin{myhs}
 %format forkP = "\HT{\overline{Fork}}" 
@@ -1854,15 +1875,14 @@ pattern (Pat ListRoseInt)  = SS SZ
 
 \begin{myhs}
 \begin{code}
-instance Family Singl FamRoseInt CodesRoseInt where
-  dots
+instance Family Singl FamRoseInt CodesRoseInt where dots
 \end{code}
 \end{myhs}
 
-  Finally, we also generate some metadata to correlate
-the name of constructors and types with the generic representation. 
-We handle metadata almost entirely like \texttt{generics-sop}, with a 
-few differences that will be explained in \Cref{sec:metadata}
+%  Finally, we also generate some metadata to correlate
+%the name of constructors and types with the generic representation. 
+%We handle metadata almost entirely like \texttt{generics-sop}, with a 
+%few differences that will be explained in \Cref{sec:metadata}
 
 \subsection{Metadata}
 \label{sec:metadata}
@@ -1872,7 +1892,7 @@ and zippers. But there is one missing ingredient to derive generic
 pretty-printing or conversion to JSON, for instance. We need to maintain
 the \emph{metadata} information of our datatypes.
 This metadata includes the datatype name, the module where it was defined,
-and the name of the constructors, among other information. Without this
+and the name of the constructors. Without this
 information you cannot write a function which outputs the string
 \begin{verbatim}
 Fork 1 [Fork 2 [], Fork 3 []]
@@ -1881,14 +1901,13 @@ for a call to |genericShow (Fork 1 [Fork 2 [], Fork 3 []])|. The reason is that
 the code of |Rose Int| does not contain the information that the constructor
 of |Rose| is called |"Fork"|.
 
-
   Like in \texttt{generics-sop}~\cite{deVries2014}, having the code
-for a family of datatypes at hand allows for a completely separate
-treatment of metadata. This is yet another advantage from the
+for a family of datatypes available allows for a completely separate
+treatment of metadata. This is yet another advantage of the
 sum-of-products approach when compared to the more traditional pattern
 functors. In fact, our handling of metadata is heavily inspired from
 \texttt{generics-sop}, so much so that we will start by explaining a simplified version of
-their handling of metadata, then outline the differences to our approach. 
+their handling of metadata, and then outline the differences to our approach. 
 
   The general idea is to store the meta information following the structure of
 the datatype itself. So, instead of data, we keep track of the names of the
@@ -1901,12 +1920,18 @@ clutter the definition of generic functionality.
 data DatatypeInfo :: [[Star]] -> Star where
   ADT  :: ModuleName -> DatatypeName -> NP  ConstructorInfo cs       -> DatatypeInfo cs
   New  :: ModuleName -> DatatypeName ->     ConstructorInfo (P [c])  -> DatatypeInfo (P [ P [ c ]])
-
+\end{code}
+\end{myhs}
+\begin{myhs}
+\begin{code}
 data ConstructorInfo :: [Star] -> Star where
   Constructor  :: ConstructorName                             -> ConstructorInfo xs
   Infix        :: ConstructorName -> Associativity -> Fixity  -> ConstructorInfo (P [ x, y ])
   Record       :: ConstructorName -> NP FieldInfo xs          -> ConstructorInfo xs
-
+\end{code}
+\end{myhs}
+\begin{myhs}
+\begin{code}
 data FieldInfo :: Star -> Star where
   FieldInfo :: FieldName -> FieldInfo a
 \end{code}
@@ -1929,19 +1954,20 @@ but |Atom|s. All the types representing metadata at the type level must be
 updated to reflect this new scenario:
 \begin{myhs}
 \begin{code}
-data DatatypeInfo     :: [  [  Atom kon ]]  -> Star where
-data ConstructorInfo  ::    [  Atom kon ]   -> Star where
-data FieldInfo        ::       Atom kon     -> Star where
+data DatatypeInfo     :: [  [  Atom kon ]]  -> Star where ...
+data ConstructorInfo  ::    [  Atom kon ]   -> Star where ...
+data FieldInfo        ::       Atom kon     -> Star where ...
 \end{code}
 \end{myhs}
 
 As we have discussed above, our library is able to generate codes not only
 for single types of kind |Star|, like |Int| or |Bool|, but also for types which
-result of type level applications, such as |Rose Int| or |[Rose Int]|.
+are the result of type level applications, such as |Rose Int| and |[Rose Int]|.
 The shape of the metadata information in |DatatypeInfo|, a module name plus
-a datatype name, is not enough to handle these cases. We introduce a new
-|TypeName| which may contain applications, and upgrade |DatatypeInfo| to
-use it instead.
+a datatype name, is not enough to handle these cases. 
+We replace the uses of |ModuleName| and |DatatypeName| in 
+|DatatypeInfo| by a richer promoted type |TypeName|, which can
+describe applications, as required.
 \begin{myhs}
 \begin{code}
 data TypeName  =  ConT ModuleName DatatypeName
@@ -1978,6 +2004,10 @@ instance HasDatatypeInfo Singl FamRose CodesRose Z where
                     $  (Constructor "Fork") :* NP0
 \end{code} %$
 \end{myhs}
+
+Once all the metadata is in place, we can use it in the same fashion
+as \texttt{generics-sop}. We refer the interested reader to
+\citet{deVries2014} for examples.
   
 
 \section{Conclusion and Future Work}
