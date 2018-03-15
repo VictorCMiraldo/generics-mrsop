@@ -136,7 +136,7 @@ that have information about which fields of the constructors of
 the datatype in question are recursive versus those that do not. 
 
 If we do not mark recursion explicitly, \emph{shallow} encodings are
-the sole option, where only one layer of the value is turned into a
+our sole option, where only one layer of the value is turned into a
 generic form by a call to |from|.  This is the kind of representation
 we get from \texttt{GHC.Generics}, among others.  The other side of
 the spectrum would be the \emph{deep} representation, in which the
@@ -150,7 +150,7 @@ need an extra mechanism to represent recursion.
 In the |Bin| example, the description of the |Bin|
 constructor changes from ``this constructors has two fields of the
 |Bin a| type'' to ``this constructor has two fields in which you
-recurse''. Therefore, a \emph{deep} encoding requires some
+recurse''. Therefore, a \emph{deep} encoding requires some explicit
 \emph{least fixpoint} combinator -- usually called |Fix| in Haskell.
 
 Depending on the use case, a shallow representation might be more efficient if only
@@ -211,8 +211,9 @@ provide.
 We have described several axes taken by different approaches to generic
 programming in Haskell. Unfortunately, most of the approaches restrict themselves
 to \emph{regular} types, in which recursion always goes into the \emph{same}
-datatype, which is the one being defined. This is not enough for some practical applications. 
-The syntax of many programming languages is expressed naturally using
+datatype, which is the one being defined. Sometimes one would like to have the
+mutually recursive structure handy, though. 
+The syntax of many programming languages, for instance, is expressed naturally using
 a mutually recursive family. Consider Haskell itself, one of the 
 possibilities of an expression is to be a |do| block, while a |do| block itself is
 composed by a list of statements which may include expressions.
@@ -243,9 +244,10 @@ data ListI  =  Nil | RoseI : ListI
 \end{code}
 \end{myhs}
 
+Accounting for mutual recursion~\cite{Loh2011,Altenkirch2015} is done by adding an index to the
+recursive positions that represents which member of the family we are recursing over.
 The \texttt{multirec} library~\cite{Yakushev2009} is a generalization of
-\texttt{regular} which handles mutually recursive families. From \texttt{regular}
-it inherits the approach using representations with explicit fixpoints.
+\texttt{regular} which handles mutually recursive families using this very technique. 
 The mutual recursion is central to some applications such as generic 
 diffing~\cite{CacciariMiraldo2017} of abstract syntax trees.
 
