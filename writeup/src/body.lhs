@@ -39,7 +39,7 @@ which is a direct translation of |Either a (Bin a , Bin a)|, but using
 the combinators provided by \texttt{GHC.Generics}, namely |:+:| and
 |:*:|. In addition, we need two conversion functions |from :: a -> Rep
 a| and |to :: Rep a -> a| which form an isomorphism between |Bin a|
-and |Rep (Bin a) x|.  All this information is tied to the original
+and |Rep (Bin a)|.  All this information is tied to the original
 datatype using a type class:
 
 \begin{myhs}
@@ -56,23 +56,21 @@ language by some type level information, and two functions witnessing
 an isomorphism. A important feature of such library is how this
 description is encoded and which are the primitive operations for
 constructing such encodings, as we shall explore in
-\Cref{sec:designspace}. Not all libraries use type level
-descriptions though. Some libraries, like those deriving from the \texttt{SYB}
-approach~\cite{Lammel2003,Mitchell2007}, provide generic functionality
-by the means of the |Data| and |Typeable|. These are a completely
-different strand of work from ours.
+\Cref{sec:designspace}. Some libraries, mainly deriving from the \texttt{SYB}
+approach~\cite{Lammel2003,Mitchell2007}, use the |Data| and |Typeable| type classes
+instead of static type level information to provide generic functionality. 
+These are a completely different strand of work from ours.
 
-  The libraries shown in \Cref{fig:gplibraries} rely on type
-level information to provide their generic functionality. In the more
-permissive \emph{pattern functor} approach we have
+  \Cref{fig:gplibraries} shows the main libraries relying on type
+level representations. In the \emph{pattern functor} approach we have
 \texttt{GHC.Generics}~\cite{Magalhaes2010}, being the most commonly
 used one, that effectively replaced \texttt{regular}~\cite{Noort2008}.
-The former only allows for a \emph{shallow} representation whereas the
-later allows for both \emph{deep} and \emph{shallow} representations
+The former does not account for recursion explicitly, allowing only for a \emph{shallow} representation.
+Whereas the later allows for both \emph{deep} and \emph{shallow} representations
 by maintaining information about the recursive occurrences of a
 type. Maintaining this information is central to some generic
 functions, such as the generic |map| and |Zipper|, for instance. 
-Oftentimes though, one actually needs more than one recursive
+Oftentimes though, one actually needs more than just one recursive
 type, justifying the need to \texttt{multirec}~\cite{Yakushev2009}.
 
 These libraries are too permissive though, for instance, |U1 :*: Maybe|
