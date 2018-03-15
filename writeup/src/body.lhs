@@ -56,27 +56,23 @@ language by some type level information, and two functions witnessing
 an isomorphism. A important feature of such library is how this
 description is encoded and which are the primitive operations for
 constructing such encodings, as we shall explore in
-\Cref{sec:designspace}.
+\Cref{sec:designspace}. Not all libraries use type level
+descriptions though. Some libraries, like those deriving from the \texttt{SYB}
+approach~\cite{Lammel2003,Mitchell2007}, provide generic functionality
+by the means of the |Data| and |Typeable|. These are a completely
+different strand of work from ours.
 
-  In \Cref{fig:gplibraries} we show a small comparison of some of the
-design decisions took by existing libraries and place our work within
-those parameters. The \emph{dynamic} column contains the
-libraries~\cite{Lammel2003,Mitchell2007} that provide generic
-functionality by the means of the |Data| and |Typeable| type classes,
-and consist in a completely different strand of work from ours. On the
-other hand, the \emph{static} column lists the libraries that provide
-type level descriptions of the generic datatypes, and this is what we
-focus on.
-
-  Static generic programming libraries rely on type level information
-to provide their generic functionality. In more permissive
-\emph{pattern functor} approach we have
+  The libraries shown in \Cref{fig:gplibraries} rely on type
+level information to provide their generic functionality. In the more
+permissive \emph{pattern functor} approach we have
 \texttt{GHC.Generics}~\cite{Magalhaes2010}, being the most commonly
 used one, that effectively replaced \texttt{regular}~\cite{Noort2008}.
 The former only allows for a \emph{shallow} representation whereas the
 later allows for both \emph{deep} and \emph{shallow} representations
 by maintaining information about the recursive occurrences of a
-type. Oftentimes though, one actually needs more than one recursive
+type. Maintaining this information is central to some generic
+functions, such as the generic |map| and |Zipper|, for instance. 
+Oftentimes though, one actually needs more than one recursive
 type, justifying the need to \texttt{multirec}~\cite{Yakushev2009}.
 
 These libraries are too permissive though, for instance, |U1 :*: Maybe|
@@ -94,12 +90,11 @@ mutually recursive families, with the convenience of the more modern
 
 \begin{figure}\centering
 \ra{1.3}
-\begin{tabular}{@@{}llll@@{}}\toprule
-                   & \multirow{2}{*}{\it Dynamic}             & \multicolumn{2}{c}{\it Static} \\ \cmidrule{3-4}
-                   & &                   Pattern Functors      & \multicolumn{1}{c}{Codes} \\ \midrule
-  Simple Recursion & Scrap Your Boilerplate (\texttt{syb}) & \texttt{GHC.Generics} & \texttt{generics-sop} \\
-                   & \texttt{uniplate}   & \texttt{regular}      &  \\
-  Mutual Recursion & \texttt{multiplate} & \texttt{multirec}     & \textbf{\texttt{\nameofourlibrary}} \\
+\begin{tabular}{@@{}lll@@{}}\toprule
+                        & Pattern Functors       & Codes                 \\ \midrule
+  No Explicit Recursion & \texttt{GHC.Generics}  & \texttt{generics-sop} \\
+  Simple Recursion      &  \texttt{regular}      &  \multirow{2}{*}{\textbf{\texttt{\nameofourlibrary}}} \\
+  Mutual Recursion      &  \texttt{multirec}     &   \\
 \bottomrule
 \end{tabular}
 \caption{Spectrum of generic programming libraries}
@@ -247,7 +242,10 @@ data ListI  =  Nil | RoseI : ListI
 
 The \texttt{multirec} library~\cite{Yakushev2009} is a generalization of
 \texttt{regular} which handles mutually recursive families. From \texttt{regular}
-it inherits the approach using representations. 
+it inherits the approach using representations with explicit fixpoints.
+The mutual recursion is central to some applications such as generic 
+diffing~\cite{CacciariMiraldo2017} of abstract syntax trees.
+
 The motivation of our work stems from the desire of having the concise structure
 that \emph{codes} give to the \emph{representations}, together with the 
 information for recursive positions in a mutually recursive setting.
