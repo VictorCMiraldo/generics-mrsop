@@ -242,8 +242,6 @@ data ListI  =  Nil | RoseI : ListI
 \end{code}
 \end{myhs}
 
-Accounting for mutual recursion~\cite{Loh2011,Altenkirch2015} is done by adding an index to the
-recursive positions that represents which member of the family we are recursing over.
 The \texttt{multirec} library~\cite{Yakushev2009} is a generalization of
 \texttt{regular} which handles mutually recursive families using this very technique. 
 The mutual recursion is central to some applications such as generic 
@@ -900,6 +898,8 @@ to traverse and consume mutually recursive structures.
   Conceptually, going from regular types (\Cref{sec:explicitfix}) to
 mutually recursive families is simple. We just need to be able to reference
 not only one type variable, but one for each element in the family.
+This is usually~\cite{Loh2011,Altenkirch2015} done by adding an index to the
+recursive positions that represents which member of the family we are recursing over.
 As a running example, we use the \emph{rose tree} family from the
 introduction.
 \begin{myhs}
