@@ -78,12 +78,13 @@ later allows for both \emph{deep} and \emph{shallow} representations
 by maintaining information about the recursive occurrences of a
 type. Oftentimes though, one actually needs more than one recursive
 type, justifying the need to \texttt{multirec}~\cite{Yakushev2009}.
+
 These libraries are too permissive though, for instance, |U1 :*: Maybe|
 is a perfectly valid \texttt{GHC.Generics} \emph{pattern functor} but
 will break generic functions.  The way to fix this is to ensure that the
-\emph{pattern functors} abide by a certain format. That is, define the
-\emph{pattern functors} by induction on some \emph{code}, that can be
-inspected and pattern matched on. This is the approach of
+\emph{pattern functors} abide by a certain format, by defining them
+by induction on some \emph{code}, that can be
+inspected and matched on. This is the approach of
 \texttt{generics-sop}~\cite{deVries2014}. The more restrictive
 code approach allows one to write concise, combinator-based,
 generic programs. The novelty in our work is in the intersection of
@@ -139,17 +140,15 @@ There are two ways to represent a generic value. When using a
 \emph{shallow} representation only one layer of the value is turned
 into a generic form by a call to |from|.  This is the kind of
 representation we get from \texttt{GHC.Generics}, among others.
-
 The other side of the spectrum is the \emph{deep} representation, in
 which the entire value is turned into the representation that the
-generic library provides in one go. In a deep representation, the
-positions where recursion takes place are marked explicitly. This
-additional power has been used, for example, to define regular
-expressions over Haskell datatypes~\cite{Serrano2016}.  Depending on
+generic library provides in one go.
+Depending on
 the use case, a shallow representation might be more efficient if only
 part of the value needs to be inspected. On the other hand, deep
 representations are sometimes easier to use, since the conversion is
-performed in one go.
+performed in one go, and afterwards one only have to work with
+the constructs from the generic library.
 
 In general, descriptions that support a deep representation are more
 involved than those that support only a shallow representation. The
@@ -158,8 +157,15 @@ marked explicitly. In the |Bin| example, the description of the |Bin|
 constructor changes from ``this constructors has two fields of the
 |Bin a| type'' to ``this constructor has two fields in which you
 recurse''. Therefore, a \emph{deep} encoding requires some
-a \emph{least fixpoint} combinator. The \texttt{regular}
+\emph{least fixpoint} combinator -- usually called |Fix| in Haskell.
+The \texttt{regular}
 library~\cite{Noort2008}, for instance, is based on this feature.
+
+The fact that we mark explicitly when recursion takes place in a
+datatype gives some additional insight into the description.
+This
+additional power has been used, for example, to define regular
+expressions over Haskell datatypes~\cite{Serrano2016}. 
 
 \paragraph{Sum of Products}
 
@@ -173,7 +179,7 @@ can be combined.
 
 In practice, one can always use a sum of products to represent a datatype -- a sum
 to express the choice of constructor, and within each constructor a product to
-declare which fields you have. A recent approach to generic programming~\cite{deVries2014}
+declare which fields you have. The \texttt{generic-sop} library~\cite{deVries2014}
 explicitly uses a list of lists of types, the outer one representing the sum
 and each inner one thought as products. The $\HS{'}$ sign in the code below marks the
 list as operating at the type level, as opposed to term-level lists which exists
@@ -285,7 +291,7 @@ pieces of each of the different approaches, and combines them without compromise
 \subsection{GHC Generics}
 \label{sec:patternfunctors}
 
-  Since version $7.2$, GHC supports some basic, off the shelf, generic
+  Since version $7.2$, GHC supports some off the shelf generic
 programming using \texttt{GHC.Generics}~\cite{Magalhaes2010}, 
 which exposes the \emph{pattern functor} of a datatype. This
 allows one to define a function for a datatype by induction
@@ -298,7 +304,7 @@ functors. These provide a unified view over data: the generic
 are translated to this representation by the means of the function
 |fromGen :: a -> RepGen a|. Note that the subscripts are there 
 solely to disambiguate names that appear in many libraries. Hence,
-|fromGen| is, in fact, |GHC.Generics.from|.
+|fromGen| is, in fact, the |from| in module |GHC.Generics|.
 
   Defining a generic function is done in two
 steps. First, we define a class that exposes the function
@@ -339,7 +345,7 @@ instance (GSize f , GSize g) => GSize (f :+: g) where
 
   We still have to handle the cases were 
 we might have an arbitrary type in a position, modeled by the
-constant functor. We must require an instance of |Size|
+constant functor |K1|. We require an instance of |Size|
 so we can successfully tie the recursive knot.
 
 \begin{myhs}
@@ -364,6 +370,12 @@ instance (Size x) => GSize (K1 R x) where
 \label{fig:sizederiv}
 \end{figure}
 
+  To finish the description of the generic |size| for any datatype,
+we also need instances for the
+\emph{unit}, \emph{void} and \emph{metadata} pattern functors,
+called |U1|, |V1|, and |M1| respectively. Their |GSize| is
+rather uninteresting, so we omit them for the sake of conciseness.
+
   This technique of \emph{mutually recursive classes} is quite 
 specific to \texttt{GHC.Generics} flavor of generic programming.
 \Cref{fig:sizederiv} illustrates how the compiler go about choosing
@@ -372,10 +384,6 @@ In the end, we just need an instance for |Size Int| to compute
 the final result. Literals of type |Int| illustrate
 what we call \emph{opaque types}: those types that constitute the base
 of the universe and are \emph{opaque} to the representation language.
-
-  We will omit the instances for |U1|, |V1| and |M1|. These are the
-\emph{unit}, \emph{void} and \emph{metadata} pattern functors and
-their |GSize| instance is unintersting.
 
   In practice, one usually applies yet another maneuver to make this
 process more convenient. Note that the implementation of |size| for
