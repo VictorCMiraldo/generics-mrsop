@@ -323,7 +323,7 @@ instance (Size a) => Size (Bin a) where
   The |gsize| function, that operates on the representation of
 datatypes, is the second piece we need to define. We use another class
 and the instance mechanism to encode a definition by induction on
-representations.  Here, they are \emph{pattern functors}.
+representations. Here, they are \emph{pattern functors}. 
 
 \begin{myhs}
 \begin{code}
@@ -349,11 +349,6 @@ instance (Size x) => GSize (K1 R x) where
 \end{code}
 \end{myhs}
 
-  This technique of \emph{mutually recursive classes} is quite 
-specific to \texttt{GHC.Generics} flavor of generic programming.
-\Cref{fig:sizederiv} illustrates how the compiler go about choosing
-instances for computing |size (Bin (Leaf 1) (Leaf 2))|.
-
 \begin{figure}\centering
 \begin{align*}
   |size (Bin (Leaf 1) (Leaf 2))| 
@@ -369,10 +364,18 @@ instances for computing |size (Bin (Leaf 1) (Leaf 2))|.
 \label{fig:sizederiv}
 \end{figure}
 
-  Finally, we would just need an instance for |Size Int| to compute
+  This technique of \emph{mutually recursive classes} is quite 
+specific to \texttt{GHC.Generics} flavor of generic programming.
+\Cref{fig:sizederiv} illustrates how the compiler go about choosing
+instances for computing |size (Bin (Leaf 1) (Leaf 2))|. 
+In the end, we just need an instance for |Size Int| to compute
 the final result. Literals of type |Int| illustrate
 what we call \emph{opaque types}: those types that constitute the base
 of the universe and are \emph{opaque} to the representation language.
+
+  We will omit the instances for |U1|, |V1| and |M1|. These are the
+\emph{unit}, \emph{void} and \emph{metadata} pattern functors and
+their |GSize| instance is unintersting.
 
   In practice, one usually applies yet another maneuver to make this
 process more convenient. Note that the implementation of |size| for
@@ -593,7 +596,10 @@ recursive or not.
   In this section we will start to look at our approach, essentially
 combining the techniques from the \texttt{regular} and \texttt{generics-sop}
 libraries. Later we extend the constructions to handle mutually recursive
-families instead of simple recursion.
+families instead of simple recursion. The motivation for having a fixpoint
+view over generic values is that some functions need the information
+about which fields of a constructor are recursive and which are not.
+Some of these functionality include the generic |map| and the generic |Zipper|.
 
   Introducing information about the recursive positions in a type
 requires more expressive codes then in \Cref{sec:explicitsop}, where
