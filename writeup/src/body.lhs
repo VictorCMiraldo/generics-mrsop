@@ -97,7 +97,7 @@ mutually recursive families, with the convenience of the more modern
   Mutual Recursion      &  \texttt{multirec}     &   \\
 \bottomrule
 \end{tabular}
-\caption{Spectrum of generic programming libraries}
+\caption{Spectrum of static generic programming libraries}
 \label{fig:gplibraries}
 \end{figure}
 
@@ -130,31 +130,34 @@ ease of use, and underlying techniques in the design of such a library.
 In this section we describe some of these trade-offs, especially those
 to consider when using the static approach.
 
-\paragraph{Deep versus shallow.}
-There are two ways to represent a generic value. When using a
-\emph{shallow} representation only one layer of the value is turned
+\paragraph{Explicit Recursion.}
+There are two ways to define the representation of values. Those
+that have information about which fields of the constructors of 
+the datatype in question are recursive versus those that do not. 
+
+If we do not mark recursion explicitly, we can only provide a
+\emph{shallow} encoding, where only one layer of the value is turned
 into a generic form by a call to |from|.  This is the kind of
 representation we get from \texttt{GHC.Generics}, among others.
-The other side of the spectrum is the \emph{deep} representation, in
+The other side of the spectrum would be the \emph{deep} representation, in
 which the entire value is turned into the representation that the
 generic library provides in one go.
-Depending on
-the use case, a shallow representation might be more efficient if only
-part of the value needs to be inspected. On the other hand, deep
-representations are sometimes easier to use, since the conversion is
-performed in one go, and afterwards one only have to work with
-the constructs from the generic library.
 
-In general, descriptions that support a deep representation are more
-involved than those that support only a shallow representation. The
-reason is that the \emph{recursive} positions in your datatype must be
-marked explicitly. In the |Bin| example, the description of the |Bin|
+Marking the recursion explicitly, like in \texttt{regular}~\cite{Noort2008},
+allows one to choose between \emph{shallow} and \emph{deep} encodings
+at will. These representations are usually more involved as they
+need an extra mechanism to represent recursion. 
+In the |Bin| example, the description of the |Bin|
 constructor changes from ``this constructors has two fields of the
 |Bin a| type'' to ``this constructor has two fields in which you
 recurse''. Therefore, a \emph{deep} encoding requires some
 \emph{least fixpoint} combinator -- usually called |Fix| in Haskell.
-The \texttt{regular}
-library~\cite{Noort2008}, for instance, is based on this feature.
+
+Depending on the use case, a shallow representation might be more efficient if only
+part of the value needs to be inspected. On the other hand, deep
+representations are sometimes easier to use, since the conversion is
+performed in one go, and afterwards one only have to work with
+the constructs from the generic library.
 
 The fact that we mark explicitly when recursion takes place in a
 datatype gives some additional insight into the description.
