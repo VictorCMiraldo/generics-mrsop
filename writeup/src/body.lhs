@@ -135,13 +135,13 @@ There are two ways to define the representation of values. Those
 that have information about which fields of the constructors of 
 the datatype in question are recursive versus those that do not. 
 
-If we do not mark recursion explicitly, we can only provide a
-\emph{shallow} encoding, where only one layer of the value is turned
-into a generic form by a call to |from|.  This is the kind of
-representation we get from \texttt{GHC.Generics}, among others.
-The other side of the spectrum would be the \emph{deep} representation, in
-which the entire value is turned into the representation that the
-generic library provides in one go.
+If we do not mark recursion explicitly, \emph{shallow} encodings are
+the sole option, where only one layer of the value is turned into a
+generic form by a call to |from|.  This is the kind of representation
+we get from \texttt{GHC.Generics}, among others.  The other side of
+the spectrum would be the \emph{deep} representation, in which the
+entire value is turned into the representation that the generic
+library provides in one go.
 
 Marking the recursion explicitly, like in \texttt{regular}~\cite{Noort2008},
 allows one to choose between \emph{shallow} and \emph{deep} encodings
