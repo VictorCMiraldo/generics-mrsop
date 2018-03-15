@@ -1370,11 +1370,7 @@ pretty-printing~\cite{Magalhaes2010}.
 
 \subsection{Equality}
 
-  As usually done on generic programming papers,
-we should define generic equality in our own framework. 
-In fact, with \texttt{\nameofourlibrary} we can define a particularly
-elegant version of generic equality:
-
+\begin{figure}
 \begin{myhs}
 \begin{code}
 geq  ::  (Family kappa fam codes) 
@@ -1387,6 +1383,14 @@ geq eq_K x y = go (deepFrom x) (deepFrom y)
                         $ zipRep x y  
 \end{code} %$
 \end{myhs}
+\caption{Generic equality}
+\label{fig:genericeq}
+\end{figure}
+
+  As usually done on generic programming papers,
+we should define generic equality in our own framework. 
+In fact, with \texttt{\nameofourlibrary} we can define a particularly
+elegant version of generic equality, given in \Cref{fig:genericeq}.
 
   Reading through the code we see that we convert both
 arguments of |geq| to their deep representation, then compare their
@@ -1494,7 +1498,7 @@ alphaEq x y = runState (galphaEq (deepFrom x) (deepFrom y)) [[]]
       _                                      -> step x
 \end{code}
 \end{myhs}
-\caption{$\alpha$-quivalence for a $\lambda$-calculus}
+\caption{$\alpha$-equivalence for a $\lambda$-calculus}
 \label{fig:alphalambda}
 \end{figure}
 
