@@ -116,7 +116,7 @@ care for recursion (\Cref{sec:explicitfix}), allowing for \emph{shallow} and
 recursive families of datatypes (\Cref{sec:family}).
 \item We illustrate the use of our library on familiar examples
 such as equality, $\alpha$-equivalence and the zipper (\Cref{sec:mrecexamples}),
-illustrating how it supersedes the previous approaches.
+illustrating how it subsumes the features of the previous approaches.
 \item We provide Template Haskell functionality to derive all the
 boilerplate code needed to use our library (\Cref{sec:templatehaskell}).
 The novelty lies in our handling of instantiated type constructors.
