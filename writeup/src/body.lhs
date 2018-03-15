@@ -163,8 +163,11 @@ library~\cite{Noort2008}, for instance, is based on this feature.
 
 The fact that we mark explicitly when recursion takes place in a
 datatype gives some additional insight into the description.
-This
-additional power has been used, for example, to define regular
+Some functions really need the information
+about which fields of a constructor are recursive and which are not,
+like the generic |map| and the generic |Zipper| -- we describe
+the latter in \Cref{sec:mrecexamples}.
+This additional power also has been used to define regular
 expressions over Haskell datatypes~\cite{Serrano2016}. 
 
 \paragraph{Sum of Products}
@@ -598,16 +601,17 @@ also be translated to a generic representation. We can relieve this
 burden by recording, explicitly, which fields of a constructor are
 recursive or not.
 
-\section{Explicit Fix: Deep and Shallow for free}
+\section{Explicit Fix: Deriving Deep and Shallow Representations}
 \label{sec:explicitfix}
 
   In this section we will start to look at our approach, essentially
 combining the techniques from the \texttt{regular} and \texttt{generics-sop}
 libraries. Later we extend the constructions to handle mutually recursive
-families instead of simple recursion. The motivation for having a fixpoint
-view over generic values is that some functions need the information
-about which fields of a constructor are recursive and which are not.
-Some of these functionality include the generic |map| and the generic |Zipper|.
+families instead of simple recursion. As we discussed in the introduction,
+a fixpoint view over generic functionality is required
+to implement some functionality like the |Zipper| generically.
+In other words, we need a explicit description of which fields of
+a constructor are recursive and which are not.
 
   Introducing information about the recursive positions in a type
 requires more expressive codes then in \Cref{sec:explicitsop}, where
