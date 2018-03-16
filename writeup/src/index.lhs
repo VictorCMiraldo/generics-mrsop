@@ -110,15 +110,17 @@
 %% before \maketitle command
 \begin{abstract} 
   Generic programming for mutually recursive families
-of datatypes is hard. We either deal with complicated code or we
-must give up on using the mutually recursive structure. The later is
-not always an option, however. Most interesting abstract
-syntax trees are mutually recursive families. Naturally,
-generic operations over syntax trees tend to benefit
-from having access to their mutually recursive structure.
-We present a new approach to generic programming that uses
+of datatypes is hard.
+On the other hand, most interesting abstract syntax trees
+are described by a mutually recursive family of datatypes.
+We could give up on using that mutually
+recursive structure, but then we lose the ability to use
+those generic operations which take advantage of that
+same structure.
+
+  We present a new approach to generic programming that uses
 modern Haskell features to handle mutually recursive families with
-explicit \emph{sum-of-products} structure. This added structure allows
+explicit \emph{sum-of-products} structure. This additional structure allows
 us to remove much of the complexity previously associated with generic
 programming over these types.
 \end{abstract}
