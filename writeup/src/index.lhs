@@ -116,9 +116,7 @@ are described by a mutually recursive family of datatypes.
 We could give up on using that mutually
 recursive structure, but then we lose the ability to use
 those generic operations which take advantage of that
-same structure.
-
-  We present a new approach to generic programming that uses
+same structure. We present a new approach to generic programming that uses
 modern Haskell features to handle mutually recursive families with
 explicit \emph{sum-of-products} structure. This additional structure allows
 us to remove much of the complexity previously associated with generic
