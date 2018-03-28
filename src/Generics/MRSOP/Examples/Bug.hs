@@ -104,6 +104,37 @@ data E
    | EE A B C D E F G
    | EF A B C D E F G
 
-data F
+data F {-
+   = F1 A B C D E F G
+   | F2 A B C D E F G
+   | F3 A B C D E F G
+   | F4 A B C D E F G
+   | F5 A B C D E F G
+   | F6 A B C D E F G
+   | F7 A B C D E F G
+   | F8 A B C D E F G
+   | F9 A B C D E F G
+   | FA A B C D E F G
+   | FB A B C D E F G
+   | FC A B C D E F G
+   | FD A B C D E F G
+   | FE A B C D E F G
+   | FF A B C D E F G -}
 data G
+data G {-
+   = G1 A B C D E F G
+   | G2 A B C D E F G
+   | G3 A B C D E F G
+   | G4 A B C D E F G
+   | G5 A B C D E F G
+   | G6 A B C D E F G
+   | G7 A B C D E F G
+   | G8 A B C D E F G
+   | G9 A B C D E F G
+   | GA A B C D E F G
+   | GB A B C D E F G
+   | GC A B C D E F G
+   | GD A B C D E F G
+   | GE A B C D E F G
+   | GF A B C D E F G -}
 deriveFamily [t| A |]
