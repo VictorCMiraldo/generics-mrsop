@@ -1,3 +1,9 @@
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE DataKinds #-}
 -- |
 -- Module      : Language.Go.Syntax.AST
 -- Copyright   : (c) 2011 Andrew Robbins
@@ -6,35 +12,35 @@
 -- x
 
 {-# LANGUAGE CPP #-}
-{-# LANGUAGE TypeApplications        #-}
-{-# LANGUAGE RankNTypes              #-}
-{-# LANGUAGE FlexibleContexts        #-}
-{-# LANGUAGE FlexibleInstances       #-}
-{-# LANGUAGE FlexibleInstances       #-}
-{-# LANGUAGE GADTs                   #-}
-{-# LANGUAGE TypeOperators           #-}
-{-# LANGUAGE DataKinds               #-}
-{-# LANGUAGE PolyKinds               #-}
-{-# LANGUAGE ScopedTypeVariables     #-}
-{-# LANGUAGE FunctionalDependencies  #-}
-{-# LANGUAGE TemplateHaskell         #-}
-{-# LANGUAGE LambdaCase              #-}
+{-# LANGUAGE TemplateHaskell #-}
 #define GO_AST_DERIVING deriving (Eq, Read, Show)
 module Generics.MRSOP.Examples.GoAST where
+
 
 import Generics.MRSOP.Base
 import Generics.MRSOP.Opaque
 import Generics.MRSOP.Util
+import Generics.MRSOP.Zipper
+
+import Generics.MRSOP.Examples.LambdaAlphaEqTH hiding (FIX, alphaEq)
+
 import Generics.MRSOP.TH
+
+
 
 -- | Go Language source start
 data GoSource = GoSource {
       getPackage      :: GoId,
       getTopLevelPrel :: [GoPrel],
       getTopLevelDecl :: [GoDecl]}
-                deriving (Eq, Read, Show)
+                GO_AST_DERIVING
 
 data GoPrel = GoImportDecl [GoImpSpec]
+#ifdef DSGO
+            | GoPragma String
+            | GoDefine
+            | GoIfPrel
+#endif
                 deriving (Eq, Read, Show)
 
 data GoDecl = GoConst [GoCVSpec]
@@ -48,7 +54,7 @@ data GoImpSpec = GoImpSpec GoImpType String
                 deriving (Eq, Read, Show)
 
 data GoImpType = GoImp
-               | GoImpDot
+               | GoImpDot  GoOp
                | GoImpQual GoId
                 deriving (Eq, Read, Show)
 
@@ -67,8 +73,8 @@ data GoFuncDecl  = GoFuncDecl       GoId GoSig GoBlock
 data GoMethDecl  = GoMethDecl GoRec GoId GoSig GoBlock
                 deriving (Eq, Read, Show)
 
-data GoMethSpec  = GoMethSpec  GoId GoSig
-                 | GoIfaceName (Maybe GoId) GoId
+data GoMethSpec  = GoMethSpec       GoId GoSig
+                 | GoInterface      GoId
                 deriving (Eq, Read, Show)
 
 -- GoId (= 'identifier')
@@ -92,17 +98,16 @@ data GoParam = GoParam [GoId] GoType
                 deriving (Eq, Read, Show)
 
 -- GoType (= 'Type' = 'TypeLit' = 'LiteralType')
-data GoType = GoTypeName (Maybe GoId) GoId
+data GoType = GoTypeName [GoId] GoId
             | GoArrayType GoExpr GoType
-            | GoChannelType GoChanKind GoType
+            | GoChannelType GoChanKind GoType  -- only in Decls
+            | GoElipsisType GoType  -- only in Literals
             | GoFunctionType GoSig
-            | GoInterfaceType [GoMethSpec]
+            | GoInterfaceType [GoMethSpec] -- only in Decls
             | GoMapType GoType GoType
-            | GoPointerType GoType
+            | GoPointerType GoType   -- only in Decls
             | GoSliceType GoType
             | GoStructType [GoFieldType]
-            | GoEllipsisType GoType  -- only in Literals
-            | GoVariadicType GoType  -- only in Funcs
                 deriving (Eq, Read, Show)
 
 
@@ -110,18 +115,18 @@ data GoType = GoTypeName (Maybe GoId) GoId
 --                   | GoOChan
 --                   | GoIOChan
 
-data GoChanKind = GoIChan  -- <-chan
-                | GoOChan  -- chan<-
-                | GoIOChan -- chan
+data GoChanKind = GoIChan  -- 1
+                | GoOChan  -- 2
+                | GoIOChan -- 3
                 deriving (Eq, Read, Show)
 
 -- GoFieldType
-data GoFieldType = GoFieldType {
-      getFieldTag  :: Maybe GoLit,
-      getFieldId   :: [GoId],
+data GoFieldType = GoFieldType { 
+      getFieldTag  :: String, 
+      getFieldId   :: [GoId], 
       getFieldType :: GoType }
-                 | GoFieldAnon {
-      getFieldTag  :: Maybe GoLit,
+                 | GoFieldAnon { 
+      getFieldTag  :: String, 
       getFieldPtr  :: Bool,
       getFieldType :: GoType } -- MUST be typename
                 deriving (Eq, Read, Show)
@@ -154,7 +159,7 @@ data GoExpr = GoPrim GoPrim           -- 'PrimaryExpr'
 
 -- GoPrimExpr (= 'PrimaryExpr')
 data GoPrim = GoLiteral GoLit         -- 'PrimaryExpr/Operand/Literal'
-            | GoQual (Maybe GoId) GoId -- 'PrimaryExpr/Operand/QualifiedIdent'
+            | GoQual  [GoId] GoId     -- 'PrimaryExpr/Operand/QualifiedIdent'
             | GoMethod GoRec GoId     -- 'PrimaryExpr/Operand/MethodExpr'
             | GoParen GoExpr          -- 'PrimaryExpr/Operand/MethodExpr'
             | GoCast GoType GoExpr    -- 'PrimaryExpr/Conversion'
@@ -163,7 +168,7 @@ data GoPrim = GoLiteral GoLit         -- 'PrimaryExpr/Operand/Literal'
 --            | GoBI GoId GoType [GoExpr]  -- 'PrimaryExpr/BuiltinCall'
             | GoSelect GoPrim GoId    -- 'PrimaryExpr/Selector'
             | GoIndex GoPrim GoExpr   -- 'PrimaryExpr/Index'
-            | GoSlice GoPrim (Maybe GoExpr) (Maybe GoExpr) -- 'PrimaryExpr/Slice'
+            | GoSlice GoPrim [GoExpr] -- 'PrimaryExpr/Slice'
             | GoTA    GoPrim GoType   -- 'PrimaryExpr/TypeAssertion'
             | GoCall  GoPrim [GoExpr] Bool -- 'PrimaryExpr/Call'
               deriving (Eq, Read, Show)
@@ -199,9 +204,9 @@ data GoBlock = GoBlock { getStmt::[GoStmt] }
              | GoNoBlock
                 deriving (Eq, Read, Show)
 
-data GoForClause = GoForWhile (Maybe GoExpr)
+data GoForClause = GoForWhile GoExpr
                  | GoForThree GoSimp (Maybe GoExpr) GoSimp
-                 | GoForRange [GoExpr] GoExpr Bool -- True if AssignDecl
+                 | GoForRange [GoExpr] GoExpr
                 deriving (Eq, Read, Show)
 
 data GoStmt = GoStmtDecl GoDecl -- 'Statement/Declaration'
@@ -223,6 +228,7 @@ data GoStmt = GoStmtDecl GoDecl -- 'Statement/Declaration'
               deriving (Eq, Read, Show)
 
 data GoSimp = GoSimpEmpty
+            | GoSimpRecv GoExpr        -- SelectStmt/RecvStmt
             | GoSimpSend GoExpr GoExpr -- SimpleStmt/SendStmt
             | GoSimpExpr GoExpr        -- SimpleStmt/ExpressionStmt
             | GoSimpInc  GoExpr        -- SimpleStmt/IncDecStmt[1]
@@ -231,10 +237,10 @@ data GoSimp = GoSimpEmpty
             | GoSimpVar [GoId] [GoExpr]      -- ShortVarDecl
               deriving (Eq, Read, Show)
 
-data GoChanR = GoChanR GoExpr (Maybe GoExpr) GoOp
-            deriving (Eq, Read, Show)
+data GoChanInner = GoChanInner GoExpr GoOp
+  deriving (Eq, Read , Show)
 
-data GoChan = GoChanRecv (Maybe GoChanR) GoExpr
+data GoChan = GoChanRecv (Maybe GoChanInner) GoExpr
             | GoChanSend GoExpr GoExpr
               deriving (Eq, Read, Show)
 
@@ -243,4 +249,5 @@ data GoCond = GoCond (Maybe GoSimp) (Maybe GoExpr)
 data GoCase a = GoCase [a] [GoStmt]
               | GoDefault  [GoStmt]
                 deriving (Eq, Read, Show)
-deriveFamily [t| GoType |]
+
+deriveFamily [t| GoSource |]
