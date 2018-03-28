@@ -120,7 +120,6 @@ data F {-
    | FD A B C D E F G
    | FE A B C D E F G
    | FF A B C D E F G -}
-data G
 data G {-
    = G1 A B C D E F G
    | G2 A B C D E F G
