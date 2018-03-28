@@ -1,5 +1,4 @@
 { nixpkgs ? import <nixpkgs> {}, compiler ? "ghcHEAD", doBenchmark ? false }:
-
 let
 
   inherit (nixpkgs) pkgs;
