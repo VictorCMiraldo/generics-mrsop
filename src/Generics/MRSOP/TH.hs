@@ -571,11 +571,11 @@ matchAll = (++ [match WildP err])
 
 genPiece3_1 :: Input -> Q Exp
 genPiece3_1 input
-  = LamCaseE . matchAll <$> mapM (\(sty , ix , dti) -> clauseForIx sty ix dti) input
+  = LamCaseE <$> mapM (\(sty , ix , dti) -> clauseForIx sty ix dti) input
   where
     clauseForIx :: STy -> Int -> DTI IK -> Q Match
     clauseForIx sty ix dti = match (int2SNatPat ix)
-                       <$> (LamCaseE . matchAll <$> genMatch dti)
+                       <$> (LamCaseE <$> genMatch dti)
     
     genMatch :: DTI IK -> Q [Match]
     genMatch dti
