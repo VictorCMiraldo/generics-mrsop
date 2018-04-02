@@ -21,7 +21,7 @@ import Control.Monad.State
 import Control.Monad.Writer
 import Control.Monad.Identity
 
-import Language.Haskell.TH
+import Language.Haskell.TH hiding (match)
 import Language.Haskell.TH.Syntax (liftString)
 
 import Generics.MRSOP.Util
@@ -402,12 +402,12 @@ reifySTy sty
 -- >     = Rep $ Here (NA_K (SInt a) :* NA_I (El as) :* NP0)
 -- >   sfrom' (SS SZ) (El (Leaf a))
 -- >     = Rep $ There (Here (NA_K (SInt a) :* NP0))
---
--- 3.2.
 -- >   sfrom' SZ (El [])
 -- >     = Rep $ Here NP0
 -- >   sfrom' SZ (El (x:xs))
 -- >     = Rep $ There (Here (NA_I (El x) :* NA_I (El xs) :* NP0))
+--
+-- 3.2.
 -- > 
 -- >   sto' SZ (Rep (Here NP0))
 -- >     = El []
@@ -555,15 +555,27 @@ ci2ExpPat ni ci
 
     mkK k = mkName $ 'S':tail (nameBase k)
 
+
+match :: Pat -> Exp -> Match
+match pat bdy = Match pat (NormalB bdy) []
+
+-- Adds a matchall clause; for instance:
+--
+-- > matchAll [Just x -> 1] = [Just x -> 1 , _ -> error "matchAll"]
+--
+matchAll :: [Match] -> [Match]
+matchAll = (++ [match WildP err])
+  where
+    err = AppE (VarE (mkName "error")) (LitE (StringL "matchAll"))
+    
+
 genPiece3_1 :: Input -> Q Exp
 genPiece3_1 input
-  = LamCaseE <$> mapM (\(sty , ix , dti) -> clauseForIx sty ix dti) input
+  = LamCaseE . matchAll <$> mapM (\(sty , ix , dti) -> clauseForIx sty ix dti) input
   where
-    match pat bdy = Match pat (NormalB bdy) []
-    
     clauseForIx :: STy -> Int -> DTI IK -> Q Match
     clauseForIx sty ix dti = match (int2SNatPat ix)
-                       <$> (LamCaseE <$> genMatch dti)
+                       <$> (LamCaseE . matchAll <$> genMatch dti)
     
     genMatch :: DTI IK -> Q [Match]
     genMatch dti
@@ -572,13 +584,11 @@ genPiece3_1 input
       
 genPiece3_2 :: Input -> Q Exp
 genPiece3_2 input
-  = LamCaseE <$> mapM (\(sty , ix , dti) -> clauseForIx sty ix dti) input
-  where
-    match pat bdy = Match pat (NormalB bdy) []
-    
+  = LamCaseE . matchAll <$> mapM (\(sty , ix , dti) -> clauseForIx sty ix dti) input
+  where    
     clauseForIx :: STy -> Int -> DTI IK -> Q Match
     clauseForIx sty ix dti = match (int2SNatPat ix)
-                       <$> (LamCaseE <$> genMatch dti)
+                       <$> (LamCaseE . matchAll <$> genMatch dti)
       
     genMatch :: DTI IK -> Q [Match]
     genMatch dti
