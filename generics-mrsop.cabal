@@ -60,9 +60,9 @@ library
     Generics.MRSOP.Util,
     Generics.MRSOP.TH,
     -- Generics.MRSOP.Examples.RoseTree,
-    Generics.MRSOP.Examples.RoseTreeTH
-    -- Generics.MRSOP.Examples.GoAST
-    Generics.MRSOP.Examples.Bug
+    -- Generics.MRSOP.Examples.RoseTreeTH
+    Generics.MRSOP.Examples.GoAST
+    -- Generics.MRSOP.Examples.Bug
   
   -- Modules included in this library but not exported.
   -- other-modules:       
