@@ -264,6 +264,10 @@ data IK
   | AtomK Name
   deriving (Eq , Show)
 
+ikElim :: (Int -> a) -> (Name -> a) -> IK -> a
+ikElim i k (AtomI n) = i n
+ikElim i k (AtomK n) = k n
+
 data Idxs 
   = Idxs { idxsNext :: Int
          , idxsMap  :: M.Map STy (Int , Maybe (DTI IK))
@@ -379,14 +383,16 @@ reifySTy sty
 --
 -- 1. The Family and the codes
 -- 1.1 > type FamRose   = '[ [R Int] , R Int ]
--- 1.2 > type CodesRose = '[ '[ '[] , '[I (S Z) , I Z] ]
---     >                   , '[ '[K KInt , I Z] , '[K KInt] ]
+-- 1.2 > type D0_ = Z
+--     > type D1_ = S Z
+-- 1.3 > type CodesRose = '[ '[ '[] , '[I D1_ , I D0_] ]
+--     >                   , '[ '[K KInt , I D0_] , '[K KInt] ]
 --     >                   ]
 --
 -- 2. The index of each type in the family.
 -- 2.1 types
--- > pattern RInt_     = SZ
--- > pattern ListRInt_ = SS SZ
+-- > pattern IdxRInt     = SZ
+-- > pattern IdxListInt  = SS SZ
 --
 -- 2.2. constructors
 -- > pattern a :>:_ as = Tag CZ      (NA_K a :* NA_I (El as) :* NP0)
@@ -437,6 +443,11 @@ int2Type :: Int -> Type
 int2Type 0 = tyZ
 int2Type n = AppT tyS (int2Type (n - 1))
 
+-- generate the name of the type synonym corresponding to
+-- this int.
+int2TySynName :: Int -> Name
+int2TySynName i = mkName $ "D" ++ show i ++ "_"
+
 -- generates a Snat for the given Int
 int2SNatPat :: Int -> Pat
 int2SNatPat 0 = ConP (mkName "SZ") []
@@ -448,7 +459,7 @@ tyZ = PromotedT (mkName "Z")
 tyI = PromotedT (mkName "I")
 tyK = PromotedT (mkName "K")
 
--- Generate rhs of piece (1.2)
+-- Generate rhs of piece (1.3)
 inputToCodes :: Input -> Q Type
 inputToCodes = return . tlListOf dti2Type . map third
   where
@@ -461,10 +472,29 @@ inputToCodes = return . tlListOf dti2Type . map third
     ci2Type = tlListOf ik2Type . ci2ty
 
     ik2Type :: IK -> Type
-    ik2Type (AtomI n) = AppT tyI $ int2Type n
+    ik2Type (AtomI n) = AppT tyI $ ConT (int2TySynName n)
     ik2Type (AtomK k) = AppT tyK $ PromotedT k
 
--- generates rhs of pieve (1.1)
+-- Generates piece (1.2); we do so by
+-- finding what's the maximum type index used
+-- in all DatatypeInformation we have and then generate
+-- all type synonyms up to it.
+inputToTySynNums :: Input -> Q [Dec]
+inputToTySynNums input
+  = let maxI = maximum $ map (localMax . third) input
+     in return $ map genTySynNum [0..maxI]
+  where
+    third (_ , _ , x) = x
+
+    localMax :: DTI IK -> Int
+    localMax = foldr (\ci aux -> aux `max` getMaxIdx (ci2ty ci)) 0 . dti2ci
+
+    getMaxIdx :: [IK] -> Int
+    getMaxIdx = foldr (ikElim max (const id)) 0
+
+    genTySynNum i = TySynD (int2TySynName i) [] (int2Type i)
+      
+-- generates rhs of piece (1.1)
 inputToFam :: Input -> Q Type
 inputToFam = return . tlListOf trevnocType . map first
   where
@@ -490,15 +520,16 @@ codesName = return . onBaseName ("Codes" ++) . styToName
 familyName :: STy -> Q Name
 familyName = return . onBaseName ("Fam" ++) . styToName
 
-genPiece1 :: STy -> Input -> Q (Dec , Dec)
+genPiece1 :: STy -> Input -> Q [Dec]
 genPiece1 first ls
-  = do codes <- TySynD <$> codesName first
+  = do nums  <- inputToTySynNums ls
+       codes <- TySynD <$> codesName first
                        <*> return []
                        <*> inputToCodes ls
        fam   <- TySynD <$> familyName first
                        <*> return []
                        <*> inputToFam ls
-       return (fam , codes)
+       return (nums ++ [fam , codes])
 
 idxPatSynName :: STy -> Name
 idxPatSynName = styToName . (AppST (ConST (mkName "Idx")))
@@ -676,11 +707,11 @@ genPiece4 first ls = concat <$> mapM genDatatypeInfoInstance ls
 --  Precondition, input is sorted on second component.
 genFamily :: STy -> Input -> Q [Dec]
 genFamily first ls
-  = do (p1a, p1b) <- genPiece1 first ls
+  = do p1 <- genPiece1 first ls
        p2 <- genPiece2 first ls
        p3 <- genPiece3 first ls
        p4 <- genPiece4 first ls
-       return $ [p1a , p1b] ++ p2 ++ [p3] ++ p4
+       return $ p1 ++ p2 ++ [p3] ++ p4
 
 -- |Generates a bunch of strings for debug purposes.
 genFamilyDebug :: STy -> [(STy , Int , DTI IK)] -> Q [Dec]
