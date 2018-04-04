@@ -4,6 +4,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE PatternSynonyms #-}
 -- |
 -- Module      : Language.Go.Syntax.AST
 -- Copyright   : (c) 2011 Andrew Robbins

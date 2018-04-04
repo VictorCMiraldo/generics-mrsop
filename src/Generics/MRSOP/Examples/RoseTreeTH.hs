@@ -11,6 +11,7 @@
 {-# LANGUAGE FunctionalDependencies  #-}
 {-# LANGUAGE TemplateHaskell         #-}
 {-# LANGUAGE LambdaCase              #-}
+{-# LANGUAGE PatternSynonyms         #-}
 module Generics.MRSOP.Examples.RoseTreeTH where
 
 {-# OPTIONS_GHC -ddump-splices #-}

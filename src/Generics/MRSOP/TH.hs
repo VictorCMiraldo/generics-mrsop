@@ -472,7 +472,14 @@ inputToFam = return . tlListOf trevnocType . map first
 
 -- | @styToName "List (R Int)" == "ListRInt"@
 styToName :: STy -> Name
-styToName = mkName . styFold (++) nameBase nameBase
+styToName = mkName . styFold (++) nameBase (fixList . nameBase)
+  where
+    -- VCM: ugly hack; but list is a reserved name.
+    --      The hack is needed either here or in reify.
+    fixList :: String -> String
+    fixList n
+      | n == "[]"  = "List"
+      | otherwise  = n
 
 onBaseName :: (String -> String) -> Name -> Name
 onBaseName f = mkName . f . nameBase
@@ -492,6 +499,24 @@ genPiece1 first ls
                        <*> return []
                        <*> inputToFam ls
        return (fam , codes)
+
+idxPatSynName :: STy -> Name
+idxPatSynName = styToName . (AppST (ConST (mkName "Idx")))
+       
+idxPatSyn :: STy -> Pat
+idxPatSyn = flip ConP [] . idxPatSynName
+
+genIdxPatSyn :: STy -> Int -> Q Dec
+genIdxPatSyn sty ix
+  = return (PatSynD (idxPatSynName sty) (PrefixPatSyn []) ImplBidir (int2SNatPat ix))
+
+-- |Generating pattern sinonyms for the type indexes for now, only.
+--
+--  > pattern IdxRInt = SZ
+--  > pattern IdxListRInt = SS SZ
+--
+genPiece2 :: STy -> Input -> Q [Dec]
+genPiece2 first ls = mapM (\(sty , ix , dti) -> genIdxPatSyn sty ix) ls
 
 genPiece3 :: STy -> Input -> Q Dec
 genPiece3 first ls
@@ -567,14 +592,13 @@ matchAll :: [Match] -> [Match]
 matchAll = (++ [match WildP err])
   where
     err = AppE (VarE (mkName "error")) (LitE (StringL "matchAll"))
-    
 
 genPiece3_1 :: Input -> Q Exp
 genPiece3_1 input
   = LamCaseE <$> mapM (\(sty , ix , dti) -> clauseForIx sty ix dti) input
   where
     clauseForIx :: STy -> Int -> DTI IK -> Q Match
-    clauseForIx sty ix dti = match (int2SNatPat ix)
+    clauseForIx sty ix dti = match (idxPatSyn sty)
                        <$> (LamCaseE <$> genMatch dti)
     
     genMatch :: DTI IK -> Q [Match]
@@ -587,7 +611,7 @@ genPiece3_2 input
   = LamCaseE . matchAll <$> mapM (\(sty , ix , dti) -> clauseForIx sty ix dti) input
   where    
     clauseForIx :: STy -> Int -> DTI IK -> Q Match
-    clauseForIx sty ix dti = match (int2SNatPat ix)
+    clauseForIx sty ix dti = match (idxPatSyn sty)
                        <$> (LamCaseE . matchAll <$> genMatch dti)
       
     genMatch :: DTI IK -> Q [Match]
@@ -653,10 +677,10 @@ genPiece4 first ls = concat <$> mapM genDatatypeInfoInstance ls
 genFamily :: STy -> Input -> Q [Dec]
 genFamily first ls
   = do (p1a, p1b) <- genPiece1 first ls
-       -- TODO: Gen Piece 2!
+       p2 <- genPiece2 first ls
        p3 <- genPiece3 first ls
        p4 <- genPiece4 first ls
-       return $ [p1a , p1b , p3] ++ p4
+       return $ [p1a , p1b] ++ p2 ++ [p3] ++ p4
 
 -- |Generates a bunch of strings for debug purposes.
 genFamilyDebug :: STy -> [(STy , Int , DTI IK)] -> Q [Dec]
