@@ -541,11 +541,11 @@ idxPatSynName = styToName . (AppST (ConST (mkName "Idx")))
 idxPatSyn :: STy -> Pat
 idxPatSyn = flip ConP [] . idxPatSynName
 
-htPatSynName :: Int -> Name
-htPatSynName i = mkName ("HT" ++ show i ++ "_")
+htPatSynName :: Int -> Int -> Name
+htPatSynName ix maxC = mkName ("HT" ++ show ix ++ "_" ++ show maxC ++ "_")
 
-htPatSynExp :: Int -> Q Exp
-htPatSynExp = return . ConE . htPatSynName
+htPatSynExp :: Int -> Int -> Q Exp
+htPatSynExp ix = return . ConE . htPatSynName ix
 
 genIdxPatSyn :: STy -> Int -> Q Dec
 genIdxPatSyn sty ix
@@ -553,8 +553,8 @@ genIdxPatSyn sty ix
 
 genHereTherePatSyn :: Input -> Q [Dec]
 genHereTherePatSyn input
-  = let maxCon = maximum . (0:) $ map (length . dti2ci . third) input
-     in mapM genHereThere [0 .. maxCon]
+  = let maxCon = map (\(sty , ix , dti) -> (ix , length $ dti2ci dti)) input
+     in concat <$> mapM (uncurry genHereThereFor) maxCon
   where
     third (_ , _, x) = x
 
@@ -562,10 +562,11 @@ genHereTherePatSyn input
     inj 0 p = [p| Here $p                  |]
     inj n p = [p| There ( $(inj (n-1) p) ) |]
 
-    genHereThere i
-      = do var <- newName "d"
-           PatSynD (htPatSynName i) (PrefixPatSyn [var]) ImplBidir
-             <$> inj i (return $ VarP var)
+    genHereThereFor :: Int -> Int -> Q [Dec]
+    genHereThereFor ix maxC = flip mapM [0..maxC] $ \i 
+      -> do var <- newName "d"
+            PatSynD (htPatSynName ix i) (PrefixPatSyn [var]) ImplBidir
+              <$> inj i (return $ VarP var)
            
 
 -- |Generating pattern sinonyms for the type indexes
@@ -596,8 +597,8 @@ genPiece3 first ls
 --  >   = ( El (Bin x_1 x_2)
 --  >     , Rep (There (There (Here (NA_I (El x_1) :* NA_I (El x_2) :* NP0))))
 --  >     )
-ci2PatExp :: Int -> CI IK -> Q (Pat , Exp)
-ci2PatExp ni ci
+ci2PatExp :: Int -> Int -> CI IK -> Q (Pat , Exp)
+ci2PatExp ix ni ci
   = do (vars , pat) <- ci2Pat ci
        bdy          <- [e| Rep $(inj ni $ genBdy (zip vars (ci2ty ci))) |]
        return (ConP (mkName "El") [pat] , bdy)
@@ -605,7 +606,7 @@ ci2PatExp ni ci
     inj :: Int -> Q Exp -> Q Exp
     -- inj 0 e = [e| Here $e              |]
     -- inj n e = [e| There $(inj (n-1) e) |]
-    inj i e = [e| $(htPatSynExp i) $e |]
+    inj i e = [e| $(htPatSynExp ix i) $e |]
 
     genBdy :: [(Name , IK)] -> Q Exp
     genBdy []       = [e| NP0 |]
@@ -623,16 +624,16 @@ ci2PatExp ni ci
 --  >   = ( Rep (There (There (Here (NA_I (El x_1) :* NA_I (El x_2) :* NP0))))
 --        , El (Bin x_1 x_2)
 --  >     )
-ci2ExpPat :: Int -> CI IK -> Q (Pat , Exp)
-ci2ExpPat ni ci
+ci2ExpPat :: Int -> Int -> CI IK -> Q (Pat , Exp)
+ci2ExpPat ix ni ci
   = do (vars , exp) <- ci2Exp ci
        pat          <- [p| Rep $(inj ni $ genBdy (zip vars (ci2ty ci))) |]
        return (pat , AppE (ConE $ mkName "El") exp)
   where
     inj :: Int -> Q Pat -> Q Pat
-    inj 0 e = [p| Here $e              |]
-    inj n e = [p| There $(inj (n-1) e) |]
-    -- inj i e = ConP (htPatSynName i) . (:[]) <$> e
+    -- inj 0 e = [p| Here $e              |]
+    -- inj n e = [p| There $(inj (n-1) e) |]
+    inj i e = ConP (htPatSynName ix i) . (:[]) <$> e
     
     genBdy :: [(Name , IK)] -> Q Pat
     genBdy []       = [p| NP0 |]
@@ -663,12 +664,12 @@ genPiece3_1 input
   where
     clauseForIx :: STy -> Int -> DTI IK -> Q Match
     clauseForIx sty ix dti = match (idxPatSyn sty)
-                       <$> (LamCaseE <$> genMatch dti)
+                       <$> (LamCaseE <$> genMatchFor ix dti)
     
-    genMatch :: DTI IK -> Q [Match]
-    genMatch dti
+    genMatchFor :: Int -> DTI IK -> Q [Match]
+    genMatchFor ix dti
       = map (uncurry match)
-      <$> mapM (uncurry ci2PatExp) (zip [0..] (dti2ci dti))
+      <$> mapM (uncurry $ ci2PatExp ix) (zip [0..] (dti2ci dti))
       
 genPiece3_2 :: Input -> Q Exp
 genPiece3_2 input
@@ -676,12 +677,12 @@ genPiece3_2 input
   where    
     clauseForIx :: STy -> Int -> DTI IK -> Q Match
     clauseForIx sty ix dti = match (idxPatSyn sty)
-                       <$> (LamCaseE . matchAll <$> genMatch dti)
+                       <$> (LamCaseE . matchAll <$> genMatchFor ix dti)
       
-    genMatch :: DTI IK -> Q [Match]
-    genMatch dti
+    genMatchFor :: Int -> DTI IK -> Q [Match]
+    genMatchFor ix dti
       = map (uncurry match)
-      <$> mapM (uncurry ci2ExpPat) (zip [0..] (dti2ci dti))
+      <$> mapM (uncurry $ ci2ExpPat ix) (zip [0..] (dti2ci dti))
 
 genPiece4 :: STy -> Input -> Q [Dec]
 genPiece4 first ls = concat <$> mapM genDatatypeInfoInstance ls
