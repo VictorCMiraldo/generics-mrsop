@@ -21,9 +21,6 @@ module Generics.MRSOP.Examples.GoAST where
 import Generics.MRSOP.Base
 import Generics.MRSOP.Opaque
 import Generics.MRSOP.Util
-import Generics.MRSOP.Zipper
-
-import Generics.MRSOP.Examples.LambdaAlphaEqTH hiding (FIX, alphaEq)
 
 import Generics.MRSOP.TH
 

@@ -20,7 +20,8 @@ import Generics.MRSOP.Opaque
 import Generics.MRSOP.Util
 import Generics.MRSOP.Zipper
 
-import Generics.MRSOP.Examples.LambdaAlphaEqTH hiding (FIX, alphaEq)
+import Generics.MRSOP.Examples.LambdaAlphaEqTH
+  hiding (FIX, alphaEq , HT0_ , HT1_ , HT2_ , HT3_ , D0_ )
 
 import Generics.MRSOP.TH
 
