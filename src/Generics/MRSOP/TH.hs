@@ -394,6 +394,10 @@ reifySTy sty
 -- > pattern IdxRInt     = SZ
 -- > pattern IdxListInt  = SS SZ
 --
+-- 2.1.1 Here-There Synonyms
+-- > pattern HT0_ d = Here d
+-- > pattern HT1_ d = There (Here d)
+--
 -- 2.2. constructors
 -- > pattern a :>:_ as = Tag CZ      (NA_K a :* NA_I (El as) :* NP0)
 -- > pattern Leaf_ a   = Tag (CS CZ) (NA_K a :* NP0)
@@ -405,23 +409,23 @@ reifySTy sty
 --
 -- 3.1. for each type in (1)
 -- >   sfrom' (SS SZ) (El (a :>: as))
--- >     = Rep $ Here (NA_K (SInt a) :* NA_I (El as) :* NP0)
+-- >     = Rep $ HT0_ (NA_K (SInt a) :* NA_I (El as) :* NP0)
 -- >   sfrom' (SS SZ) (El (Leaf a))
--- >     = Rep $ There (Here (NA_K (SInt a) :* NP0))
+-- >     = Rep $ HT1_ (NA_K (SInt a) :* NP0)
 -- >   sfrom' SZ (El [])
--- >     = Rep $ Here NP0
+-- >     = Rep $ HT0_ NP0
 -- >   sfrom' SZ (El (x:xs))
--- >     = Rep $ There (Here (NA_I (El x) :* NA_I (El xs) :* NP0))
+-- >     = Rep $ HT1_ (NA_I (El x) :* NA_I (El xs) :* NP0)
 --
 -- 3.2.
 -- > 
--- >   sto' SZ (Rep (Here NP0))
+-- >   sto' SZ (Rep (HT0_ NP0))
 -- >     = El []
--- >   sto' SZ (Rep (There (Here (NA_I (El x) :* NA_I (El xs) :* NP0))))
+-- >   sto' SZ (Rep (HT1_ (NA_I (El x) :* NA_I (El xs) :* NP0)))
 -- >     = El (x : xs)
--- >   sto' (SS SZ) (Rep (Here (NA_K (SInt a) :* NA_I (El as) :* NP0)))
+-- >   sto' (SS SZ) (Rep (HT0_ (NA_K (SInt a) :* NA_I (El as) :* NP0)))
 -- >     = El (a :>: as)
--- >   sto' (SS SZ) (Rep (There (Here (NA_K (SInt a) :* NP0))))
+-- >   sto' (SS SZ) (Rep (HT1_ (NA_K (SInt a) :* NP0)))
 -- >     = El (Leaf a)
 --
 -- 4. Metadata for each type in (1)
@@ -493,7 +497,7 @@ inputToTySynNums input
     getMaxIdx = foldr (ikElim max (const id)) 0
 
     genTySynNum i = TySynD (int2TySynName i) [] (int2Type i)
-      
+
 -- generates rhs of piece (1.1)
 inputToFam :: Input -> Q Type
 inputToFam = return . tlListOf trevnocType . map first
@@ -537,17 +541,44 @@ idxPatSynName = styToName . (AppST (ConST (mkName "Idx")))
 idxPatSyn :: STy -> Pat
 idxPatSyn = flip ConP [] . idxPatSynName
 
+htPatSynName :: Int -> Name
+htPatSynName i = mkName ("HT" ++ show i ++ "_")
+
+htPatSynExp :: Int -> Q Exp
+htPatSynExp = return . ConE . htPatSynName
+
 genIdxPatSyn :: STy -> Int -> Q Dec
 genIdxPatSyn sty ix
   = return (PatSynD (idxPatSynName sty) (PrefixPatSyn []) ImplBidir (int2SNatPat ix))
 
--- |Generating pattern sinonyms for the type indexes for now, only.
+genHereTherePatSyn :: Input -> Q [Dec]
+genHereTherePatSyn input
+  = let maxCon = maximum . (0:) $ map (length . dti2ci . third) input
+     in mapM genHereThere [0 .. maxCon]
+  where
+    third (_ , _, x) = x
+
+    inj :: Int -> Q Pat -> Q Pat
+    inj 0 p = [p| Here $p                  |]
+    inj n p = [p| There ( $(inj (n-1) p) ) |]
+
+    genHereThere i
+      = do var <- newName "d"
+           PatSynD (htPatSynName i) (PrefixPatSyn [var]) ImplBidir
+             <$> inj i (return $ VarP var)
+           
+
+-- |Generating pattern sinonyms for the type indexes
+--  and the 'Here/There' combinations. (pieces 2.1 and 2.1.1)
 --
 --  > pattern IdxRInt = SZ
 --  > pattern IdxListRInt = SS SZ
 --
 genPiece2 :: STy -> Input -> Q [Dec]
-genPiece2 first ls = mapM (\(sty , ix , dti) -> genIdxPatSyn sty ix) ls
+genPiece2 first ls
+  = do p21  <- mapM (\(sty , ix , dti) -> genIdxPatSyn sty ix) ls
+       p211 <- genHereTherePatSyn ls
+       return $ p21 ++ p211
 
 genPiece3 :: STy -> Input -> Q Dec
 genPiece3 first ls
@@ -572,9 +603,8 @@ ci2PatExp ni ci
        return (ConP (mkName "El") [pat] , bdy)
   where
     inj :: Int -> Q Exp -> Q Exp
-    inj 0 e = [e| Here $e              |]
-    inj n e = [e| There $(inj (n-1) e) |]
-    
+    inj i e = [e| $(htPatSynExp i) $e |]
+
     genBdy :: [(Name , IK)] -> Q Exp
     genBdy []       = [e| NP0 |]
     genBdy (x : xs) = [e| $(mkHead x) :* ( $(genBdy xs) ) |]
@@ -598,8 +628,7 @@ ci2ExpPat ni ci
        return (pat , AppE (ConE $ mkName "El") exp)
   where
     inj :: Int -> Q Pat -> Q Pat
-    inj 0 e = [p| Here $e              |]
-    inj n e = [p| There $(inj (n-1) e) |]
+    inj i e = ConP (htPatSynName i) . (:[]) <$> e
     
     genBdy :: [(Name , IK)] -> Q Pat
     genBdy []       = [p| NP0 |]
