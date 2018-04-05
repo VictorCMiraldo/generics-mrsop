@@ -603,6 +603,8 @@ ci2PatExp ni ci
        return (ConP (mkName "El") [pat] , bdy)
   where
     inj :: Int -> Q Exp -> Q Exp
+    -- inj 0 e = [e| Here $e              |]
+    -- inj n e = [e| There $(inj (n-1) e) |]
     inj i e = [e| $(htPatSynExp i) $e |]
 
     genBdy :: [(Name , IK)] -> Q Exp
@@ -628,7 +630,9 @@ ci2ExpPat ni ci
        return (pat , AppE (ConE $ mkName "El") exp)
   where
     inj :: Int -> Q Pat -> Q Pat
-    inj i e = ConP (htPatSynName i) . (:[]) <$> e
+    inj 0 e = [p| Here $e              |]
+    inj n e = [p| There $(inj (n-1) e) |]
+    -- inj i e = ConP (htPatSynName i) . (:[]) <$> e
     
     genBdy :: [(Name , IK)] -> Q Pat
     genBdy []       = [p| NP0 |]
