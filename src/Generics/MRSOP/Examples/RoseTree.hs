@@ -39,8 +39,12 @@ type FamRose   = '[ [R Int] , R Int]
 
 -- ** Instance Decl
 
+pattern PFork :: PoA Singl (El FamRose) '[K KInt , I Z]
+              -> NS (PoA Singl (El FamRose)) RTCode
+pattern PFork d = Here d
+
 instance Family Singl FamRose CodesRose where
-  sfrom' (SS SZ) (El (a :>: as)) = Rep $ Here (NA_K (SInt a) :* NA_I (El as) :* NP0)
+  sfrom' (SS SZ) (El (a :>: as)) = Rep $ PFork (NA_K (SInt a) :* NA_I (El as) :* NP0)
   sfrom' (SS SZ) (El (Leaf a))   = Rep $ There (Here (NA_K (SInt a) :* NP0))
   sfrom' SZ (El [])              = Rep $ Here NP0
   sfrom' SZ (El (x:xs))          = Rep $ There (Here (NA_I (El x) :* NA_I (El xs) :* NP0))
@@ -49,11 +53,12 @@ instance Family Singl FamRose CodesRose where
     = El []
   sto' SZ (Rep (There (Here (NA_I (El x) :* NA_I (El xs) :* NP0))))
     = El (x : xs)
-  sto' (SS SZ) (Rep (Here (NA_K (SInt a) :* NA_I (El as) :* NP0)))
+  sto' (SS SZ) (Rep (PFork (NA_K (SInt a) :* NA_I (El as) :* NP0)))
     = El (a :>: as)
   sto' (SS SZ) (Rep (There (Here (NA_K (SInt a) :* NP0))))
     = El (Leaf a)
 
+{-
 instance HasDatatypeInfo Singl FamRose CodesRose Z where
   datatypeInfo _ _
     = ADT "module" (Name "[]" :@: (Name "R" :@: Name "Int"))
@@ -67,6 +72,8 @@ instance HasDatatypeInfo Singl FamRose CodesRose (S Z) where
       $  (Infix ":>:")
       :* (Constructor "Leaf")
       :* NP0
+-}
+
 
 -- * Eq Instance
 
