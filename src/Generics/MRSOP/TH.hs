@@ -549,15 +549,15 @@ idxPatSyn = flip ConP [] . idxPatSynName
 --  Since all our patterns are supposed to be @PrefixPatSyn@s,
 --  we need to translate the infix names to something
 --  Haskell will accept.
-htPatSynName :: CI IK -> Name
-htPatSynName ci = mkName . translate . nameBase . ciName $ ci
+htPatSynName :: Int -> CI IK -> Name
+htPatSynName dtiIx ci = mkName . translate . nameBase . ciName $ ci
   where
-    translate = ("Pat" ++) . foldl' (\str l -> str ++ tr l ) []
+    translate = ("Pat" ++) . foldl' (\str l -> str ++ tr l ) (show dtiIx)
     tr l | isAlphaNum l = l:[]
          | otherwise    = show $ ord l
 
-htPatSynExp :: CI IK -> Q Exp
-htPatSynExp  = return . ConE . htPatSynName 
+htPatSynExp :: Int -> CI IK -> Q Exp
+htPatSynExp dtiIx = return . ConE . htPatSynName dtiIx
 
 genIdxPatSyn :: STy -> Int -> Q Dec
 genIdxPatSyn sty ix
@@ -565,7 +565,7 @@ genIdxPatSyn sty ix
 
 genHereTherePatSyn :: STy -> Input -> Q [Dec]
 genHereTherePatSyn first ls
-  = flat . concat <$> mapM (genHereThereFor . third) ls
+  = flat . concat <$> mapM (\(_ , ix , dti) -> genHereThereFor ix dti) ls
   where
     flat             = foldl' (\ac (x , y) -> x:y:ac) []
     third (_ , _, x) = x
@@ -578,22 +578,22 @@ genHereTherePatSyn first ls
 
     -- Returns one pattern synonym for each constructor in
     -- the datatype and a type signature for it.
-    genHereThereFor :: DTI IK -> Q [(Dec , Dec)]
-    genHereThereFor dti
+    genHereThereFor :: Int -> DTI IK -> Q [(Dec , Dec)]
+    genHereThereFor dtiIx dti
       = do let dtiCode = dti2Codes dti
            let cisIx   = zip [0..] (dti2ci dti)
            forM cisIx $ \ (ix , ci)
-             -> (,) <$> genHT_decl dtiCode ix ci
-                    <*> genHT_def  ix ci
+             -> (,) <$> genHT_decl dtiCode dtiIx ix ci
+                    <*> genHT_def          dtiIx ix ci
 
-    genHT_decl dtiCode ix ci
-      = PatSynSigD (htPatSynName ci)
+    genHT_decl dtiCode dtiIx ix ci
+      = PatSynSigD (htPatSynName dtiIx ci)
           <$> [t| PoA Singl (El $famName) $(return $ ci2Codes ci)
                 -> NS (PoA Singl (El $famName)) $(return dtiCode) |]
 
-    genHT_def ix ci
+    genHT_def dtiIx ix ci
       = do var <- newName "d"
-           PatSynD (htPatSynName ci) (PrefixPatSyn [var]) ImplBidir
+           PatSynD (htPatSynName dtiIx ci) (PrefixPatSyn [var]) ImplBidir
              <$> inj ix (return $ VarP var)
            
 
@@ -621,12 +621,12 @@ genPiece3 first ls
 --  and an expression from it. The int here
 --  indicates the number of the constructor.
 --
---  > ci2PatExp (Normal "Bin" [VarT a , VarT a])
+--  > ci2PatExp IdxBinTree (Normal "Bin" [VarT a , VarT a])
 --  >   = ( El (Bin x_1 x_2)
---  >     , Rep (PatBin_ (NA_I (El x_1) :* NA_I (El x_2) :* NP0))
+--  >     , Rep (PatBin_IdxBinTree (NA_I (El x_1) :* NA_I (El x_2) :* NP0))
 --  >     )
-ci2PatExp :: CI IK -> Q (Pat , Exp)
-ci2PatExp ci
+ci2PatExp :: Int -> CI IK -> Q (Pat , Exp)
+ci2PatExp dtiIx ci
   = do (vars , pat) <- ci2Pat ci
        bdy          <- [e| Rep $(inj $ genBdy (zip vars (ci2ty ci))) |]
        return (ConP (mkName "El") [pat] , bdy)
@@ -634,7 +634,7 @@ ci2PatExp ci
     inj :: Q Exp -> Q Exp
     -- inj 0 e = [e| Here $e              |]
     -- inj n e = [e| There $(inj (n-1) e) |]
-    inj e = [e| $(htPatSynExp ci) $e |]
+    inj e = [e| $(htPatSynExp dtiIx ci) $e |]
 
     genBdy :: [(Name , IK)] -> Q Exp
     genBdy []       = [e| NP0 |]
@@ -648,12 +648,12 @@ ci2PatExp ci
 
 -- | Just like 'ci2PatExp', but the other way around.
 --
---  > ci2ExpPat (Normal "Bin" [VarT a , VarT a])
---  >   = ( Rep (PatBin_ (NA_I (El x_1) :* NA_I (El x_2) :* NP0))
+--  > ci2ExpPat IdxBinTree (Normal "Bin" [VarT a , VarT a])
+--  >   = ( Rep (PatBin_IdxBinTree (NA_I (El x_1) :* NA_I (El x_2) :* NP0))
 --        , El (Bin x_1 x_2)
 --  >     )
-ci2ExpPat :: CI IK -> Q (Pat , Exp)
-ci2ExpPat ci
+ci2ExpPat :: Int -> CI IK -> Q (Pat , Exp)
+ci2ExpPat dtiIx ci
   = do (vars , exp) <- ci2Exp ci
        pat          <- [p| Rep $(inj $ genBdy (zip vars (ci2ty ci))) |]
        return (pat , AppE (ConE $ mkName "El") exp)
@@ -661,7 +661,7 @@ ci2ExpPat ci
     inj :: Q Pat -> Q Pat
     -- inj 0 e = [p| Here $e              |]
     -- inj n e = [p| There $(inj (n-1) e) |]
-    inj e = ConP (htPatSynName ci) . (:[]) <$> e
+    inj e = ConP (htPatSynName dtiIx ci) . (:[]) <$> e
     
     genBdy :: [(Name , IK)] -> Q Pat
     genBdy []       = [p| NP0 |]
@@ -692,10 +692,10 @@ genPiece3_1 input
   where
     clauseForIx :: STy -> Int -> DTI IK -> Q Match
     clauseForIx sty ix dti = match (idxPatSyn sty)
-                       <$> (LamCaseE <$> genMatchFor dti)
+                       <$> (LamCaseE <$> genMatchFor ix dti)
     
-    genMatchFor :: DTI IK -> Q [Match]
-    genMatchFor dti = map (uncurry match) <$> mapM ci2PatExp (dti2ci dti)
+    genMatchFor :: Int -> DTI IK -> Q [Match]
+    genMatchFor ix dti = map (uncurry match) <$> mapM (ci2PatExp ix) (dti2ci dti)
       
 genPiece3_2 :: Input -> Q Exp
 genPiece3_2 input
@@ -703,10 +703,10 @@ genPiece3_2 input
   where    
     clauseForIx :: STy -> Int -> DTI IK -> Q Match
     clauseForIx sty ix dti = match (idxPatSyn sty)
-                       <$> (LamCaseE . matchAll <$> genMatchFor dti)
+                       <$> (LamCaseE . matchAll <$> genMatchFor ix dti)
       
-    genMatchFor :: DTI IK -> Q [Match]
-    genMatchFor dti = map (uncurry match) <$> mapM ci2ExpPat (dti2ci dti)
+    genMatchFor :: Int -> DTI IK -> Q [Match]
+    genMatchFor ix dti = map (uncurry match) <$> mapM (ci2ExpPat ix) (dti2ci dti)
 
 genPiece4 :: STy -> Input -> Q [Dec]
 genPiece4 first ls = concat <$> mapM genDatatypeInfoInstance ls

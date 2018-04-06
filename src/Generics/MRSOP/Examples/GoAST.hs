@@ -14,7 +14,6 @@
 
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE TemplateHaskell #-}
-#define GO_AST_DERIVING deriving (Eq, Read, Show)
 module Generics.MRSOP.Examples.GoAST where
 
 
@@ -31,14 +30,12 @@ data GoSource = GoSource {
       getPackage      :: GoId,
       getTopLevelPrel :: [GoPrel],
       getTopLevelDecl :: [GoDecl]}
-                GO_AST_DERIVING
+        deriving (Eq , Read , Show)
 
 data GoPrel = GoImportDecl [GoImpSpec]
-#ifdef DSGO
             | GoPragma String
             | GoDefine
             | GoIfPrel
-#endif
                 deriving (Eq, Read, Show)
 
 data GoDecl = GoConst [GoCVSpec]

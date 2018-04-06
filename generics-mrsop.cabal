@@ -61,8 +61,8 @@ library
     Generics.MRSOP.TH,
     -- Generics.MRSOP.Examples.RoseTree,
     Generics.MRSOP.Examples.SimpTH,
-    Generics.MRSOP.Examples.RoseTreeTH
-    -- Generics.MRSOP.Examples.GoAST
+    Generics.MRSOP.Examples.RoseTreeTH,
+    Generics.MRSOP.Examples.GoAST
     -- Generics.MRSOP.Examples.Bug
   
   -- Modules included in this library but not exported.
