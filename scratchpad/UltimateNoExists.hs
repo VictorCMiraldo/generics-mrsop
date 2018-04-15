@@ -9,6 +9,9 @@
 {-# language ExistentialQuantification #-}
 {-# language InstanceSigs #-}
 {-# language TypeApplications #-}
+{-# language FlexibleInstances #-}
+{-# language MultiParamTypeClasses #-}
+{-# language FunctionalDependencies #-}
 module CosoMultiParam where
 
 import Data.Kind (type (*), type Type)
@@ -97,13 +100,13 @@ data Singl k (ts :: TyEnv_ k) where
   SNil  :: Singl Type TyNil_
   SCons :: Proxy k -> Proxy a -> Singl ks as -> Singl (k -> ks) (TyCons_ a as)
 
-class UltimateGeneric (f :: k) where
+class UltimateGeneric k (f :: k) | f -> k where
   type Rep f :: DataType k
 
   to   :: Proxy f -> Singl k ts -> Apply k f ts -> Fix k (Rep f) ts
   from :: Proxy f -> Singl k ts -> Fix k (Rep f) ts -> Apply k f ts
 
-instance UltimateGeneric [] where
+instance UltimateGeneric (* -> *) [] where
   type Rep [] = '[ '[ ], '[ Explicit (Var SZ), Explicit (Rec :@: (Var SZ)) ] ]
 
   to _ s@(SCons _ _ SNil) [] = Fix $ H $ NP0
@@ -115,8 +118,11 @@ instance UltimateGeneric [] where
 data Eql a b where
   Refl :: Eql a a
 
-instance UltimateGeneric Eql where
+instance UltimateGeneric (k -> k -> *) Eql where
   type Rep Eql = '[ '[ Implicit (Kon (~) :@: Var SZ :@: Var (SS SZ)) ] ]
 
   to   _ s@(SCons _ _ (SCons _ _ SNil)) Refl = Fix $ H $ NPI NP0
   from _ s@(SCons _ _ (SCons _ _ SNil)) (Fix (H (NPI NP0))) = Refl
+
+show :: UltimateGeneric (*) x => x -> String
+show = undefined
