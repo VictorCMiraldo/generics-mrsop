@@ -126,26 +126,41 @@ pattern SLoT3 a b c = a :&: b :&: c :&: SLoT0
 class UltimateGeneric k (f :: k) | f -> k where
   type Rep f :: DataType k
 
-  to   :: Proxy f -> SLoT k ts -> Apply k f ts -> Fix k (Rep f) ts
-  from :: Proxy f -> SLoT k ts -> Fix k (Rep f) ts -> Apply k f ts
+  to   :: SLoT k ts -> Proxy f -> Apply k f ts -> Fix k (Rep f) ts
+  from :: SLoT k ts -> Proxy f -> Fix k (Rep f) ts -> Apply k f ts
+
+class SSLoT k (ts :: LoT k) where
+  sslot :: SLoT k ts
+instance SSLoT Type LoT0 where
+  sslot = SLoT0
+instance SSLoT ks as => SSLoT (k -> ks) (a :&&: as) where
+  sslot = Proxy :&: sslot
+
+to' :: (UltimateGeneric k f, SSLoT k ts)
+    => Proxy f -> Apply k f ts -> Fix k (Rep f) ts
+to' = to sslot
+
+from' :: (UltimateGeneric k f, SSLoT k ts)
+      => Proxy f -> Fix k (Rep f) ts -> Apply k f ts
+from' = from sslot
 
 instance UltimateGeneric (* -> *) [] where
   type Rep [] = '[ '[ ], '[ Explicit V0, Explicit (Rec :@: V0) ] ]
 
-  to _ s@(SLoT1 _) [] = Fix $ B0 $ NP0
-  to p s@(SLoT1 _) (x : xs) = Fix $ B1 $ NPE @_ @V0 x $ R1 (to p s xs) :*: NP0
+  to s@(SLoT1 _) _ [] = Fix $ B0 $ NP0
+  to s@(SLoT1 _) p (x : xs) = Fix $ B1 $ NPE @_ @V0 x $ R1 (to s p xs) :*: NP0
 
-  from _ s@(SLoT1 _) (Fix (B0 NP0)) = []
-  from p s@(SLoT1 _) (Fix (B1 (x :*: R1 xs :*: NP0))) = x : from p s xs
+  from s@(SLoT1 _) _ (Fix (B0 NP0)) = []
+  from s@(SLoT1 _) p (Fix (B1 (x :*: R1 xs :*: NP0))) = x : from s p xs
 
 instance UltimateGeneric (* -> * -> *) Either where
   type Rep Either = '[ '[ Explicit V0 ], '[ Explicit V1 ] ]
 
-  to _ (SLoT2 _ _) (Left  x) = Fix $ B0 $ NPE @_ @V0 x NP0
-  to _ (SLoT2 _ _) (Right x) = Fix $ B1 $ NPE @_ @V1 x NP0
+  to (SLoT2 _ _) _ (Left  x) = Fix $ B0 $ NPE @_ @V0 x NP0
+  to (SLoT2 _ _) _ (Right x) = Fix $ B1 $ NPE @_ @V1 x NP0
 
-  from _ (SLoT2 _ _) (Fix (B0 (x :*: NP0))) = Left  x
-  from _ (SLoT2 _ _) (Fix (B1 (x :*: NP0))) = Right x
+  from (SLoT2 _ _) _ (Fix (B0 (x :*: NP0))) = Left  x
+  from (SLoT2 _ _) _ (Fix (B1 (x :*: NP0))) = Right x
 
 data Eql a b where
   Refl :: Eql a a
@@ -154,8 +169,8 @@ data Eql a b where
 instance UltimateGeneric (k -> k -> *) Eql where
   type Rep Eql = '[ '[ Implicit ((~) :$: V0 :@: V1) ] ]
 
-  to   _ s@(SLoT2 _ _) Refl = Fix $ B0 $ NPI NP0
-  from _ s@(SLoT2 _ _) (Fix (B0 (NPI NP0))) = Refl
+  to   s@(SLoT2 _ _) _ Refl = Fix $ B0 $ NPI NP0
+  from s@(SLoT2 _ _) _ (Fix (B0 (NPI NP0))) = Refl
 
 
 {-
