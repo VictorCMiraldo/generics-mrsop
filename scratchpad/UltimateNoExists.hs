@@ -133,10 +133,19 @@ instance UltimateGeneric (* -> *) [] where
   type Rep [] = '[ '[ ], '[ Explicit V0, Explicit (Rec :@: V0) ] ]
 
   to _ s@(SLoT1 _) [] = Fix $ B0 $ NP0
-  to p s@(SLoT1 _) (x : xs) = Fix $ B1 $ NPE @_ @(Var SZ) x $ R1 (to p s xs) :*: NP0
+  to p s@(SLoT1 _) (x : xs) = Fix $ B1 $ NPE @_ @V0 x $ R1 (to p s xs) :*: NP0
 
   from _ s@(SLoT1 _) (Fix (B0 NP0)) = []
   from p s@(SLoT1 _) (Fix (B1 (x :*: R1 xs :*: NP0))) = x : from p s xs
+
+instance UltimateGeneric (* -> * -> *) Either where
+  type Rep Either = '[ '[ Explicit V0 ], '[ Explicit V1 ] ]
+
+  to _ (SLoT2 _ _) (Left  x) = Fix $ B0 $ NPE @_ @V0 x NP0
+  to _ (SLoT2 _ _) (Right x) = Fix $ B1 $ NPE @_ @V1 x NP0
+
+  from _ (SLoT2 _ _) (Fix (B0 (x :*: NP0))) = Left  x
+  from _ (SLoT2 _ _) (Fix (B1 (x :*: NP0))) = Right x
 
 data Eql a b where
   Refl :: Eql a a
