@@ -12,6 +12,7 @@
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
 {-# language FunctionalDependencies #-}
+{-# language PatternSynonyms #-}
 module CosoMultiParam where
 
 import Data.Kind (type (*), type Type)
@@ -26,103 +27,131 @@ data SNat (n :: Nat) where
   SZ :: SNat Z
   SS :: SNat n -> SNat (S n)
 
-type family Lookup (ix :: Nat) (lst :: [k]) :: k where
-  Lookup n     '[]       = TypeError (Text "Index not found")
-  Lookup Z     (x ': xs) = x
-  Lookup (S n) (x ': xs) = Lookup n xs
+-- SYNTAX
+-- ======
 
-type family Lookup_ (ix :: Nat) (lst :: Kind) :: Kind where
-  -- Lookup_ n     Type       = TypeError (Text "Index not found")
-  Lookup_ Z     (x -> xs) = x
-  Lookup_ (S n) (x -> xs) = Lookup_ n xs
+  -- dtk = data type kind
+  -- fix = type of the fixpoint operator
 
-data Term (rx :: Kind) k where
-  Rec   :: Term rx rx
-  Var   :: SNat n -> Term rx (Lookup_ n rx)
-  Kon   :: k -> Term rx k
-  (:@:) :: Term rx (k1 -> k2) -> Term rx k1 -> Term rx k2
+type family Pos (ix :: Nat) (dtk :: Kind) :: Kind where
+  -- Pos n     Type       = TypeError (Text "Index not found")
+  Pos Z     (x -> xs) = x
+  Pos (S n) (x -> xs) = Pos n xs
 
-type Branch   rx = [Field rx]
-type DataType rx = [Branch rx]
+data Term (dtk :: Kind) k where
+  Var   :: SNat n -> Term dtk (Pos n dtk)
+  Rec   :: Term dtk dtk
+  Kon   :: k -> Term dtk k
+  (:@:) :: Term dtk (k1 -> k2) -> Term dtk k1 -> Term dtk k2
 
-data Field (rx :: Kind) where
-  Explicit :: Term rx Type       -> Field rx
-  Implicit :: Term rx Constraint -> Field rx
+type V0 = Var SZ
+type V1 = Var (SS SZ)
+type V2 = Var (SS (SS SZ))
 
-data TyEnv (ks :: [Kind]) where
-  TyNil  :: TyEnv '[]
-  TyCons :: k -> TyEnv ks -> TyEnv (k ': ks)
+data Field (dtk :: Kind) where
+  Explicit :: Term dtk Type       -> Field dtk
+  Implicit :: Term dtk Constraint -> Field dtk
 
-data TyEnv_ (ks :: Kind) where
-  TyNil_  :: TyEnv_ Type
-  TyCons_ :: k -> TyEnv_ ks -> TyEnv_ (k -> ks)
+type Branch   dtk = [Field  dtk]
+type DataType dtk = [Branch dtk]
 
-type family Ty (rx :: Kind) (t :: Term rx k)
-               (rxty :: rx) (tys :: TyEnv_ rx) :: k where
-  Ty rx Rec rxty tys = rxty
+-- INTERPRETATION
+-- ==============
+
+  -- LoT == List of Types
+infixr 5 :&&:
+data LoT (ks :: Kind) where
+  LoT0   :: LoT Type
+  (:&&:) :: k -> LoT ks -> LoT (k -> ks)
+
+type family Ty (dtk :: Kind) (t :: Term dtk k)
+               (fix :: dtk)  (tys :: LoT dtk) :: k where
   -- and so on and so forth
-  Ty (f1 -> fs) (Var SZ) rxty (TyCons_ t1 ts) = t1
-  Ty (f1 -> f2 -> fs) (Var (SS SZ)) rxty (TyCons_ t1 (TyCons_ t2 ts)) = t2
+  Ty (k1 -> ks) (Var SZ) fix (t1 :&&: ts) = t1
+  Ty (k1 -> k2 -> ks) (Var (SS SZ)) fix (t1 :&&: t2 :&&: ts) = t2
   -- and so on and so forth
-  Ty rx (Kon t)     rxty tys = t
-  Ty rx (t1 :@: t2) rxty tys = (Ty rx t1 rxty tys) (Ty rx t2 rxty tys)
+  Ty dtk Rec       fix tys = fix
+  Ty dtk (Kon t)   fix tys = t
+  Ty dtk (f :@: x) fix tys = (Ty dtk f fix tys) (Ty dtk x fix tys)
 
-data NP (rx :: Kind) (fs :: [Field rx])
-        (rxty :: rx) (tys :: TyEnv_ rx) where
-  NP0 :: NP rx '[] rxty tys
-  NPE :: forall (rx :: Kind) (k :: Kind) (tm :: Term rx Type) rxty tys fs
-       . Ty rx tm rxty tys -> NP rx fs rxty tys -> NP rx (Explicit tm ': fs) rxty tys
-  NPI :: Ty rx tm rxty tys => NP rx fs rxty tys -> NP rx (Implicit tm ': fs) rxty tys
+type f :$: x = Kon f :@: x
 
-data NS (rx :: Kind) (dt :: DataType rx)
-        (rxty :: rx) (tys :: TyEnv_ rx) where
-  H :: NP rx c  rxty tys -> NS rx (c ': cs) rxty tys
-  T :: NS rx cs rxty tys -> NS rx (c ': cs) rxty tys
+data NP (dtk :: Kind) (fs :: [Field dtk])
+        (fix :: dtk)  (tys :: LoT dtk) where
+  NP0 :: NP dtk '[] fix tys
+  NPE :: forall (dtk :: Kind) (tm :: Term dtk Type) fix tys fs
+       . Ty dtk tm fix tys -> NP dtk fs fix tys -> NP dtk (Explicit tm ': fs) fix tys
+  NPI :: forall (dtk :: Kind) (tm :: Term dtk Constraint) fix tys fs
+       . Ty dtk tm fix tys => NP dtk fs fix tys -> NP dtk (Implicit tm ': fs) fix tys
 
-data family Fix' (rx :: Kind) (dt :: DataType rx) :: rx
+infixr 5 :*:
+pattern x :*:  xs = NPE x xs
+
+data NS (dtk :: Kind) (dt :: DataType dtk)
+        (fix :: dtk)  (tys :: LoT dtk) where
+  H :: NP dtk b  fix tys -> NS dtk (b ': bs) fix tys
+  T :: NS dtk bs fix tys -> NS dtk (b ': bs) fix tys
+
+pattern B0 x = H x
+pattern B1 x = T (H x)
+pattern B2 x = T (T (H x))
+pattern B3 x = T (T (T (H x)))
+
+data family Fix' (dtk :: Kind) (dt :: DataType dtk) :: dtk
 data instance Fix' Type dt
-  = R0 (Fix Type dt TyNil_)
+  = R0 (Fix Type dt LoT0)
 data instance Fix' (k1 -> Type) dt a
-  = R1 (Fix (k1 -> Type) dt (TyCons_ a TyNil_))
+  = R1 (Fix (k1 -> Type) dt (a :&&: LoT0))
 data instance Fix' (k1 -> k2 -> Type) dt a b
-  = R2 (Fix (k1 -> k2 -> Type) dt (TyCons_ a (TyCons_ b TyNil_)))
+  = R2 (Fix (k1 -> k2 -> Type) dt (a :&&: b :&&: LoT0))
 
-newtype Fix rx (dt :: DataType rx) (tys :: TyEnv_ rx)
-  = Fix (NS rx dt (Fix' rx dt) tys)
+newtype Fix dtk (dt :: DataType dtk) (tys :: LoT dtk)
+  = Fix (NS dtk dt (Fix' dtk dt) tys)
 
-type family Apply k (f :: k) (tys :: TyEnv_ k) :: Type where
-  Apply Type      f TyNil_ = f
-  Apply (k -> ks) f (TyCons_ t ts) = Apply ks (f t) ts
+type family Apply k (f :: k) (tys :: LoT k) :: Type where
+  Apply Type      f LoT0        = f
+  Apply (k -> ks) f (t :&&: ts) = Apply ks (f t) ts
 
 data Proxy (a :: k) = Proxy
 
-data Singl k (ts :: TyEnv_ k) where
-  SNil  :: Singl Type TyNil_
-  SCons :: Proxy k -> Proxy a -> Singl ks as -> Singl (k -> ks) (TyCons_ a as)
+infixr 5 :&:
+data SLoT k (ts :: LoT k) where
+  SLoT0 :: SLoT Type LoT0
+  (:&:) :: Proxy a -> SLoT ks as -> SLoT (k -> ks) (a :&&: as)
+
+pattern SLoT1 a = a :&: SLoT0
+pattern SLoT2 a b = a :&: b :&: SLoT0
+pattern SLoT3 a b c = a :&: b :&: c :&: SLoT0
 
 class UltimateGeneric k (f :: k) | f -> k where
   type Rep f :: DataType k
 
-  to   :: Proxy f -> Singl k ts -> Apply k f ts -> Fix k (Rep f) ts
-  from :: Proxy f -> Singl k ts -> Fix k (Rep f) ts -> Apply k f ts
+  to   :: Proxy f -> SLoT k ts -> Apply k f ts -> Fix k (Rep f) ts
+  from :: Proxy f -> SLoT k ts -> Fix k (Rep f) ts -> Apply k f ts
 
 instance UltimateGeneric (* -> *) [] where
-  type Rep [] = '[ '[ ], '[ Explicit (Var SZ), Explicit (Rec :@: (Var SZ)) ] ]
+  type Rep [] = '[ '[ ], '[ Explicit V0, Explicit (Rec :@: V0) ] ]
 
-  to _ s@(SCons _ _ SNil) [] = Fix $ H $ NP0
-  to p s@(SCons _ _ SNil) (x : xs) = Fix $ T $ H $ NPE @_ @_ @(Var SZ) x $ NPE (R1 (to p s xs)) $ NP0
+  to _ s@(SLoT1 _) [] = Fix $ B0 $ NP0
+  to p s@(SLoT1 _) (x : xs) = Fix $ B1 $ NPE @_ @(Var SZ) x $ R1 (to p s xs) :*: NP0
 
-  from _ s@(SCons _ _ SNil) (Fix (H NP0)) = []
-  from p s@(SCons _ _ SNil) (Fix (T (H (NPE x (NPE (R1 xs) NP0))))) = x : from p s xs
+  from _ s@(SLoT1 _) (Fix (B0 NP0)) = []
+  from p s@(SLoT1 _) (Fix (B1 (x :*: R1 xs :*: NP0))) = x : from p s xs
 
 data Eql a b where
   Refl :: Eql a a
+       -- a ~ b => Eql a b 
 
 instance UltimateGeneric (k -> k -> *) Eql where
-  type Rep Eql = '[ '[ Implicit (Kon (~) :@: Var SZ :@: Var (SS SZ)) ] ]
+  type Rep Eql = '[ '[ Implicit ((~) :$: V0 :@: V1) ] ]
 
-  to   _ s@(SCons _ _ (SCons _ _ SNil)) Refl = Fix $ H $ NPI NP0
-  from _ s@(SCons _ _ (SCons _ _ SNil)) (Fix (H (NPI NP0))) = Refl
+  to   _ s@(SLoT2 _ _) Refl = Fix $ B0 $ NPI NP0
+  from _ s@(SLoT2 _ _) (Fix (B0 (NPI NP0))) = Refl
 
+
+{-
 show :: UltimateGeneric (*) x => x -> String
 show = undefined
+
+size :: UltimateGeneric (*) x => x -> Int
+-}
