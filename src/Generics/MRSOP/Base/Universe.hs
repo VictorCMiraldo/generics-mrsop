@@ -169,6 +169,18 @@ injNS (CS c) poa = There (injNS c poa)
 inj :: Constr n sum -> PoA ki fam (Lkup n sum) -> Rep ki fam sum
 inj c = Rep . injNS c
 
+
+-- | Inverse of 'injNS'.  Given some Constructor, see if Rep is of this constructor
+matchNS :: Constr c sum -> NS (NP (NA ki fam)) sum -> Maybe (PoA ki fam (Lkup c sum))
+matchNS CZ (Here ps) = Just ps
+matchNS (CS c) (There x) = matchNS c x
+matchNS _ _ = Nothing
+
+
+-- | Inverse of 'inj'. Given some Constructor, see if Rep is of this constructor
+match :: Constr c sum -> Rep ki fam sum -> Maybe (PoA ki fam (Lkup c sum))
+match c (Rep x) = matchNS c x
+
 -- |Finally, we can view a sum-of-products as a constructor
 --  and a product-of-atoms.
 data View :: (kon -> *) -> (Nat -> *) -> [[ Atom kon ]] -> * where
