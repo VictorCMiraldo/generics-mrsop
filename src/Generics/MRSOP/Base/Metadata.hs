@@ -1,3 +1,4 @@
+{-# LANGUAGE RankNTypes             #-}
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
@@ -73,5 +74,25 @@ deriving instance Show (FieldInfo atom)
 
 class (Family ki fam codes) => HasDatatypeInfo ki fam codes ix
     | fam -> codes ki where
-  datatypeInfo :: (ix ~ Idx ty fam , Lkup ix fam ~ ty , IsNat ix)
-               => Proxy fam -> Proxy ty -> DatatypeInfo (Lkup ix codes)
+  datatypeInfo :: (IsNat ix)
+               => Proxy fam -> Proxy ix -> DatatypeInfo (Lkup ix codes)
+
+datatypeInfoFor :: forall ki fam codes ix ty
+                 . ( HasDatatypeInfo ki fam codes ix
+                   , ix ~ Idx ty fam , Lkup ix fam ~ ty , IsNat ix)
+                => Proxy fam -> Proxy ty -> DatatypeInfo (Lkup ix codes)
+datatypeInfoFor pf pty = datatypeInfo pf (proxyIdx pf pty)
+  where
+    proxyIdx :: Proxy fam -> Proxy ty -> Proxy (Idx ty fam)
+    proxyIdx _ _ = Proxy
+
+-- ** Utilities for figuring names out
+
+constrInfoLkup :: Constr c sum -> DatatypeInfo sum -> ConstructorInfo (Lkup c sum)
+constrInfoLkup c = go c . constructorInfo
+  where
+    go :: Constr c sum -> NP ConstructorInfo sum -> ConstructorInfo (Lkup c sum)
+    go CZ     (ci :* _)   = ci
+    go (CS c) (_  :* cis) = go c cis
+
+

@@ -43,6 +43,8 @@ data Singl (kon :: Kon) :: * where
   SChar    :: Char    -> Singl KChar
   SString  :: String  -> Singl KString
 
+-- TODO: We should be implementing our Eq1 here
+--       Our Eq1 currently lives in Arian's repo (GDiff.hs)
 deriving instance Show (Singl k)
 deriving instance Eq   (Singl k)
 
