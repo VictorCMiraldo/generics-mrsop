@@ -59,8 +59,11 @@ library
     Generics.MRSOP.Opaque,
     Generics.MRSOP.Util,
     Generics.MRSOP.TH,
+    Generics.MRSOP.Zipper,
     Generics.MRSOP.Examples.RoseTree,
-    Generics.MRSOP.Examples.RoseTreeTH
+    Generics.MRSOP.Examples.RoseTreeTH,
+    Generics.MRSOP.Examples.LambdaAlphaEqTH,
+    Generics.MRSOP.Examples.SimpTH
   
   -- Modules included in this library but not exported.
   -- other-modules:       
