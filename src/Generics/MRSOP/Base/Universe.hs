@@ -156,11 +156,18 @@ data Constr :: Nat -> [k] -> * where
   CS :: Constr n xs -> Constr (S n) (x : xs)
   CZ ::                Constr Z     (x : xs)
 
+
+-- | Decide if two constructors are equal
+heqConstr :: Constr n1 codes -> Constr n2 codes  -> Maybe (n1 :~: n2)
+heqConstr CZ CZ = Just Refl
+heqConstr (CS x) (CS y) = apply (Refl :: S :~: S) <$> (heqConstr x y)
+heqConstr _ _ = Nothing
+
 instance (IsNat n) => Show (Constr n xs) where
   show _ = "C" ++ show (getNat (Proxy :: Proxy n))
 
 -- |We can define injections into an n-ary sum from
---  its 'Constr'uctors.
+--  its 'Constr'uctors.o
 injNS :: Constr n sum -> PoA ki fam (Lkup n sum) -> NS (NP (NA ki fam)) sum
 injNS CZ     poa = Here poa
 injNS (CS c) poa = There (injNS c poa)
