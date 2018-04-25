@@ -65,7 +65,6 @@ constructorName (Record c _)    = c
 data FieldInfo :: Atom kon -> * where
   FieldInfo :: { fieldName :: FieldName } -> FieldInfo k
 
-
 deriving instance Show (NP ConstructorInfo code)
 deriving instance Show (NP FieldInfo code)
 deriving instance Show (ConstructorInfo code)
