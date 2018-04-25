@@ -18,9 +18,10 @@ data NS :: (k -> *) -> [k] -> * where
 
 instance Show (NS p '[]) where
   show _ = error "This code is unreachable"
+
 instance (Show (p x), Show (NS p xs)) => Show (NS p (x : xs)) where
-  show (There r) = 'T' : show r
-  show (Here  x) = "H (" ++ show x ++ ")"
+  show (There r) = "There " ++ show r
+  show (Here  x) = "Here (" ++ show x ++ ")"
 
 -- * Map, Zip and Elim
 
