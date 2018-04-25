@@ -17,7 +17,8 @@ data NP :: (k -> *) -> [k] -> * where
   (:*) :: p x -> NP p xs -> NP p (x : xs)
 
 instance Show (NP p '[]) where
-  show NP0 = "END"
+  show NP0 = "NP0"
+
 instance (Show (p x), Show (NP p xs)) => Show (NP p (x : xs)) where
   showsPrec p (v :* vs) = showParen (p > 5)
                         $ showsPrec 5 v . showString " :* " . showsPrec 5 vs
