@@ -88,10 +88,10 @@ datatypeInfoFor pf pty = datatypeInfo pf (proxyIdx pf pty)
 
 -- ** Utilities for figuring names out
 
-constrInfoLkup :: Constr c sum -> DatatypeInfo sum -> ConstructorInfo (Lkup c sum)
+constrInfoLkup :: Constr sum c -> DatatypeInfo sum -> ConstructorInfo (Lkup c sum)
 constrInfoLkup c = go c . constructorInfo
   where
-    go :: Constr c sum -> NP ConstructorInfo sum -> ConstructorInfo (Lkup c sum)
+    go :: Constr sum c -> NP ConstructorInfo sum -> ConstructorInfo (Lkup c sum)
     go CZ     (ci :* _)   = ci
     go (CS c) (_  :* cis) = go c cis
 

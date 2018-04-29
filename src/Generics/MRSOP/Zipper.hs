@@ -33,7 +33,7 @@ data Ctxs :: (kon -> *) -> [*] -> [[[Atom kon]]] -> Nat -> Nat -> * where
 -- |A @Ctx ki fam c ix@ is a choice of constructor for @c@
 --  with a hole of type @ix@ inside.
 data Ctx :: (kon -> *) -> [*] -> [[Atom kon]] -> Nat -> * where
-  Ctx :: Constr n c
+  Ctx :: Constr c n
       -> NPHole ki fam ix (Lkup n c)
       -> Ctx ki fam c ix
 

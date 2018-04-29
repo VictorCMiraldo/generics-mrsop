@@ -150,48 +150,46 @@ eqRep kp fp t = maybe False (elimRep (uncurry' kp) (uncurry' fp) and)
 -- as a constructor and its fields, instead of having to
 -- traverse the inner 'NS' structure.
 
--- |A value @c :: Constr n ks@ specifies a position
+-- |A value @c :: Constr ks n@ specifies a position
 --  in a type-level list. It is, in fact, isomorphic to @Fin (length ks)@.
-data Constr :: Nat -> [k] -> * where
-  CS :: Constr n xs -> Constr (S n) (x : xs)
-  CZ ::                Constr Z     (x : xs)
+data Constr :: [k] -> Nat -> * where
+  CS :: Constr xs n -> Constr (x : xs) (S n)
+  CZ ::                Constr (x : xs) Z
 
+instance TestEquality (Constr codes) where
+  testEquality CZ     CZ     = Just Refl
+  testEquality (CS x) (CS y) = apply (Refl :: S :~: S) <$> testEquality x y
+  testEquality _      _      = Nothing
 
--- | Decide if two constructors are equal
-heqConstr :: Constr n1 codes -> Constr n2 codes  -> Maybe (n1 :~: n2)
-heqConstr CZ CZ = Just Refl
-heqConstr (CS x) (CS y) = apply (Refl :: S :~: S) <$> (heqConstr x y)
-heqConstr _ _ = Nothing
-
-instance (IsNat n) => Show (Constr n xs) where
+instance (IsNat n) => Show (Constr xs n) where
   show _ = "C" ++ show (getNat (Proxy :: Proxy n))
 
 -- |We can define injections into an n-ary sum from
 --  its 'Constr'uctors.o
-injNS :: Constr n sum -> PoA ki fam (Lkup n sum) -> NS (NP (NA ki fam)) sum
+injNS :: Constr sum n -> PoA ki fam (Lkup n sum) -> NS (NP (NA ki fam)) sum
 injNS CZ     poa = Here poa
 injNS (CS c) poa = There (injNS c poa)
 
 -- |Wrap it in a 'Rep' for convenience.
-inj :: Constr n sum -> PoA ki fam (Lkup n sum) -> Rep ki fam sum
+inj :: Constr sum n -> PoA ki fam (Lkup n sum) -> Rep ki fam sum
 inj c = Rep . injNS c
 
 
 -- | Inverse of 'injNS'.  Given some Constructor, see if Rep is of this constructor
-matchNS :: Constr c sum -> NS (NP (NA ki fam)) sum -> Maybe (PoA ki fam (Lkup c sum))
+matchNS :: Constr sum c -> NS (NP (NA ki fam)) sum -> Maybe (PoA ki fam (Lkup c sum))
 matchNS CZ (Here ps) = Just ps
 matchNS (CS c) (There x) = matchNS c x
 matchNS _ _ = Nothing
 
 
 -- | Inverse of 'inj'. Given some Constructor, see if Rep is of this constructor
-match :: Constr c sum -> Rep ki fam sum -> Maybe (PoA ki fam (Lkup c sum))
+match :: Constr sum c -> Rep ki fam sum -> Maybe (PoA ki fam (Lkup c sum))
 match c (Rep x) = matchNS c x
 
 -- |Finally, we can view a sum-of-products as a constructor
 --  and a product-of-atoms.
 data View :: (kon -> *) -> (Nat -> *) -> [[ Atom kon ]] -> * where
-  Tag :: Constr n sum -> PoA ki fam (Lkup n sum) -> View ki fam sum
+  Tag :: Constr sum n -> PoA ki fam (Lkup n sum) -> View ki fam sum
 
 -- |Unwraps a 'Rep' into a 'View'
 sop :: Rep ki fam sum -> View ki fam sum
