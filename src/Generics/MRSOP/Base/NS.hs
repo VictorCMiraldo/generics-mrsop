@@ -1,11 +1,11 @@
-{-# LANGUAGE RankNTypes        #-}
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GADTs             #-}
-{-# LANGUAGE TypeOperators     #-}
-{-# LANGUAGE DataKinds         #-}
-{-# LANGUAGE PolyKinds         #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE FlexibleInstances   #-}
+{-# LANGUAGE GADTs               #-}
+{-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE PolyKinds           #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 -- | Standard representation of n-ary sums.
 module Generics.MRSOP.Base.NS where
 
@@ -15,13 +15,6 @@ import Generics.MRSOP.Util
 data NS :: (k -> *) -> [k] -> * where
   There :: NS p xs -> NS p (x : xs)
   Here  :: p x     -> NS p (x : xs)
-
-instance Show (NS p '[]) where
-  show _ = error "This code is unreachable"
-
-instance (Show (p x), Show (NS p xs)) => Show (NS p (x : xs)) where
-  show (There r) = "There " ++ show r
-  show (Here  x) = "Here (" ++ show x ++ ")"
 
 -- * Map, Zip and Elim
 

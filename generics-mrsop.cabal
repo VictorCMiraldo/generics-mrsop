@@ -55,6 +55,7 @@ library
     Generics.MRSOP.Base.Class,
     Generics.MRSOP.Base.Combinators,
     Generics.MRSOP.Base.Metadata,
+    Generics.MRSOP.Base.Show,
     Generics.MRSOP.Base,
     Generics.MRSOP.Opaque,
     Generics.MRSOP.Util,
