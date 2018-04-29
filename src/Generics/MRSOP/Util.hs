@@ -162,9 +162,12 @@ type L2 xs ys       = (IsList xs, IsList ys)
 type L3 xs ys zs    = (IsList xs, IsList ys, IsList zs) 
 type L4 xs ys zs as = (IsList xs, IsList ys, IsList zs, IsList as) 
 
+-- TODO: VCM: looking at the implementation for the instances
+--            in Generics.MRSOP.Opaque, it seems like we don't really need this.
+
 -- |Higher order version of 'Eq'
 class Eq1 (f :: k -> *) where
-  equal :: forall k . f k -> f k -> Bool
+  eq1 :: forall k . f k -> f k -> Bool
 
 -- |Higher order version of 'Show'
 class Show1 (f :: k -> *) where
