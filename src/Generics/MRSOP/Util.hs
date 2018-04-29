@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE GADTs               #-}
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE DataKinds           #-}
@@ -7,7 +8,30 @@
 {-# LANGUAGE TypeApplications    #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 -- |Useful utilities we need accross multiple modules.
-module Generics.MRSOP.Util where
+module Generics.MRSOP.Util
+  ( -- * Utility Functions and Types
+    (&&&) , (***)
+  , (:->) , (<.>)
+
+    -- * Poly-kind indexed product
+  , (:*:)(..) , curry' , uncurry'
+
+    -- * Type-level Naturals
+  , Nat(..) , proxyUnsuc
+  , SNat(..) , snat2int
+  , IsNat(..) , getNat , getSNat'
+
+    -- * Type-level Lists
+  , ListPrf(..) , IsList(..)
+  , L1 , L2 , L3 , L4
+  , (:++:) , appendIsListLemma
+
+    -- * Type-level List Lookup
+  , Lkup , Idx , El , getElSNat , into
+
+    -- * Higher-order Eq and Show
+  , Eq1(..) , Show1(..)
+  ) where
 
 import Data.Proxy
 import Data.Type.Equality
@@ -103,4 +127,46 @@ into :: forall fam ty ix
       . (ix ~ Idx ty fam , Lkup ix fam ~ ty , IsNat ix)
      => ty -> El fam ix
 into = El
+
+
+-- |An inhabitant of @ListPrf ls@ is *not* a singleton!
+--  It only proves that @ls@ is, in fact, a type level list.
+--  This is useful since it enables us to pattern match on
+--  type-level lists whenever we see fit.
+data ListPrf :: [k] -> * where
+  Nil ::  ListPrf '[]
+  Cons :: ListPrf l ->  ListPrf (x ': l)
+
+-- |The @IsList@ class allows us to construct
+--  'ListPrf's in a straight forward fashion.
+class IsList (xs :: [k]) where
+  listPrf :: ListPrf xs
+instance IsList '[] where
+  listPrf = Nil
+instance IsList xs => IsList (x ': xs) where
+  listPrf = Cons listPrf
+
+-- |Concatenation of lists is also a list.
+appendIsListLemma :: ListPrf xs -> ListPrf ys -> ListPrf (xs :++: ys)
+appendIsListLemma Nil         isys = isys
+appendIsListLemma (Cons isxs) isys = Cons (appendIsListLemma isxs isys)
+
+-- |Appending type-level lists
+type family (:++:) (txs :: [k]) (tys :: [k]) :: [k] where
+  (:++:) '[] tys = tys
+  (:++:) (tx ': txs) tys = tx ': (txs :++: tys)
+
+-- |Convenient constraint synonyms
+type L1 xs          = (IsList xs) 
+type L2 xs ys       = (IsList xs, IsList ys) 
+type L3 xs ys zs    = (IsList xs, IsList ys, IsList zs) 
+type L4 xs ys zs as = (IsList xs, IsList ys, IsList zs, IsList as) 
+
+-- |Higher order version of 'Eq'
+class Eq1 (f :: k -> *) where
+  equal :: forall k . f k -> f k -> Bool
+
+-- |Higher order version of 'Show'
+class Show1 (f :: k -> *) where
+  show1 :: forall k . f k -> String
 

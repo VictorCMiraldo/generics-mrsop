@@ -23,6 +23,18 @@ instance (Show (p x), Show (NP p xs)) => Show (NP p (x : xs)) where
   showsPrec p (v :* vs) = showParen (p > 5)
                         $ showsPrec 5 v . showString " :* " . showsPrec 5 vs
 
+-- * Relation to IsList predicate
+
+-- |Append NP
+appendNP :: NP p xs -> NP p ys -> NP p (xs :++: ys)
+appendNP NP0        ays = ays
+appendNP (a :* axs) ays = a :* appendNP axs ays
+
+-- |Proves that NP is a list.
+listPrfNP :: NP p xs -> ListPrf xs
+listPrfNP NP0       = Nil
+listPrfNP (_ :* xs) = Cons $ listPrfNP xs
+
 -- * Map, Elim and Zip
 
 -- |Maps a natural transformation over a n-ary product
