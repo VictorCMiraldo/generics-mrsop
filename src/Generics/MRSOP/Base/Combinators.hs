@@ -26,6 +26,8 @@ import Generics.MRSOP.Util
 
 -- * Equality
 --
+-- $equality
+--
 -- Compares two elements for equality.
 
 -- |Given a way to compare the constant types
@@ -38,6 +40,8 @@ geq :: forall ki fam codes ix
 geq kp = eqFix kp `on` dfrom 
 
 -- * Compos
+--
+-- $compos
 --
 -- Applies a morphism everywhere in a structure.
 --
@@ -68,6 +72,8 @@ compos :: forall ki fam codes ix
 compos f = runIdentity . composM (\iy -> return . f iy)
 
 -- * Crush
+--
+-- $crush
 --
 -- Crush will collapse an entire value given only
 -- an action to perform on the leaves and a way

@@ -8,7 +8,9 @@
 {-# LANGUAGE PolyKinds            #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TypeApplications     #-}
--- | Our universe representation
+-- |Wraps the definitions of 'NP' and 'NS'
+--  into Representations ('Rep'), essentially providing
+--  the universe view over sums-of-products.
 module Generics.MRSOP.Base.Universe where
 
 import Data.Function (on)
@@ -22,6 +24,8 @@ import Generics.MRSOP.Base.NP
 import Generics.MRSOP.Util
 
 -- * Universe of Codes
+--
+-- $universeOfCodes
 --
 -- We will use nested lists to represent the Sums-of-Products
 -- structure. The atoms, however, will be parametrized by a kind
@@ -80,8 +84,12 @@ eqNA kp fp x = elimNA (uncurry' kp) (uncurry' fp) . zipNA x
 
 -- * Representation of Codes
 --
+-- $representationOfCodes
+--
 -- Codes are represented using the 'Rep' newtype,
--- which wraps an n-ary sum of n-ary products. 
+-- which wraps an n-ary sum of n-ary products. Note it receives two
+-- functors: @ki@ and @phi@, to interpret opaque types and type variables
+-- respectively.
 
 -- |Representation of codes.
 newtype Rep (ki :: kon -> *) (phi :: Nat -> *) (code :: [[Atom kon]])
@@ -91,6 +99,8 @@ newtype Rep (ki :: kon -> *) (phi :: Nat -> *) (code :: [[Atom kon]])
 type PoA (ki :: kon -> *) (phi :: Nat -> *) = NP (NA ki phi)
 
 -- ** Map, Elim and Zip
+--
+-- $mapElimAndZip
 --
 -- Just like for 'NS', 'NP' and 'NA', we provide
 -- a couple convenient functions working over
@@ -146,6 +156,8 @@ eqRep kp fp t = maybe False (elimRep (uncurry' kp) (uncurry' fp) and)
 
 -- * SOP functionality
 --
+-- $sopFunctionality
+--
 -- It is often more convenient to view a value of 'Rep'
 -- as a constructor and its fields, instead of having to
 -- traverse the inner 'NS' structure.
@@ -165,7 +177,7 @@ instance (IsNat n) => Show (Constr xs n) where
   show _ = "C" ++ show (getNat (Proxy :: Proxy n))
 
 -- |We can define injections into an n-ary sum from
---  its 'Constr'uctors.o
+--  its 'Constr'uctors
 injNS :: Constr sum n -> PoA ki fam (Lkup n sum) -> NS (NP (NA ki fam)) sum
 injNS CZ     poa = Here poa
 injNS (CS c) poa = There (injNS c poa)
@@ -174,13 +186,11 @@ injNS (CS c) poa = There (injNS c poa)
 inj :: Constr sum n -> PoA ki fam (Lkup n sum) -> Rep ki fam sum
 inj c = Rep . injNS c
 
-
 -- | Inverse of 'injNS'.  Given some Constructor, see if Rep is of this constructor
 matchNS :: Constr sum c -> NS (NP (NA ki fam)) sum -> Maybe (PoA ki fam (Lkup c sum))
 matchNS CZ (Here ps) = Just ps
 matchNS (CS c) (There x) = matchNS c x
 matchNS _ _ = Nothing
-
 
 -- | Inverse of 'inj'. Given some Constructor, see if Rep is of this constructor
 match :: Constr sum c -> Rep ki fam sum -> Maybe (PoA ki fam (Lkup c sum))
@@ -202,6 +212,8 @@ sop = go . unRep
 
 -- * Least Fixpoints
 --
+-- $leastFixpoints
+--
 -- Finally we tie the recursive knot. Given an interpretation
 -- for the constant types, a family of sums-of-products and
 -- an index ix into such family, we take the least fixpoint of
@@ -214,10 +226,12 @@ newtype Fix (ki :: kon -> *) (codes :: [[[ Atom kon ]]]) (n :: Nat)
 proxyFixIdx :: Fix ki fam ix -> Proxy ix
 proxyFixIdx _ = Proxy
 
-mapMFix :: (Monad m)
+-- |Maps over the values of opaque types within the
+--  fixpoint.
+mapFixM :: (Monad m)
         => (forall k . ki k -> m (kj k))
         -> Fix ki fam ix -> m (Fix kj fam ix)
-mapMFix fk = (Fix <$>) . bimapRepM fk (mapMFix fk) . unFix
+mapFixM fk = (Fix <$>) . bimapRepM fk (mapFixM fk) . unFix
 
 -- |Compare two values of a same fixpoint for equality.
 eqFix :: (forall k. ki k -> ki k -> Bool)
@@ -225,6 +239,8 @@ eqFix :: (forall k. ki k -> ki k -> Bool)
 eqFix p = eqRep p (eqFix p) `on` unFix
 
 -- |Compare two indexes of two fixpoints
+--  Note we can't use a 'testEquality' instance because
+--  of the 'IsNat' constraint.
 heqFixIx :: (IsNat ix , IsNat ix')
          => Fix ki fam ix -> Fix ki fam ix' -> Maybe (ix :~: ix')
 heqFixIx fa fb = testEquality (getSNat Proxy) (getSNat Proxy)

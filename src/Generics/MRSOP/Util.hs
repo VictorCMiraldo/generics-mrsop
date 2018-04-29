@@ -27,7 +27,7 @@ module Generics.MRSOP.Util
   , (:++:) , appendIsListLemma
 
     -- * Type-level List Lookup
-  , Lkup , Idx , El , getElSNat , into
+  , Lkup , Idx , El(..) , getElSNat , into
 
     -- * Higher-order Eq and Show
   , Eq1(..) , Show1(..)

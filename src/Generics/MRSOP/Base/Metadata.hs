@@ -21,12 +21,18 @@ type FamilyName      = String
 type ConstructorName = String
 type FieldName       = String
 
+-- |Since we only handled fully saturated datatypes, a 'DatatypeName'
+--  needs to remember what were the arguments applied to a type.
+--
+--  The type @[Int]@ is represented by @Name "[]" :@@: Name "Int"@
+--
 infixl 5 :@:
 data DatatypeName
   = Name String
   | DatatypeName :@: DatatypeName
   deriving (Eq , Show)
 
+-- |Provides information about the declaration of a datatype.
 data DatatypeInfo :: [[Atom kon]] -> * where
   ADT :: ModuleName -> DatatypeName -> NP ConstructorInfo c
       -> DatatypeInfo c
@@ -77,6 +83,8 @@ class (Family ki fam codes) => HasDatatypeInfo ki fam codes ix
   datatypeInfo :: (IsNat ix)
                => Proxy fam -> Proxy ix -> DatatypeInfo (Lkup ix codes)
 
+-- |Sometimes it is more convenient to use a proxy of the type
+--  in the family instead of indexes.
 datatypeInfoFor :: forall ki fam codes ix ty
                  . ( HasDatatypeInfo ki fam codes ix
                    , ix ~ Idx ty fam , Lkup ix fam ~ ty , IsNat ix)
@@ -88,6 +96,9 @@ datatypeInfoFor pf pty = datatypeInfo pf (proxyIdx pf pty)
 
 -- ** Utilities for figuring names out
 
+-- |This is essentially a list lookup, but needs significant type
+--  information to go through. Returns the name of the @c@th constructor
+--  of a sum-type.
 constrInfoLkup :: Constr sum c -> DatatypeInfo sum -> ConstructorInfo (Lkup c sum)
 constrInfoLkup c = go c . constructorInfo
   where

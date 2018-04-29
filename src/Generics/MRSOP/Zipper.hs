@@ -12,7 +12,7 @@ module Generics.MRSOP.Zipper where
 
 import Data.Type.Equality
 
-import Generics.MRSOP.Util
+import Generics.MRSOP.Util hiding (Cons , Nil)
 import Generics.MRSOP.Base
 
 -- |In a @Zipper@, a Location is a a pair of a one hole context
