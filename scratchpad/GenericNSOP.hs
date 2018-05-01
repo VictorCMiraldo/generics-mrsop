@@ -45,7 +45,7 @@ data Term (dtk :: Kind) k where
   Kon   :: k -> Term dtk k
   (:@:) :: Term dtk (k1 -> k2) -> Term dtk k1 -> Term dtk k2
   -- If we really want this
-  Rec   :: Term dtk dtk
+  -- Rec   :: Term dtk dtk
 
 type V0 = Var SZ
 type V1 = Var (SS SZ)
@@ -78,22 +78,25 @@ data LoT (ks :: Kind) where
   LoT0   :: LoT Type
   (:&&:) :: k -> LoT ks -> LoT (k -> ks)
 
-type family Ty (dtk :: Kind) (r :: dtk) (tys :: LoT dtk) (t :: Term dtk k) :: k where
+type family Ty (dtk :: Kind) {- (r :: dtk) -} (tys :: LoT dtk) (t :: Term dtk k) :: k where
   -- and so on and so forth
-  Ty (k1 -> ks) r (t1 :&&: ts) (Var SZ)  = t1
-  Ty (k1 -> k2 -> ks) r (t1 :&&: t2 :&&: ts) (Var (SS SZ))  = t2
+  Ty (k1 -> ks) {- r -} (t1 :&&: ts) (Var SZ)  = t1
+  Ty (k1 -> k2 -> ks) {- r -} (t1 :&&: t2 :&&: ts) (Var (SS SZ))  = t2
   -- and so on and so forth
-  Ty dtk r tys Rec     = r
-  Ty dtk r tys (Kon t) = t
-  Ty dtk r tys (f :@: x) = (Ty dtk r tys f) (Ty dtk r tys x)
+  -- Ty dtk r tys Rec     = r
+  Ty dtk {- r -} tys (Kon t) = t
+  Ty dtk {- r -} tys (f :@: x) = (Ty dtk {- r -} tys f) (Ty dtk {- r -} tys x)
 
 type f :$: x = Kon f :@: x
 
-data NA (dtk :: Kind) :: dtk -> LoT dtk -> Field dtk -> * where
-  E :: forall dtk t r tys. Ty dtk r tys t -> NA dtk r tys (Explicit t)
-  I :: forall dtk t r tys. Ty dtk r tys t => NA dtk r tys (Implicit t)
+data NA (dtk :: Kind) :: {- dtk -> -} LoT dtk -> Field dtk -> * where
+  E :: forall dtk t {- r -} tys. Ty dtk {- r -} tys t -> NA dtk {- r -} tys (Explicit t)
+  I :: forall dtk t {- r -} tys. Ty dtk {- r -} tys t => NA dtk {- r -} tys (Implicit t)
 
-type SOPn k (c :: DataType k) (r :: k) (tys :: LoT k) = NS (NP (NA k r tys)) c
+unE :: NA dtk {- r -} tys (Explicit t) -> Ty dtk {- r -} tys t
+unE (E x) = x
+
+type SOPn k (c :: DataType k) {- (r :: k) -} (tys :: LoT k) = NS (NP (NA k {- r -} tys)) c
 
 type family Apply k (f :: k) (tys :: LoT k) :: Type where
   Apply Type      f LoT0        = f
@@ -113,8 +116,8 @@ pattern SLoT3 a b c = a :&: b :&: c :&: SLoT0
 class UltimateGeneric k (f :: k) | f -> k where
   type Code f :: DataType k
 
-  to   :: SLoT k ts -> Proxy f -> Apply k f ts -> SOPn k (Code f) f ts
-  from :: SLoT k ts -> Proxy f -> SOPn k (Code f) f ts -> Apply k f ts
+  to   :: SLoT k ts -> Proxy f -> Apply k f ts -> SOPn k (Code f) {- f -} ts
+  from :: SLoT k ts -> Proxy f -> SOPn k (Code f) {- f -} ts -> Apply k f ts
 
 class SSLoT k (ts :: LoT k) where
   sslot :: SLoT k ts
@@ -124,11 +127,11 @@ instance SSLoT ks as => SSLoT (k -> ks) (a :&&: as) where
   sslot = Proxy :&: sslot
 
 to' :: (UltimateGeneric k f, SSLoT k ts)
-    => Proxy f -> Apply k f ts -> SOPn k (Code f) f ts
+    => Proxy f -> Apply k f ts -> SOPn k (Code f) {- f -} ts
 to' = to sslot
 
 from' :: (UltimateGeneric k f, SSLoT k ts)
-      => Proxy f -> SOPn k (Code f) f ts -> Apply k f ts
+      => Proxy f -> SOPn k (Code f) {- f -} ts -> Apply k f ts
 from' = from sslot
 
 instance UltimateGeneric (* -> *) [] where
@@ -139,6 +142,16 @@ instance UltimateGeneric (* -> *) [] where
 
   from s@(SLoT1 _) _ (B0 Nil) = []
   from s@(SLoT1 _) p (B1 (E x :* E xs :* Nil)) = x : xs
+
+  -- You can choose how much you want
+instance UltimateGeneric * [a] where
+  type Code [a] = '[ '[ ], '[ Explicit (Kon a), Explicit ([] :$: Kon a) ] ]
+
+  to SLoT0 _ []     = B0 Nil
+  to SLoT0 _ (x:xs) = B1 $ E x :* E xs :* Nil
+
+  from SLoT0 _ (B0 Nil) = []
+  from SLoT0 _ (B1 (E x :* E xs :* Nil)) = x : xs
 
 instance UltimateGeneric (* -> * -> *) Either where
   type Code Either = '[ '[ Explicit V0 ], '[ Explicit V1 ] ]
@@ -158,3 +171,47 @@ instance UltimateGeneric (k -> k -> *) Eql where
 
   to   s@(SLoT2 _ _) _ Refl = B0 $ I :* Nil
   from s@(SLoT2 _ _) _ (B0 (I :* Nil)) = Refl
+
+
+class FunctorField (t :: Term (* -> *) Type) where
+  gfmapF :: (a -> b)
+         -> NA (* -> *) {- f -} (a :&&: LoT0) (Explicit t)
+         -> NA (* -> *) {- f -} (b :&&: LoT0) (Explicit t)
+
+instance FunctorField V0 where
+  gfmapF f (E x) = E (f x)
+instance (Functor f, FunctorField x) => FunctorField (f :$: x) where
+  gfmapF f (E x) = E (fmap (unE . gfmapF f . E @_ @x) x)
+instance FunctorField (Kon t) where
+  gfmapF f (E x) = E x
+
+type family AllE2 c xs :: Constraint where
+  AllE2 c '[] = ()
+  AllE2 c (x ': xs) = (AllE c x, AllE2 c xs)
+
+type family AllE c xs :: Constraint where
+  AllE c '[] = ()
+  AllE c (Explicit x ': xs) = (c x, AllE c xs)
+  -- AllE c (Implicit x ': xs)
+
+gfmap :: forall f a b
+       . (UltimateGeneric (* -> *) f, AllE2 FunctorField (Code f))
+      => (a -> b) -> f a -> f b
+gfmap f = from (SLoT1 (Proxy :: Proxy b)) (Proxy :: Proxy f)
+        . goS
+        . to   (SLoT1 (Proxy :: Proxy a)) (Proxy :: Proxy f)
+  where
+    goS :: AllE2 FunctorField xs
+        => NS (NP (NA (* -> *) (a :&&: LoT0))) xs
+        -> NS (NP (NA (* -> *) (b :&&: LoT0))) xs
+    goS (Here  x) = Here  (goP x)
+    goS (There x) = There (goS x)
+
+    goP :: AllE FunctorField xs
+        => NP (NA (* -> *) (a :&&: LoT0)) xs
+        -> NP (NA (* -> *) (b :&&: LoT0)) xs
+    goP Nil         = Nil
+    goP (E x :* xs) = gfmapF f (E x) :* goP xs
+
+fmapList :: (a -> b) -> [a] -> [b]
+fmapList = gfmap
