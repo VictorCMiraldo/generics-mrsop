@@ -1,7 +1,7 @@
 file    = paper
 lhs2tex = lhs2TeX --poly
 
-$(file).pdf: $(file).ltx references.bib
+$(file).pdf: $(file).ltx references.bib custom.fmt
 	$(lhs2tex) $(file).ltx > $(file).tex
 	latexmk -pdf $(file).tex
 

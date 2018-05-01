@@ -1,6 +1,12 @@
 %% For double-blind review submission, w/ CCS and ACM Reference
 \documentclass[sigplan,10pt,review,anonymous]{acmart}\settopmatter{printfolios=true}
 
+\newenvironment{myhs}{\par\vspace{0.15cm}\begin{minipage}{\textwidth}}{\end{minipage}\vspace{0.15cm}}
+
+%include lhs2TeX.fmt
+%include lhs2TeX.sty
+%include custom.fmt
+
 %% Conference information
 %% Supplied to authors by publisher for camera-ready submission;
 %% use defaults for review submission.
@@ -35,6 +41,7 @@
 
 \usepackage{booktabs}
 \usepackage{subcaption}
+\usepackage{cleveref}
 
 \begin{document}
 
@@ -72,7 +79,14 @@
 
 
 \begin{abstract}
-Lots of nice ideas here
+Lots of nice ideas here \\
+Line 2 \\
+Line 3 \\
+Line 4 \\
+Line 5 \\
+Line 6 \\
+Line 7 \\
+Line 8
 \end{abstract}
 
 
@@ -98,13 +112,218 @@ Lots of nice ideas here
 
 \section{Introduction}
 
-Text of paper \ldots
+(Datatype)-generic programming is a powerful tool to define functions by induction over the structure of a datatype. Simpler mechanisms, such as the |deriving| clause, have been present in Haskell for a long time \cite{haskell2010}, although restricted to a few generic operation such as equality. Over the years, many different approaches have been described to allow the definition of generic functions by the programmer (see~\cite{Rodriguez2008,Magalhaes2012} for a comparison). Ultimately, GHC added special support via the |Data|~\cite{Lammel2003,Mitchell2007} and |Generic|~\cite{Magalhaes2010} type classes.
+
+There is a general idea behind the strand of work to which |Generic| belongs: if we represent the shape of each datatype as type-level information, then we can use type-level techniques to define the generic operations. Libraries differ in the primitive building blocks for those shapes, and in how these shapes are encoded. For example, |Generic| uses the following functors as building blocks:
+\begin{myhs}
+\begin{code}
+data V1           p                           -- empty
+data U1           p = U1                      -- unit
+data K1 i c       p = K1 c                    -- constant
+data (f  :+:  g)  p = L1 (f p) | R1 (g p)     -- sum
+data (f  :*:  g)  p = (f p) :*: (g p)         -- product
+data M1 i c f     p = M1 (f p)                -- metadata
+\end{code}
+\end{myhs}
+By combining these blocks we can describe the structure of any algebraic datatype. We encode the choice of constructors by sums, and the combination of fields of a constructor by products, or by the unit functor if there are none. In turn, each field is represented by a constant functor. To make things more concrete, here is a definition for binary trees:
+\begin{myhs}
+\begin{code}
+data Tree a = Leaf | Node (Tree a) a (Tree a)
+\end{code}
+\end{myhs}
+The shape of this datatype is described by the following functor. For the sake of conciseness, we omit the additional information such as the name of constructors and fields, which would be present as metadata via the |M1| functor.
+\begin{myhs}
+\begin{code}
+U1 :+: (K1 R (Tree a) :*: K1 R a :*: K1 R (Tree a))
+\end{code}
+\end{myhs}
+We say that the type above is the \emph{representation} of |Tree a|. In order to use generic operations, we must tie each datatype with its representation, this is done via the |Generic| type class. In addition, we ought to witness the isomorphism at the term level via a pair of functions |to| and |from|.
+\begin{myhs}
+\begin{code}
+class Generic a where
+  type Rep a :: * -> *
+  from  :: a -> Rep a p
+  to    :: Rep a p -> a
+\end{code}
+\end{myhs}
+Fortunately, we do not have to write |Generic| instances by hand. GHC provides an extension to the |deriving| mechanism to create these instances. In fact, all generic programming libraries automate this step, making use of metaprogramming facilities such as Template Haskell~\cite{Sheard2002}.
+
+\subsection{Contributions}
+
+The |Generic| type class defined above only allows to represent ground types, in other words, types which kind |Star|. But this is not enough for all our purposes. For example, if we want to give a generic |fmap| definition, we need to know the structure of a type constructor of kind |Star -> Star| instead. Some libraries provide ad-hoc |Generic1| classes for that single purpose.
+
+The main contribution of this paper is to provide a \emph{single, unified} type class for generic programming over types of all kinds (\Cref{sec:allkinds}). We do so by using a variant of the sum-of-products representation with explicit fixpoints, notions which we explore in \Cref{sec:pre}.
+
+Representing arbitrary constructor moves us a step forward to being able to accurately represent the shape of \emph{every} Haskell datatype. Since the introduction of Generalised Algebraic Data Types~\cite{Xi2003}, we need to additional combinators to make that dream true:
+\begin{itemize}
+\item Each constructor may require one or more \emph{constraints} to be satisfied by the types of their fields. For example, when we write a datatype to witness the equality between two types:
+\begin{myhs}
+\begin{code}
+class Eql a b where
+  Refl :: a ~ b => Eql a b
+\end{code}
+\end{myhs}
+we require the indices of |Eql|, namely |a| and |b|, to be equal. This is represented by the constraint |a ~ b| in the |Refl| constructor.
+
+In \Cref{sec:constraints} we explore how to extend our base framework to account for constraints.
+
+\item Constructor may also mention type variables which are not reflected in the indices. These are called \emph{existentials}, since once you pattern match you know that a type has been used, but not exactly which one.
+
+As we shall see in \Cref{sec:exists}, it is possible to describe datatypes with existentials in the type level, but unfortunately not possible to represent them at the term level. For that functionality we require real dependent types, as provided by Agda.
+\end{itemize}
+
+This paper also aims to witness how far the type level facilities in GHC have evolved. None of the contributions in this paper would be possible without datatype promotion, kind polymorphism ~\cite{Yorgey2012}, the |Constraint| kind~\cite{constraintkinds}, or the |TypeInType| extension~\cite{Weirich2013,Weirich2017}.
+
+\section{Preliminaries}
+\label{sec:pre}
+
+Before exploring the novel ideas in the paper, we need to recap some notions from the current landscape of generic programming in GHC. As in the Introduction, we focus on the |Generic| line of work.
+
+\subsection{Generic operations}
+
+In order to define an operation generically, we create two dedicated \emph{type classes}, one for ground types and one for type constructors. A simple generic operation is |size|, which counts the number of constructors.
+\begin{myhs}
+\begin{code}
+class Size   a where
+  size   ::  a    -> Integer
+
+class GSize  f where
+  gsize  ::  f p  -> Integer
+\end{code}
+\end{myhs}
+We then write instances of the second class for each of the building blocks of datatypes. The type class mechanism is how we reflect the type level structure into a term level implementation.
+\begin{myhs}
+\begin{code}
+instance (GSize f , GSize g) => GSize (f :*: g) where
+  gsize (f :*: g)  = gsize f + gsize g
+\end{code}
+\end{myhs}
+\begin{myhs}
+\begin{code}
+instance (GSize f , GSize g) => GSize (f :+: g) where
+  gsize (L1 f)     = gsize f
+  gsize (R1 g)     = gsize g
+\end{code}
+\end{myhs}
+\begin{myhs}
+\begin{code}
+instance (Size c) => GSize (K1 i c) where
+  gsize (K1 x)     = size x
+\end{code}
+\end{myhs}
+Note how the instance of constants |K1| points back to the type class for ground types, |Size|. We need one such instance for each datatype; but now we can reuse the generic implementation if we first transform the value into its representation.
+\begin{myhs}
+\begin{code}
+instance Size Int where
+  size n = 1
+
+instance Size (Tree a) where
+  size t = gsize (from t)
+\end{code}
+\end{myhs}
+The definition of |size| is very simple, other generic operations such as |show| or |parse| need to access the metadata and keep additional information around.
+
+\subsection{Sums of Products}
+
+Algebraic datatypes in Haskell have a very regular shape when represented using the building blocks above. There is always a choice among several constructor, each of them comprised of zero or more fields. This general structure is called a \emph{sum of products}. Unfortunately, the representation using |Generic| is not strong enough to guarantee that shape; there is nothing forbidding us from writing:
+\begin{myhs}
+\begin{code}
+U1 :+: (K1 R Int :*: Maybe)
+\end{code}
+\end{myhs}
+
+The landscape of type-level programming in GHC changed radically after the introduction of \emph{datatype promotion}~\cite{Yorgey2012}. By promoting a datatype you can use its constructors as if they were types, and the type being defined is promoted to a kind. For example, we can use a promoted Boolean value to encode whether a certain string has been validated or not.
+\begin{myhs}
+\begin{code}
+data VString (v :: Bool) = VString String
+
+validate :: VString False -> VString True
+\end{code}
+\end{myhs}
+
+The \texttt{generic-sop} library~\cite{deVries2014} uses this facility to guarantee the sum-of-products invariants. Each datatype is described by a list of list of types, where the outer level should be thought as the choice between constructors, and each inner list represents the fields in that constructor. This description is called the \emph{code} of the datatype. For example, here is the code for |Tree a| defined above:\footnote{The quote sign serves to differentiate type level from term level when there is a risk of confusion.}
+\begin{myhs}
+\begin{code}
+P [ P [], P [Tree a, a, Tree a]]
+\end{code}
+\end{myhs}
+But now another problem arises: we cannot construct terms of the code directly, we first need to turn it into a ground type. The kind of the type level list is |[[Star]]| -- where |Star| is the kind of ground types in Haskell -- whereas we can only write terms of kind |Star|. The bridge between the two worlds is given by the following two GADTs, |NS| interprets a list of elements as a choice, whereas |NP| requires a value for each element in the list, and thus encodes a product.
+\begin{myhs}
+\begin{code}
+data NS :: (k -> Star) -> [k] -> Star where
+  Here   :: f k      -> NS f (k (P (:)) ks)
+  There  :: NS f ks  -> NS f (k (P (:)) ks)
+\end{code}
+\end{myhs}
+\begin{myhs}
+\begin{code}
+data NP :: (k -> Star) -> [k] -> Star where
+  Nil  ::                    NP f (P [])
+  (:*) :: f x -> NP f xs ->  NP f (x (P (:)) xs)
+\end{code}
+\end{myhs}
+The first parameter in both |NS| and |NP| indicates how to treat elements of the type level list, by applying a certain constructor to each of them. For the product part we want to use the type as-is, and thus we use the identity functor there,
+\begin{myhs}
+\begin{code}
+data I p = I p
+\end{code}
+\end{myhs}
+whereas for each member of |NS| we want to recursively use |NP|. The ground type representing a certain code |c| is then given by:
+\begin{myhs}
+\begin{code}
+type SOP c = NS (NP I) c
+\end{code}
+\end{myhs}
+As in the case of the built-in |Generic|, each datatype is tied to its code by a type class. In the implementation this class is also known as |Generic|, but we shall use a subscript to distinguish it.
+\begin{myhs}
+\begin{code}
+class GenericSOP a where
+  type Code a :: [[Star]]
+  from  :: a -> SOP (Code a)
+  to    :: SOP (Code a) -> a
+\end{code}
+\end{myhs}
+
+This approach to generic programming allows the definition of generic operations without resorting to the type class mechanism. By pattern matching on the |NS| and |NP| constructors we gain enough information about the shape of the datatype. For example, here is the definition of the generic |size| operation:
+\begin{myhs}
+\begin{code}
+gsize :: (GenericSOP a, All2 Size (Code a)) => a -> Integer
+gsize = goS . from
+  where  goS (Here   x)  = goP  x
+         goS (There  x)  = goS  x
+         goP Nil         = 0
+         goP (x :* xs)   = size x + goP xs
+\end{code}
+\end{myhs}
+The only remarkable part of this implementation is the use of the |All2| type class to ensure that every type which appears in a field of the code has a corresponding |size| operation.
+
+\subsection{Encoding Recursion}
+
+\section{Generic Type Constructors}
+
+\subsection{Generic1}
+
+\subsection{Generic1 in SOP}
+
+\section{Generics of All Kinds}
+\label{sec:allkinds}
+
+\subsection{Generic Functor}
+
+\section{Constraints}
+\label{sec:constraints}
+
+\section{The Missing Piece: Existentials}
+\label{sec:exists}
+
+\subsection{Finding the Piece in Agda}
 
 
 %% Acknowledgments
 %\begin{acks}
 %\end{acks}
 
+\newpage
 %% Bibliography
 \bibliography{references}
 

@@ -1,0 +1,9 @@
+%format :*: = ":\!*\!:"
+%format :* = ":\!*"
+%format :+: = ":\!+\!:"
+%format (P (a)) = "''" a
+%format Star = "*"
+%format GenericSOP = "Generic_{\mathsf{sop}}"
+%format All2 = "All_2"
+%format Generic1 = "Generic_1"
+%format ~ = "\sim"
