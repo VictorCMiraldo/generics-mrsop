@@ -184,11 +184,11 @@ Before exploring the novel ideas in the paper, we need to recap some notions fro
 In order to define an operation generically, we create two dedicated \emph{type classes}, one for ground types and one for type constructors. A simple generic operation is |size|, which counts the number of constructors.
 \begin{myhs}
 \begin{code}
-class Size   a where
-  size   ::  a    -> Integer
+class Size a where
+  size   ::   a    -> Integer
 
-class GSize  f where
-  gsize  ::  f p  -> Integer
+class GSize f where
+  gsize  ::   f p  -> Integer
 \end{code}
 \end{myhs}
 We then write instances of the second class for each of the building blocks of datatypes. The type class mechanism is how we reflect the type level structure into a term level implementation.
@@ -297,13 +297,112 @@ gsize = goS . from
 \end{myhs}
 The only remarkable part of this implementation is the use of the |All2| type class to ensure that every type which appears in a field of the code has a corresponding |size| operation.
 
-\subsection{Encoding Recursion}
+\subsection{Explicit Recursion}
+
+Both |Generic| and |GenericSOP| mark recursive positions in the datatype \emph{implicitly}. This means that those fields which mention the datatype being defined are not treated in a different way to the others. You can only notice them as a programmer when you see that the |Rep| or |Code| mention the type itself, as was the case with the |Tree a| datatype from the Introduction.
+
+This is not the only possibility, though. \citet{Noort2008} and \citet{Yakushev2009} extend the |Generic| framework with an additional building block which marks recursive positions.
+\begin{myhs}
+\begin{code}
+data Rec p = Rec p
+\end{code}
+\end{myhs}
+The |Rec| type is isomorphic to the |I| type used to represent codes in the \texttt{generic-sop} approach. The twist now is that in the corresponding |GenericRegular| type class the type for the parameter |p| of the functor is not generic --- as was the case with |Generic| --- but it is instantiated with the type being represented. This ties the recursion by making the |Rec| fields point back to the defined type itself.
+\begin{myhs}
+\begin{code}
+class GenericRegular a where
+  type RepRegular a :: * -> *
+  from  :: a -> RepRegular a a
+  to    :: RepRegular a a -> a
+\end{code}
+\end{myhs}
+
+The information about the recursive position opens more possibilities for generic operations. For example, we can define the \emph{fixpoint} of a representation, without any mention of the original datatype being represented. This allows us to operate on generic data without carrying around additional baggage about the contained types.
+\begin{myhs}
+\begin{code}
+newtype Fix f = Fix (f (Fix f))
+\end{code}
+\end{myhs}
+Some generic operations which use this explicit recursion information is the definition of diff and patch~\cite{Lempsink2009}, zippers~\cite{Hinze2003}, and tree regular expressions~\cite{Serrano2016}.
 
 \section{Generic Type Constructors}
 
-\subsection{Generic1}
+As we have mentioned in the Contributions, our goal is to encode the shape of datatypes of all possible kinds, not only |Star|. The reason is that many interesting generic operations --- including the well-known |fmap| from |Functor| --- are defined for higher-kinded types. In this section we look at the already-existing support in the |Generic| framework of GHC, and how to translate this idea to the \texttt{generics-sop} framework.
 
-\subsection{Generic1 in SOP}
+The |Generic1| type class is the counterpart of |Generic| for types with one parameter, such as |Maybe| or |[]|. The definition is pretty similar, except that |from1| and |to1| take as argument an instantiated version |f a| of the type constructor |f|. The same instantiation is done in the generic representation.
+\begin{myhs}
+\begin{code}
+class Generic1 f where
+  type Rep1 f :: * -> *
+  from1  :: f a -> Rep f a
+  to1    :: Rep f a -> f a
+\end{code}
+\end{myhs}
+
+The bulding blocks from |Generic| need to be extended to mark those places where the type variable occurs. For those occasions in which the variable appears naked, we use |Par1|. It might also be the case that some type constructor is applied to that variable, in which case we use |Rec1|. The definition of these types look very similar to the identity and recursion functions defined previously, but the role in the representation is quite different.
+\begin{myhs}
+\begin{code}
+data Par1    p = Par1 p
+data Rec1 f  p = Rec1 (f p)
+\end{code}
+\end{myhs}
+We can now give a representation of the |Tree| type constructor. In contrast, before we had defined a family of representations for |Tree a|, regardless of the |a|.
+\begin{myhs}
+\begin{code}
+U1 :+: (Rec1 Tree :*: Par1 :*: Rec1 Tree)
+\end{code}
+\end{myhs}
+
+|Rec1| is not powerful enough to represent every sort of recursion in Haskell datatypes. Rose trees are a prime example of \emph{non-regular} recursion, since |Rose a| appears under a list constructor.
+\begin{myhs}
+\begin{code}
+data Rose a = Fork a [Rose a]
+\end{code}
+\end{myhs}
+The solution is to introduce \emph{functor composition} as an additional building block:
+\begin{myhs}
+\begin{code}
+data (f :.: g) a = Comp (f (g a))
+\end{code}
+\end{myhs}
+The second field of |Fork| is described then as the composition of the list constructor, and recursion done via |Rec1|.
+\begin{myhs}
+\begin{code}
+Par1 :*: ([] :.: Rec1 Rose)
+\end{code}
+\end{myhs}
+For the rest of the section we focus on the simplest subset of regular types, although non-regularity can be recovered by introducing explicit functor composition as done here.
+
+Defining generic operations for |Generic1| is done as for |Generic|; one just need to add additional instances for the new |Par1| and |Rec1| functors, and for |f :.: g| if non-regular recursion is allowed. Here are the important pieces of the generic |fmap| declaration, taken from the \texttt{generic-deriving} package. The rest of the instances just apply |gfmap| recursively in every position.
+\begin{myhs}
+\begin{code}
+class GFunctor f where
+  gmap :: (a -> b) -> f a -> f b
+
+instance GFunctor Par1 where
+  gmap f (Par1 a)  = Par1 (f a)
+instance (Functor f) => GFunctor (Rec1 f) where
+  gmap f (Rec1 a)  = Rec1 (fmap f a)
+instance (Functor f, GFunctor g)
+  => GFunctor (f :.: g) where
+  gmap f (Comp x)  = Comp (fmap (gmap f) x)
+\end{code}
+\end{myhs}
+
+The main problem of |Generic1| is that the building blocks do not scale to more than one parameter. At the very least, we would need new |Par1| and |Par2| types which refer to each of the type variables.
+\begin{myhs}
+\begin{code}
+data Par1  a b = Par1  a
+data Par2  a b = Par2  b
+\end{code}
+\end{myhs}
+By doing so, the kind of the representation can no longer be |Star -> Star|, we need at least |Star -> Star -> Star| to accomodate the two type parameter. Unfortunately, this means that none of |V1|, |U1|, |(:+:)|, and |(:*:)| can be used, since they all create or operate on types of kind |Star -> Star|. We could build a completely different set of primitive building blocks for two-parameter types, but the problem would repeat again once we consider three parameters.
+
+\subsection{|Generic1| in \texttt{generics-sop}}
+
+
+
+\subsection{More Than One Type Parameter}
 
 \section{Generics of All Kinds}
 \label{sec:allkinds}
