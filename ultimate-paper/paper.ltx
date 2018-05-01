@@ -464,11 +464,12 @@ gfmap f = to . goS . from
     goA (R x) = R (fmap f x)
     goA (K k) = K k
 
+verticalspace
 
 class OnRec (c :: (* -> *) -> Constraint) (a :: Atom)
-instance c f => OnRec c (Rec f)
-instance OnRec c Var
-instance OnRec c (Kon k)
+instance c f  =>  OnRec c (Rec f)
+instance          OnRec c Var
+instance          OnRec c (Kon k)
 \end{code}
 \end{myhs}
 \caption{Idealized |fmap| using |Generic1SOP|}
@@ -495,11 +496,13 @@ gfmap f = to . goS . from
     goP (V x :* xs)  = V (f x)         :* goP xs
     goP (K x :* xs)  = K x             :* goP xs
 
-type family AllRec2 c xs :: Constraint where
+verticalspace
+
+type family AllRec2  c xs :: Constraint where
   AllRec2 c (P [])          = ()
   AllRec2 c (x (P (:)) xs)  = (AllRec c x, AllRec2 c xs)
 
-type family AllRec c xs :: Constraint where
+type family AllRec   c xs :: Constraint where
   AllRec c (P [])               = ()
   AllRec c (Rec x  (P (:)) xs)  = (c x, AllRec c xs)
   AllRec c (x      (P (:)) xs)  = AllRec c xs

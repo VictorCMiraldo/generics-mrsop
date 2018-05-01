@@ -25,3 +25,4 @@
 %format Generic1SOP = "Generic_1^{\mathsf{sop}}"
 %format dot = "."
 %format AllRec2 = "AllRec_2"
+%format verticalspace = "\vspace{-0.1cm}"
