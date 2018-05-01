@@ -16,6 +16,7 @@
 {-# language ScopedTypeVariables #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
+{-# language UndecidableInstances #-}
 module Generic1SOP where
 
 import Data.Kind (type (*), type Type, Constraint)
@@ -54,6 +55,15 @@ instance Generic1SOP Tree where
   to (Here Nil) = Leaf
   to (There (Here (R l :* V x :* R r :* Nil))) = Node l x r
 
+type family AllRec2 c xs :: Constraint where
+  AllRec2 c '[]       = ()
+  AllRec2 c (x ': xs) = (AllRec c x, AllRec2 c xs)
+
+type family AllRec c xs :: Constraint where
+  AllRec c '[]       = ()
+  AllRec c (Rec x ': xs) = (c x, AllRec c xs)
+  AllRec c (x ': xs) = AllRec c xs
+
 type family All2 c xs :: Constraint where
   All2 c '[]       = ()
   All2 c (x ': xs) = (All c x, All2 c xs)
@@ -73,22 +83,18 @@ instance FunctorRec Var
 instance FunctorRec (Kon k)
 
 gfmap :: forall f a b
-       . (Generic1SOP f, All2 (OnRec Functor) (Code1 f))
+       . (Generic1SOP f, AllRec2 Functor (Code1 f))
       => (a -> b) -> f a -> f b
 gfmap f = to . goS . from
   where
-    goS :: All2 (OnRec Functor) xs
+    goS :: AllRec2 Functor xs
         => NS (NP (NA a)) xs -> NS (NP (NA b)) xs
     goS (Here  x) = Here  (goP x)
     goS (There x) = There (goS x)
         
-    goP :: All (OnRec Functor) xs
+    goP :: AllRec Functor xs
         => NP (NA a) xs -> NP (NA b) xs
-    goP Nil       = Nil
-    goP (x :* xs) = (goA x) :* (goP xs)
-
-    goA :: OnRec Functor x
-        => NA a x -> NA b x
-    goA (V a) = V (f a)
-    goA (R x) = R (fmap f x)
-    goA (K k) = K k
+    goP Nil         = Nil
+    goP (R x :* xs) = (R $ fmap f x) :* goP xs
+    goP (V x :* xs) = V (f x) :* goP xs
+    goP (K x :* xs) = K x     :* goP xs

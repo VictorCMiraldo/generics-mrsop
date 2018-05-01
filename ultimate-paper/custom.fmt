@@ -24,3 +24,4 @@
 %format SOP1 = "SOP_1"
 %format Generic1SOP = "Generic_1^{\mathsf{sop}}"
 %format dot = "."
+%format AllRec2 = "AllRec_2"

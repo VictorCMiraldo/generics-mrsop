@@ -450,59 +450,74 @@ After a sequence of |There| and |Here| which indicate which constructor we are w
 \begin{figure}
 \begin{myhs}
 \begin{code}
-gfmap  ::  forall f a b dot
-           (Generic1SOP f, All2 (OnRec Functor) (Code1 f))
+gfmap  ::  (Generic1SOP f, All2 (OnRec Functor) (Code1 f))
        =>  (a -> b) -> f a -> f b
 gfmap f = to . goS . from
   where
-    goS  ::  All2 (OnRec Functor) xs
-         =>  NS (NP (NA a)) xs -> NS (NP (NA b)) xs
-    goS (Here  x) = Here  (goP x)
-    goS (There x) = There (goS x)
-        
-    goP  ::  All (OnRec Functor) xs
-         =>  NP (NA a) xs -> NP (NA b) xs
-    goP Nil       = Nil
-    goP (x :* xs) = (goA x) :* (goP xs)
+    goS (Here   x) = Here   (goP x)
+    goS (There  x) = There  (goS x)
 
-    goA  ::  OnRec Functor x
-         =>  NA a x -> NA b x
+    goP Nil        = Nil
+    goP (x :* xs)  = goA x :* goP xs
+
     goA (V a) = V (f a)
     goA (R x) = R (fmap f x)
     goA (K k) = K k
-\end{code}
-\end{myhs}
-\caption{Generic |fmap| using |Generic1SOP|}
-\label{fig:gfmap}
-\end{figure}
 
-Armed with our new |Generic1SOP|, we can implement a generic version of |fmap|, given in \Cref{fig:gfmap}. One advantage of this definition is that the code is self-contained, instead of being scattered in several instances, as was the case for |Generic1|. There are a few remarks to this code.
-\begin{itemize}
-\item The types involved in the ancillary definitions |goS|, |goP|, and |goA| are too complex to be inferred. We need to help the compiler by annotating the local declarations. We also used the |ScopedTypeVariables| extension to ensure that |f|, |a|, and |b| refer uniformly to the same variables in the code.
-\item As in the case of |GenericSOP|, we use |All2| to ensure that a certain constraint is satisfied by all atoms. Since our constraints only affect |Rec| positions, we define a combinator |OnRec| which only checks a constraint if the atom has the right shape.
-\begin{myhs}
-\begin{code}
+
 class OnRec (c :: (* -> *) -> Constraint) (a :: Atom)
 instance c f => OnRec c (Rec f)
 instance OnRec c Var
 instance OnRec c (Kon k)
 \end{code}
 \end{myhs}
-\end{itemize}
-Unfortunately, the code presented in \Cref{fig:gfmap} does not compile in version 8.4.1 of GHC. From the error information we seem to have all the information available,
-\begin{verbatim}
-Could not deduce (Functor f)
-arising from a use of 'fmap'
-...
-or from: OnRec Functor x
-...
-or from: x ~ 'Rec f
-\end{verbatim}
-but the information obtained from pattern matching over |R| is not used to rewrite |OnRec Functor x| to |OnRec Functor (Rec f)|.
+\caption{Idealized |fmap| using |Generic1SOP|}
+\label{fig:gfmap}
+\end{figure}
+
+\begin{figure}
+\begin{myhs}
+\begin{code}
+gfmap  ::  forall f a b dot
+           (Generic1SOP f, AllRec2 Functor (Code1 f))
+       =>  (a -> b) -> f a -> f b
+gfmap f = to . goS . from
+  where
+    goS  ::  AllRec2 Functor xs
+         =>  NS (NP (NA a)) xs -> NS (NP (NA b)) xs
+    goS (Here   x) = Here   (goP x)
+    goS (There  x) = There  (goS x)
+        
+    goP  ::  AllRec Functor xs
+         =>  NP (NA a) xs -> NP (NA b) xs
+    goP Nil          = Nil
+    goP (R x :* xs)  = (R $ fmap f x)  :* goP xs
+    goP (V x :* xs)  = V (f x)         :* goP xs
+    goP (K x :* xs)  = K x             :* goP xs
+
+type family AllRec2 c xs :: Constraint where
+  AllRec2 c (P [])          = ()
+  AllRec2 c (x (P (:)) xs)  = (AllRec c x, AllRec2 c xs)
+
+type family AllRec c xs :: Constraint where
+  AllRec c (P [])               = ()
+  AllRec c (Rec x  (P (:)) xs)  = (c x, AllRec c xs)
+  AllRec c (x      (P (:)) xs)  = AllRec c xs
+\end{code}
+\end{myhs}
+\caption{Working |fmap| using |Generic1SOP|}
+\label{fig:gfmap2}
+\end{figure}
+
+Armed with our new |Generic1SOP|, we can implement a generic version of |fmap|. Our first attempt is the idealized version in \Cref{fig:gfmap}. As in the case of |GenericSOP|, we use |All2| to ensure that a certain constraint is satisfied by all atoms. Since our constraints only affect |Rec| positions, we define a combinator |OnRec| which only checks a constraint if the atom has the right shape.
+
+Alas, that definition is not accepted directly by GHC, at least in version 8.4.1. First of all, the types involved in the ancillary definitions |goS|, |goP|, and |goA| are too complex to be inferred. We need to help the compiler by annotating the local declarations. We also used the |ScopedTypeVariables| extension to ensure that |f|, |a|, and |b| refer uniformly to the same variables in the code.
+
+The combination of the type family |All2| with the constraint |OnRec Functor|, which is refined depending on the type of atom we are pattern matching over, is too complex for the type checker. The solution is to define a more specific |AllRec2| type family, which only applies the constraint over |Rec| positions. We also need to merge the matching on |goP| and |goA| to mimic the definition of |AllRec2|, otherwise the compiler is not able to check that all the pieces come together in the right place. The resulting, \emph{working}, code is given in \Cref{fig:gfmap2}.
 
 \subsection{More Than One Type Parameter}
 
-This is the reason we prefer this
+It seems that the work put on bringing |Generic1| into the \texttt{generic-sop} realm does not pay much, other than being able to define generic operations by pattern matching instead of 
 
 \section{Generics of All Kinds}
 \label{sec:allkinds}
