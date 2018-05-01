@@ -21,3 +21,6 @@
 %format ~ = "\sim"
 %format GenericRegular = "Generic^{\mathsf{regular}}"
 %format RepRegular = "Rep^{\mathsf{regular}}"
+%format SOP1 = "SOP_1"
+%format Generic1SOP = "Generic_1^{\mathsf{sop}}"
+%format dot = "."

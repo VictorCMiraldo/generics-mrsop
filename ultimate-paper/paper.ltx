@@ -400,9 +400,109 @@ By doing so, the kind of the representation can no longer be |Star -> Star|, we 
 
 \subsection{|Generic1| in \texttt{generics-sop}}
 
+The key point to extend a generic framework to handle type constructors is to introduce marks for those places where the type parameter ought to appear. In the case of |Generic1|, it was only a matter of adding new |Par1| and |Rec1| types.
 
+The approach taken by \texttt{generics-sop} is to describe a datatype by a list of list of types. Ultimately, the elements of the nested lists are ground types, of kind |Star|. This precludes us from using the same form of codes directly, since we cannot add an indicators for variables or recursion. Instead, we introduce \emph{atoms}, which describe the choice we have for each of our fields:
+\begin{myhs}
+\begin{code}
+data Atom = Var | Rec (Star -> Star) | Kon (Star)
+\end{code}
+\end{myhs}
+A code is no longer represented by |[[Star]]|, but rather |[[Atom]]|. The |NS| and |NP| types which interpret those codes are still valid; the nested list structure is still there. But we also need to interpret each of the atoms into a value of kind |Star|. For that we introduce yet another layer, which we call |NA|:
+\begin{myhs}
+\begin{code}
+data NA :: Star -> Atom -> Star where
+  V :: a    -> NA a Var
+  R :: f a  -> NA a (Rec f)
+  K :: k    -> NA a (Kon k)
+\end{code}
+\end{myhs}
+Each of the constructors in |NA| closely matches the definition of |Par1|, |Rec1|, and |K1| in the |Generic1| framework. The code for our running example, |Tree|, reads as follows:
+\begin{myhs}
+\begin{code}
+P [ P [], P [ Rec Tree, Var, Rec Tree ] ]
+\end{code}
+\end{myhs}
+
+The last piece is the new |Generic1SOP| type class which ties each datatype to its code. We also define a |SOP1| type synonym for the nested application of the interpretation functors |NS|, |NP|, and |NA|:
+\begin{myhs}
+\begin{code}
+type SOP1 c a = NS (NP (NA a)) c
+
+class Generic1SOP (f :: * -> *) where
+  type Code1 f :: [[Atom]]
+  from1  :: f a -> SOP1 (Code1 f) a
+  to1    :: SOP1 (Code1 f) a -> f a
+\end{code}
+\end{myhs}
+Up to this point we have omitted the implementation of the functions which witness the isomorphism between a regular datatype and its generic representation. It is instructive to consider how it looks for the case of |Tree| takes as a type constructor:
+\begin{myhs}
+\begin{code}
+instance Generic1SOP Tree where
+  ...
+  from Leaf =  Here    Nil
+  from (Node l x r)
+    = There $  Here $  R l :* V x :* R r :* Nil
+\end{code}
+\end{myhs}
+After a sequence of |There| and |Here| which indicate which constructor we are working with, we find a |(:*)|-separated list of fields, finished by |Nil|. In each case we need to mark whether that field arises from recursion (with |R|), for an ocurrence of the type parameter (with |V|), or simply from a constant type (with |K|, not shown in this example).
+
+\begin{figure}
+\begin{myhs}
+\begin{code}
+gfmap  ::  forall f a b dot
+           (Generic1SOP f, All2 (OnRec Functor) (Code1 f))
+       =>  (a -> b) -> f a -> f b
+gfmap f = to . goS . from
+  where
+    goS  ::  All2 (OnRec Functor) xs
+         =>  NS (NP (NA a)) xs -> NS (NP (NA b)) xs
+    goS (Here  x) = Here  (goP x)
+    goS (There x) = There (goS x)
+        
+    goP  ::  All (OnRec Functor) xs
+         =>  NP (NA a) xs -> NP (NA b) xs
+    goP Nil       = Nil
+    goP (x :* xs) = (goA x) :* (goP xs)
+
+    goA  ::  OnRec Functor x
+         =>  NA a x -> NA b x
+    goA (V a) = V (f a)
+    goA (R x) = R (fmap f x)
+    goA (K k) = K k
+\end{code}
+\end{myhs}
+\caption{Generic |fmap| using |Generic1SOP|}
+\label{fig:gfmap}
+\end{figure}
+
+Armed with our new |Generic1SOP|, we can implement a generic version of |fmap|, given in \Cref{fig:gfmap}. One advantage of this definition is that the code is self-contained, instead of being scattered in several instances, as was the case for |Generic1|. There are a few remarks to this code.
+\begin{itemize}
+\item The types involved in the ancillary definitions |goS|, |goP|, and |goA| are too complex to be inferred. We need to help the compiler by annotating the local declarations. We also used the |ScopedTypeVariables| extension to ensure that |f|, |a|, and |b| refer uniformly to the same variables in the code.
+\item As in the case of |GenericSOP|, we use |All2| to ensure that a certain constraint is satisfied by all atoms. Since our constraints only affect |Rec| positions, we define a combinator |OnRec| which only checks a constraint if the atom has the right shape.
+\begin{myhs}
+\begin{code}
+class OnRec (c :: (* -> *) -> Constraint) (a :: Atom)
+instance c f => OnRec c (Rec f)
+instance OnRec c Var
+instance OnRec c (Kon k)
+\end{code}
+\end{myhs}
+\end{itemize}
+Unfortunately, the code presented in \Cref{fig:gfmap} does not compile in version 8.4.1 of GHC. From the error information we seem to have all the information available,
+\begin{verbatim}
+Could not deduce (Functor f)
+arising from a use of 'fmap'
+...
+or from: OnRec Functor x
+...
+or from: x ~ 'Rec f
+\end{verbatim}
+but the information obtained from pattern matching over |R| is not used to rewrite |OnRec Functor x| to |OnRec Functor (Rec f)|.
 
 \subsection{More Than One Type Parameter}
+
+This is the reason we prefer this
 
 \section{Generics of All Kinds}
 \label{sec:allkinds}
