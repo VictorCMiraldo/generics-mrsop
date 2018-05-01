@@ -153,6 +153,15 @@ instance UltimateGeneric * [a] where
   from SLoT0 _ (B0 Nil) = []
   from SLoT0 _ (B1 (E x :* E xs :* Nil)) = x : xs
 
+instance UltimateGeneric (* -> *) Maybe where
+  type Code Maybe = '[ '[ ], '[ Explicit V0 ] ]
+
+  to s@(SLoT1 _) _ Nothing  = B0 $ Nil
+  to s@(SLoT1 _) p (Just x) = B1 $ E @_ @V0 x :* Nil
+
+  from s@(SLoT1 _) _ (B0 Nil) = Nothing
+  from s@(SLoT1 _) p (B1 (E x :* Nil)) = Just x
+
 instance UltimateGeneric (* -> * -> *) Either where
   type Code Either = '[ '[ Explicit V0 ], '[ Explicit V1 ] ]
 
@@ -161,6 +170,8 @@ instance UltimateGeneric (* -> * -> *) Either where
 
   from (SLoT2 _ _) _ (B0 (E x :* Nil)) = Left  x
   from (SLoT2 _ _) _ (B1 (E x :* Nil)) = Right x
+
+-- and other two for either
 
 data Eql a b where
   Refl :: Eql a a
@@ -215,3 +226,5 @@ gfmap f = from (SLoT1 (Proxy :: Proxy b)) (Proxy :: Proxy f)
 
 fmapList :: (a -> b) -> [a] -> [b]
 fmapList = gfmap
+fmapMaybe :: (a -> b) -> Maybe a -> Maybe b
+fmapMaybe = gfmap
