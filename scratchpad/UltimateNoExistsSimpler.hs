@@ -97,17 +97,6 @@ pattern B1 x = T (H x)
 pattern B2 x = T (T (H x))
 pattern B3 x = T (T (T (H x)))
 
-data family Fix' (dtk :: Kind) (dt :: DataType dtk) :: dtk
-data instance Fix' Type dt
-  = R0 (Fix Type dt LoT0)
-data instance Fix' (k1 -> Type) dt a
-  = R1 (Fix (k1 -> Type) dt (a :&&: LoT0))
-data instance Fix' (k1 -> k2 -> Type) dt a b
-  = R2 (Fix (k1 -> k2 -> Type) dt (a :&&: b :&&: LoT0))
-
-newtype Fix dtk (dt :: DataType dtk) (tys :: LoT dtk)
-  = Fix (NS dtk dt (Fix' dtk dt) tys)
-
 type family Apply k (f :: k) (tys :: LoT k) :: Type where
   Apply Type      f LoT0        = f
   Apply (k -> ks) f (t :&&: ts) = Apply ks (f t) ts
