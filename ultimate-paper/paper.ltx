@@ -837,6 +837,44 @@ To answer the question we have build a model of |GenericNSOP| in Agda, which we 
 \section{Constraints}
 \label{sec:constraints}
 
+The move from ADTs to GADTs makes it possible to require a constraint to be satisfied when using a certain constructor of a data type. The |Eql a b| type described in the Introduction is one example: the constructor |Refl| mandates the two type arguments to coincide by imposing a constraint |a ~ b|.
+
+Since version 7.4.1, GHC treats constraints --- in short, anything which appears before the |=>| arrow --- as regular ground types, with the caveat that its kind is |Constraint| instead of |Star|. This means that we can reuse most of our framework.
+
+Up to now a data type was defined as |[[Atom dtk (Star)]]|, where each element of the inner list represents a field in a constructor. Now we introduce an additional layer, which specified for each field whether it is implicit --- and thus should have kind |Constraint| --- or explicit.
+\begin{myhs}
+\begin{code}
+data Field (dtk :: Kind) where
+  Explicit :: Term dtk (*)         -> Field dtk
+  Implicit :: Term dtk Constraint  -> Field dtk
+
+type DataType dtk = [[Field dtk]]
+\end{code}
+\end{myhs}
+The interpretation functor |NA| has to be adapted:
+\begin{myhs}
+\begin{code}
+data NA (dtk :: Kind) :: LoT dtk -> Field dtk -> * where
+  E ::  forall dtk t tys dot
+        Ty dtk tys t -> NA dtk tys (Explicit t)
+  I ::  forall dtk t tys dot
+        Ty dtk tys t => NA dtk tys (Implicit t)
+\end{code}
+\end{myhs}
+The two constructors look almost the same. But the fact that |Ty dtk tys t| appears before a regular |->| arrow in |E|, and before a |=>| arrow in |I| is enough to require the right kind to come out of the application of |Ty|. This updated framework is enough to describe the shape of the |Eql| data type.
+\begin{myhs}
+\begin{code}
+instance GenericNSOP (k -> k -> *) Eql where
+  type Code Eql
+    = P [ P [ Implicit (Kon (~) :@: Var SZ :@: Var (SS SZ)) ] ]
+
+  from  (_ :&: _ :&: SLoT0) _ Refl = Here $ I :* Nil
+  to    (_ :&: _ :&: SLoT0) _ (Here (I :* Nil)) = Refl
+\end{code}
+\end{myhs}
+
+The rather slim layer that we had to add to support constraints serve as a witness of how the different type level extensions in GHC behave well together.
+
 \section{Explicit Recursion}
 \label{sec:recursion}
 
