@@ -728,7 +728,19 @@ data SLoT dtk (tys :: LoT dtk) where
   (:&:) :: Proxy a -> SLoT ks as ->  SLoT (k -> ks)  (a :&&: as)
 \end{code}
 \end{myhs}
-Now, by pattern matching on a value of type |SLoT dtk|, the compiler gains enough information to check that |from| and |to| are correct. The definitive version of |GenericNSOP|, with an (almost correct) instance for lists is given in \Cref{fig:genericnsop}.
+Now, by pattern matching on a value of type |SLoT dtk|, the compiler gains enough information to check that |from| and |to| are correct. The definitive version of |GenericNSOP|, with an (almost correct) instance for lists is given in \Cref{fig:genericnsop}. Last but not least, GHC cannot check that the use of |T x| in |from| is well-typed:
+\begin{verbatim}
+Could not deduce:
+  Ty (* -> *) (a ':&&: 'Epsilon) x0 ~ a
+\end{verbatim}
+We can fix this problem by being explicit about the type arguments to |T|. For that we use visible type application~\cite{EisenbergWA16}.
+\begin{myhs}
+\begin{code}
+from (_ :&: SLoT0) _ (x : xs)
+  = There $ Here $ T @(Star -> Star) @(Var SZ) x :* T xs :* Nil
+\end{code}
+\end{myhs}
+In this case, we only need the annotation for that argument, and not for |xs|. We have not been able to find a common pattern about when these annotations are required, although it seems that references to variables almost always need them. If instances for |GenericNSOP| were automatically generated, one can just annotate every field to fail in the safe side.
 
 \begin{figure*}
 \begin{myhs}
@@ -741,11 +753,11 @@ class GenericNSOP dtk (f :: dtk) where
 instance UltimateGeneric (* -> *) [] where
   type Code [] = P [ P [ ], P [ Var SZ, Kon [] :@: Var SZ ] ]
 
-  to (_ :&: SLoT0) _ []        =          Here $ Nil
-  to (_ :&: SLoT0) _ (x : xs)  = There $  Here $ T x :* T xs :* Nil
+  from (_ :&: SLoT0) _ []        =          Here $ Nil
+  from (_ :&: SLoT0) _ (x : xs)  = There $  Here $ T x :* T xs :* Nil
 
-  from (_ :&: SLoT0) _         (Here Nil)                    = []
-  from (_ :&: SLoT0) _ (There  (Here (T x :* T xs :* Nil)))  = x : xs
+  to (_ :&: SLoT0) _         (Here Nil)                    = []
+  to (_ :&: SLoT0) _ (There  (Here (T x :* T xs :* Nil)))  = x : xs
 \end{code}
 \end{myhs}
 \caption{The |GenericNSOP| type class and its instance for lists}
@@ -753,6 +765,63 @@ instance UltimateGeneric (* -> *) [] where
 \end{figure*}
 
 \subsection{Generic Functor}
+
+\begin{figure}
+\begin{myhs}
+\begin{code}
+gfmap  ::  forall f a b dot
+           (GenericNSOP (* -> *) f,
+           All2 FunctorField (Code f))
+       =>  (a -> b) -> f a -> f b
+gfmap f  =  to    (Proxy :&: SLoT0) Proxy
+         .  goS
+         .  from  (Proxy :&: SLoT0) Proxy
+  where
+    goS  ::  All2 FunctorField xs
+         =>  NS (NP (NA (* -> *) (a :&&: LoT0))) xs
+         ->  NS (NP (NA (* -> *) (b :&&: LoT0))) xs
+    goS (Here   x) = Here   (goP x)
+    goS (There  x) = There  (goS x)
+
+    goP  ::  All FunctorField xs
+         =>  NP (NA (* -> *) (a :&&: LoT0)) xs
+         ->  NP (NA (* -> *) (b :&&: LoT0)) xs
+    goP Nil          = Nil
+    goP (T x :* xs)  = gfmapF f (T x) :* goP xs
+
+class FunctorField (t :: Term (* -> *) Type) where
+  gfmapF  ::  (a -> b)
+          ->  NA (* -> *) (a :&&: LoT0) t
+          ->  NA (* -> *) (b :&&: LoT0) t
+
+instance  FunctorField (Var SZ) where
+  gfmapF f (T x)  =  T (f x)
+instance  (Functor f, FunctorField x)
+          => FunctorField (Kon f :@: x) where
+  gfmapF f (T x)
+    =  T (fmap (unT . gfmapF f . T atunder @x) x)
+    where 
+      unT :: NA dtk tys t -> Ty dtk tys t
+      unT (T x) = x
+instance  FunctorField (Kon t) where
+  gfmapF f (T x)  =  T x
+\end{code}
+\end{myhs}
+\caption{Generic |fmap| using |GenericNSOP|}
+\label{fig:gfmap3}
+\end{figure}
+
+We had to work quite a bit to obtain the definitive form of |GenericNSOP|. The other side of the coin in generic programming is how to define the generic operations. In fact, it is more important for this lattern mode of use to have a nice interface for the programmer, since the definition of |GenericNSOP| instances can be automated using Template Haskell or a similar metaprogramming technology.
+
+The definition of a generic |fmap|, given in \Cref{fig:gfmap3}, does not differ significantly from that of \Cref{fig:gfmap2}, where we only had |Generic1SOP| at our hand. The main change is our treatment of atoms. In the case of |Generic1SOP|, we knew how to implement |fmap| for every possible shape of field. However, the language of atoms in |GenericNSOP| is much broader, and we cannot always write the desired implementation. In order to delineate which fields we can handle, we introduce a |FunctorField| type class. The instances correspond to three different scenarios:
+\begin{itemize}
+\item If the field mentions the type variable, then we apply the function of type |a -> b| to it.
+\item If the field has the form |f a|, where |f| is a functor and |a| the type variable, we can apply the operation under the functor |f|. This idea generalizes to fields of the form |f1 (... (fn a))|, giving rise to a recursive instance.
+\item Finally, if the field does not mention the variable, |Kon t|, we just keep it unchanged.
+\end{itemize}
+In the second instance we make use of a partial type signature |atunder|~\cite{Winant2014}. That way we can ask the compiler to infer the kind which ought to be passed to |T| from the surrounding context. In this case it can be readily obtained from the following |@x| type application.
+
+Another important difference from the |Generic1SOP| version is that we need to manually pass proxies to |from| and |to|. 
 
 \subsection{Are We Inconsistent Yet?}
 \label{sec:inconsistent1}

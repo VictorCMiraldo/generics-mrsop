@@ -134,7 +134,7 @@ instance UltimateGeneric (* -> *) [] where
   type Code [] = '[ '[ ], '[ V0, [] :$: V0 ] ]
 
   to s@(SLoT1 _) _ [] = B0 $ Nil
-  to s@(SLoT1 _) p (x : xs) = B1 $ T @_ @V0 x :* T xs :* Nil
+  to s@(SLoT1 _) p (x : xs) = B1 $ T @(* -> *) @V0 x :* T xs :* Nil
 
   from s@(SLoT1 _) _ (B0 Nil) = []
   from s@(SLoT1 _) p (B1 (T x :* T xs :* Nil)) = x : xs
@@ -193,9 +193,9 @@ type family All c xs :: Constraint where
 gfmap :: forall f a b
        . (UltimateGeneric (* -> *) f, All2 FunctorField (Code f))
       => (a -> b) -> f a -> f b
-gfmap f = from (SLoT1 (Proxy :: Proxy b)) (Proxy :: Proxy f)
+gfmap f = from (SLoT1 Proxy) (Proxy)
         . goS
-        . to   (SLoT1 (Proxy :: Proxy a)) (Proxy :: Proxy f)
+        . to   (SLoT1 Proxy) (Proxy)
   where
     goS :: All2 FunctorField xs
         => NS (NP (NA (* -> *) (a :&&: LoT0))) xs

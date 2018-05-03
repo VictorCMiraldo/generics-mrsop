@@ -46,3 +46,6 @@
 %format SOPn = "\mathit{SOP}_\star"
 %format SLoT0 = "\mathcal{S}\epsilon"
 %format :&: = ":\!\!\text{\&}\!\!:"
+%format atunder = "\text{@}\_"
+%format f1 = "f_1"
+%format fn = "f_n"
