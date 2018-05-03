@@ -801,9 +801,7 @@ instance  (Functor f, FunctorField x)
           => FunctorField (Kon f :@: x) where
   gfmapF f (T x)
     =  T (fmap (unT . gfmapF f . T atunder @x) x)
-    where 
-      unT :: NA dtk tys t -> Ty dtk tys t
-      unT (T x) = x
+    where unT (T x) = x
 instance  FunctorField (Kon t) where
   gfmapF f (T x)  =  T x
 \end{code}
@@ -962,7 +960,38 @@ instance Functor Rose where
 \end{myhs}
 This ties the recursive knot, and makes it possible to use |fmap| on every data type whose fields have the shapes supported by |FunctorField|.
 
-\subsection{Fixpoints of All Kinds}
+\paragraph{Fixpoints of all kinds.} When the recursive structure of a type is known, it is possible to obtain the fixpoint of the corresponding functor, to obtain a representation which does not refer back to the original data type. In \Cref{sec:fixpointstar} we discuss how to extend the |Fix| construction to data types of any kind.
+
+\subsection{Are We Inconsistent Yet?}
+
+Discuss better with Victor.
+
+\section{The Missing Piece: Existentials}
+\label{sec:exists}
+
+
+\subsection{Finding the Piece in Agda}
+
+
+\section{Related Work}
+
+\section{Conclusion and Future Work}
+
+%% Acknowledgments
+%\begin{acks}
+%\end{acks}
+
+\newpage
+%% Bibliography
+\bibliography{references}
+
+\appendix
+
+\section{Reference Implementation in Agda}
+\label{sec:agda}
+
+\section{Fixpoints of All Kinds}
+\label{sec:fixpointstar}
 
 In the case of a type constructor with one argument, we can obtain a new type of kind |Star| by using the fixpoint of the type constructor. This fact allows us to convert a whole value into a generic representation which does not refer at all at the original types of the fields. We come here to a similar problem as with |Generic|: the construction using the |Fix| in \Cref{sec:recursionpre} only works for types of kind |*|, but we would like to have a similar construction working for \emph{every} kind.
 
@@ -1003,34 +1032,8 @@ data instance Fix' (k1 -> k2 -> Star) dt a b
   = R2 (Fix (k1 -> k2 -> Star) dt (a :&&: b :&&: LoT0))
 \end{code}
 \end{myhs}
-Without much effort it is possible to extend the |GenericNSOP| instances to perform the deep conversion to |Fix dtk (Code f)| in addition to the shallow conversion to |SOPn dtk (Code f) f|. We refrain to show the code for the sake of conciseness.
+Without much effort it is possible to extend the |GenericNSOP| instances to perform the deep conversion to |Fix dtk (Code f)| in addition to the shallow conversion to |SOPn dtk (Code f) f|.
 
-\subsection{Are We Inconsistent Yet?}
-
-Discuss better with Victor.
-
-\section{The Missing Piece: Existentials}
-\label{sec:exists}
-
-
-\subsection{Finding the Piece in Agda}
-
-
-\section{Related Work}
-
-\section{Conclusion and Future Work}
-
-%% Acknowledgments
-%\begin{acks}
-%\end{acks}
-
-\newpage
-%% Bibliography
-\bibliography{references}
-
-\appendix
-
-\section{Reference Implementation in Agda}
-\label{sec:agda}
+\section{Full Implementation}
 
 \end{document}
