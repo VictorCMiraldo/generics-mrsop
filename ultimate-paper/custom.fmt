@@ -49,3 +49,6 @@
 %format atunder = "\text{@}\_"
 %format f1 = "f_1"
 %format fn = "f_n"
+%format Set0 = "\mathsf{Set}_0"
+%format Set1 = "\mathsf{Set}_1"
+%format Set2 = "\mathsf{Set}_2"

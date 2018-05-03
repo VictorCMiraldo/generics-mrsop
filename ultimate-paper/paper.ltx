@@ -821,10 +821,18 @@ The definition of a generic |fmap|, given in \Cref{fig:gfmap3}, does not differ 
 \end{itemize}
 In the second instance we make use of a partial type signature |atunder|~\cite{Winant2014}. That way we can ask the compiler to infer the kind which ought to be passed to |T| from the surrounding context. In this case it can be readily obtained from the following |@x| type application.
 
-Another important difference from the |Generic1SOP| version is that we need to manually pass proxies to |from| and |to|. 
+Another important difference from the |Generic1SOP| version is that we need to manually pass proxies to |from| and |to|. It might be possible to automatize this part, but we feel that the overhead for the programmer is not very big. Note that the \emph{user} of the generic operation is oblivious to these fact, they can use the operation directly.
+\begin{verbatim}
+> gfmap (+1) [1,2,3]
+[2,3,4]
+\end{verbatim}
 
 \subsection{Are We Inconsistent Yet?}
 \label{sec:inconsistent1}
+
+In order to perform the entire construction, we were forced to enable the |TypeInType| extension in GHC. This extension is quite powerful: it allows working with kinds as they were types, and to promote GADTs, among others. But it also adds an axiom |Star : Star|, which is known to introduce inconsistency when we view the language as a logic~\cite{Girard}. We would like to know whether this latter axiom is necessary for our construction, or it could be achieved using a hierarchy of universe levels.
+
+To answer the question we have build a model of |GenericNSOP| in Agda, which we describe in \Cref{sec:agda}. If we assume that our universe of basic types lives in |Set0|, our codes live in |Set1|, and our interpretation of those in |Set2|. The code compiles fine, showing that the |Star : Star| axiom is not essential to our construction.
 
 \section{Constraints}
 \label{sec:constraints}
@@ -847,5 +855,10 @@ Another important difference from the |Generic1SOP| version is that we need to m
 \newpage
 %% Bibliography
 \bibliography{references}
+
+\appendix
+
+\section{Reference Implementation in Agda}
+\label{sec:agda}
 
 \end{document}
