@@ -98,6 +98,17 @@ unE (E x) = x
 
 type SOPn k (c :: DataType k) (r :: k) (tys :: LoT k) = NS (NP (NA k r tys)) c
 
+data family Fix' (rx :: Kind) (dt :: DataType rx) :: rx
+data instance Fix' Type dt
+  = R0 (Fix Type dt LoT0)
+data instance Fix' (k1 -> Type) dt a
+  = R1 (Fix (k1 -> Type) dt (a :&&: LoT0))
+data instance Fix' (k1 -> k2 -> Type) dt a b
+  = R2 (Fix (k1 -> k2 -> Type) dt (a :&&: b :&&: LoT0))
+
+newtype Fix dtk (dt :: DataType dtk) (tys :: LoT dtk)
+  = Fix (SOPn dtk dt (Fix' dtk dt) tys)
+
 type family Apply k (f :: k) (tys :: LoT k) :: Type where
   Apply Type      f LoT0        = f
   Apply (k -> ks) f (t :&&: ts) = Apply ks (f t) ts
