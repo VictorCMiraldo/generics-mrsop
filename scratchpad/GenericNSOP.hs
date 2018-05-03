@@ -17,9 +17,11 @@
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language UndecidableInstances #-}
+{-# language StandaloneDeriving #-}
 module Generic1SOP where
 
 import Data.Kind (type (*), type Type, Constraint)
+import Type.Reflection (TypeRep)
 
 type Kind = (*)
 
@@ -46,6 +48,12 @@ data Term (dtk :: Kind) k where
   (:@:) :: Term dtk (k1 -> k2) -> Term dtk k1 -> Term dtk k2
   -- If we really want this
   -- Rec   :: Term dtk dtk
+
+  -- Just checking I am not going crazy
+data Exists where
+  Exists_ :: TypeRep a -> Exists
+data NE (e :: Exists) where
+  NE_ :: forall a (tr :: TypeRep a) (t :: a). a -> NE (Exists_ tr)
 
 type V0 = Var SZ
 type V1 = Var (SS SZ)

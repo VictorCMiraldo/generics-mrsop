@@ -171,8 +171,6 @@ we require the indices of |Eql|, namely |a| and |b|, to be equal. This is repres
 In \Cref{sec:constraints} we explore how to extend our base framework to account for constraints.
 
 \item Constructor may also mention type variables which are not reflected in the indices. These are called \emph{existentials}, since once you pattern match you know that a type has been used, but not exactly which one.
-
-As we shall see in \Cref{sec:exists}, it is possible to describe datatypes with existentials in the type level, but unfortunately not possible to represent them at the term level. For that functionality we require real dependent types, as provided by Agda.
 \end{itemize}
 
 This paper also aims to witness how far the type level facilities in GHC have evolved. None of the contributions in this paper would be possible without datatype promotion, kind polymorphism ~\cite{Yorgey2012}, the |Constraint| kind~\cite{constraintkinds}, or the |TypeInType| extension~\cite{Weirich2013,Weirich2017}.
@@ -743,13 +741,15 @@ from (_ :&: SLoT0) _ (x : xs)
 \end{myhs}
 In this case, we only need the annotation for that argument, and not for |xs|. We have not been able to find a common pattern about when these annotations are required, although it seems that references to variables almost always need them. If instances for |GenericNSOP| were automatically generated, one can just annotate every field to fail in the safe side.
 
-\begin{figure*}
+\begin{figure}
 \begin{myhs}
 \begin{code}
 class GenericNSOP dtk (f :: dtk) where
   type Code f = DataType dtk
-  from  :: SLoT dtk tys -> Proxy f -> Apply dtk f tys -> SOPn dtk (Code f) tys
-  to    :: SLoT dtk tys -> Proxy f -> SOPn dtk (Code f) tys -> Apply dtk f tys
+  from  ::  SLoT dtk tys -> Proxy f
+        ->  Apply dtk f tys -> SOPn dtk (Code f) tys
+  to    ::  SLoT dtk tys -> Proxy f
+        ->  SOPn dtk (Code f) tys -> Apply dtk f tys
 
 instance UltimateGeneric (* -> *) [] where
   type Code [] = P [ P [ ], P [ Var SZ, Kon [] :@: Var SZ ] ]
@@ -763,7 +763,7 @@ instance UltimateGeneric (* -> *) [] where
 \end{myhs}
 \caption{The |GenericNSOP| type class and its instance for lists}
 \label{fig:genericnsop}
-\end{figure*}
+\end{figure}
 
 \subsection{Generic Functor}
 
