@@ -42,6 +42,7 @@
 \usepackage{booktabs}
 \usepackage{subcaption}
 \usepackage{cleveref}
+\usepackage{cmll}
 
 \begin{document}
 
@@ -152,7 +153,7 @@ Fortunately, we do not have to write |Generic| instances by hand. GHC provides a
 
 The |Generic| type class defined above only allows to represent ground types, in other words, types which kind |Star|. But this is not enough for all our purposes. For example, if we want to give a generic |fmap| definition, we need to know the structure of a type constructor of kind |Star -> Star| instead. Some libraries provide ad-hoc |Generic1| classes for that single purpose.
 
-The main contribution of this paper is to provide a \emph{single, unified} type class for generic programming over types of all kinds (\Cref{sec:allkinds}). We do so by using a variant of the sum-of-products representation with explicit fixpoints, notions which we explore in \Cref{sec:pre}.
+The main contribution of this paper is to provide a \emph{single, unified} type class for generic programming over types of all kinds (\Cref{sec:allkinds}). We do so by using a variant of the sum-of-products representation. In \Cref{sec:recursion} we consider a variant with explicit recursion. We explore the required background in \Cref{sec:pre}.
 
 Representing arbitrary constructor moves us a step forward to being able to accurately represent the shape of \emph{every} Haskell datatype. Since the introduction of Generalised Algebraic Data Types~\cite{Xi2003}, we need to additional combinators to make that dream true:
 \begin{itemize}
@@ -326,6 +327,7 @@ newtype Fix f = Fix (f (Fix f))
 Some generic operations which use this explicit recursion information is the definition of diff and patch~\cite{Lempsink2009}, zippers~\cite{Hinze2003}, and tree regular expressions~\cite{Serrano2016}.
 
 \section{Generic Type Constructors}
+\label{sec:generic1}
 
 As we have mentioned in the Contributions, our goal is to encode the shape of datatypes of all possible kinds, not only |Star|. The reason is that many interesting generic operations --- including the well-known |fmap| from |Functor| --- are defined for higher-kinded types. In this section we look at the already-existing support in the |Generic| framework of GHC, and how to translate this idea to the \texttt{generics-sop} framework.
 
@@ -518,17 +520,200 @@ Alas, that definition is not accepted directly by GHC, at least in version 8.4.1
 
 The combination of the type family |All2| with the constraint |OnRec Functor|, which is refined depending on the type of atom we are pattern matching over, is too complex for the type checker. The solution is to define a more specific |AllRec2| type family, which only applies the constraint over |Rec| positions. We also need to merge the matching on |goP| and |goA| to mimic the definition of |AllRec2|, otherwise the compiler is not able to check that all the pieces come together in the right place. The resulting, \emph{working}, code is given in \Cref{fig:gfmap2}.
 
-\subsection{More Than One Type Parameter}
-
-It seems that the work put on bringing |Generic1| into the \texttt{generic-sop} realm does not pay much, other than being able to define generic operations by pattern matching instead of 
-
 \section{Generics of All Kinds}
 \label{sec:allkinds}
 
+The extension of |GenericSOP| to |Generic1SOP| was done three steps. First, we changed the language of the codes from lists of lists of types, to lists of lists of atoms. By doing so, we gained the flexibility of referring to refer to type parameters via |Var|, and to encode recursion via |Rec|. As a result of this change, we had to define a different interpretation functor |NA|. Finally, we defined the |Generic1SOP| type class to tie each data type with its code. In this section we follow the same steps, with the goal of supporting types of any kind.
+
+The first question then is how should we represent each of the types of the fields, that is, which is our new language of atoms. As we saw in \Cref{sec:generic1}, which data types we are able to describe depends heavily on the choice of these primitive building blocks. In that case, we had to add an addition composition combinator |(:.:)| to support nested recursion. Here this problem is magnified; for example, in the following data type of kind |Star -> (Star -> Star) -> Star -> Star|:
+\begin{myhs}
+\begin{code}
+data ReaderT r m a = r -> m a
+\end{code}
+\end{myhs}
+the second type variable is applied to the third one. We cannot foresee all possible combinations of recursion and application, and thus extending the possibilities of the |Rec| constructor from |Atom| is a dead end.
+
+Since we want to express \emph{any} possible type which appears in a Haskell data type declaration, we look at its syntax from the Haskell Report~\cite[section 4.1.2]{haskell2010}. Essentially, a type is either a type variable, a type constructor, or an application of a type to another type. The syntax of types can also be characterized as that of the $\lambda$-calculus without abstraction. It is well-known how to encode $\lambda$-terms in Haskell: we just need to decide how to refer to variables, the simplest choice being de Bruijn indices.
+\begin{myhs}
+\begin{code}
+-- Natural numbers to represent indices
+data Nat   = Z | S Nat
+
+data Atom  = Var Nat | Kon k | Atom :@: Atom
+\end{code}
+\end{myhs}
+Alas, this definition of |Atom| allows us to represent ill-kinded types such as |Kon Int :@: Var Z|. The solution is to add an index to |Atom| that states its kind. Then we can check that applications are well-formed by refining the |Kon| and |(:@:)| constructors:
+\begin{myhs}
+\begin{code}
+Kon    :: k                            -> Atom k
+(:@:)  :: Atom (k1 -> k2)  -> Atom k1  -> Atom k2
+\end{code}
+\end{myhs}
+This is enough to reject the previous example |Kon Int :@: Var Z|, since the kind of |Int| is not of the form |k1 -> k2|.
+
+The only missing piece is how to encode the kind of a |Var|. It is not enough to know the index; the first type parameter in |[] :: Star -> Star| and |MayebT :: (Star -> Star) -> Star -> Star| have different kinds (|Star| and |Star -> Star|, respectively). As a result, our |Atom| type gains one additional parameter, which saves the kind of the data type whose fields we are representing. It is easy to define an operation which looks up the kind of a certain variable within the kind of the whole data type:
+\begin{myhs}
+\begin{code}
+type family Pos (n :: Nat) (dtk :: Kind) :: Kind where
+  Pos n      Type       = TypeError (Text "Not found")
+  Pos Z      (x -> xs)  = x
+  Pos (S n)  (x -> xs)  = Pos n xs
+\end{code}
+\end{myhs}
+This piece of code introduces some conventions we abide through the rest of the paper. First of all, we use the Greek letter |dtk| to refer to the kind of the data type we are describing. Second, although with the |TypeInType| extension the tower of types and kinds collapse into one single level, we write |Type| or |Kind| to distinguish the intended meaning in each occasion.
+
+Using |Pos|, we can finally compute the kind of a |Var| from its index and the kind of the complete data type. Essentially, we want to give |Var| the following type:
+\begin{myhs}
+\begin{code}
+Var :: (n :: Nat) -> Atom dtk (Pos n dtk)
+\end{code}
+\end{myhs}
+Alas, Haskell is not a dependently-typed language, which means we cannot use the value of the argument as part of the rest of the type. To work around this restriction we use a \emph{singleton}~\cite{Eisenberg2012} for natural numbers. In short, a singleton for |tau| is a data type indexed by that |tau| which accurately reflects the structure of |tau|. Thus, by pattern matching on the singleton, we gain information about |tau| itself. Here is the definition of the singleton for |Nat|:
+\begin{myhs}
+\begin{code}
+data SNat (n :: Nat) where
+  SZ ::            SNat Z
+  SS :: SNat n ->  SNat (S n)
+\end{code}
+\end{myhs}
+By replacing |(n :: Nat)| with |SNat n| in the definition of |Var|, we are no longer in dependently-typed territory. The first argument and the result now just happen to share a reference to the same variable of kind |Nat|. The definitive version of |Atom| is:
+\begin{myhs}
+\begin{code}
+data Atom (dtk :: Kind) k where
+  Var    :: SNat n  -> Term dtk (Pos n dtk)
+  Kon    :: k       -> Term dtk k
+  (:@:)  :: Term dtk (k1 -> k2) -> Term dtk k1 -> Term dtk k2
+\end{code}
+\end{myhs}
+
+At this point we are using a GADT, |SNat|, to index yet another GADT, |Atom|. This means that the compiler needs to work with a promoted version of |SNat|. In order to promote a GADT we require the |TypeInType| extension. However, we are not using the full power of the |Star : Star| axiom, we discuss this matter in \Cref{sec:inconsistent1}.
+
+A datatype of kind |dtk| is now encoded as a list of list of the atoms defined above. However, not every atom is allowed as a field, the language requires those to be of kind |Star|. This requirement can be easily enforced by mandating the second parameter of |Atom|:
+\begin{myhs}
+\begin{code}
+type DataType dtk = [[Atom dtk (Star)]]
+\end{code}
+\end{myhs}
+As an example, here are the codes corresponding to |[]|, |Either|, and |Rose|. The fact that |Either| has two type parameter can be observed by the usage of both |SZ| and |SS SZ| as arguments to |Var|. The non-regular recursion pattern in |Rose| is translated to iterated uses of |(:@:)|.
+\begin{myhs}
+\begin{code}
+type  ListCode
+      = P [ P [ ], P [ Var SZ, Kon [] :@: Var SZ ] ]
+type EitherCode
+      = P [ P [ Var SZ ], P [ Var (SS SZ)] ]
+type RoseCode
+      = P [ P [ Var SZ, Kon [] :@: (Kon Rose :@: Var SZ) ] ]
+\end{code}
+\end{myhs}
+
+\paragraph{A unified |NA|.} The sum-of-products structure stays the same in our new encoding of data types. As a result, the |NS| and |NP| types which interpret that structure do not need any modifications. On the other hand, the interpretation of atoms requires heavy adjustments.
+
+In the version of |NA| we presented in \Cref{sec:generic1}, we had a first argument of kind |Star|. That argument represented the value of the type parameter of the data type we were interpreting, as witnessed by the |V| constructor:
+\begin{myhs}
+\begin{code}
+V :: a -> NA a Var
+\end{code}
+\end{myhs}
+But now we do not have just one, but a sequence of types, one for each of the type arguments of the data type we are interpreting. Furthermore, those types may have different kinds, once again as defined by the data type we are describing. This notion is not new, to interpret a term possibly containing variables we need a \emph{context} --- commonly represented by the Greek letter $\Gamma$ -- which assigns a value to each of the variables. Other than the special shape of the index, the data type for contexts looks very much like an heterogeneous list.
+\begin{myhs}
+\begin{code}
+data LoT (dtk :: Kind) where
+  LoT0    ::                 LoT (Star)
+  (:&&:)  :: k -> LoT ks ->  LoT (k -> ks)
+\end{code}
+\end{myhs}
+For example, |Int :&&: Maybe :&&: Char :&&: LoT0| is a well-formed type of kind |LoT (Star -> (Star -> Star) -> Star -> Star)|.
+
+In the previous iteration of |NA|, we had a constructor for each possible value of |Atom|. That solution does not scale for the whole syntax of atoms. For example, it is not possible to define the interpretation |Kon [] :@: Kon Int| by composing interpretations of |Kon []| and |Kon Int|, if only because the notion of a value of something of a kind different from |Star| is not well-formed in Haskell. Instead, we define a type family |Ty| which computes the type of a field given a context.
+\begin{myhs}
+\begin{code}
+type family Ty dtk (tys :: LoT dtk) (t :: Term dtk k) :: k where
+  Ty dtk tys (Var n)    = LookupLoT n tys
+  Ty dtk tys (Kon t)    = t
+  Ty dtk tys (f :@: x)  = (Ty dtk tys f) (Ty dtk tys x)
+\end{code}
+\end{myhs}
+The ancillary operation |LookupLoT| should return the $n$-th position in the context |tys|. Alas, here we stumble upon a wall: the compiler is not able to deduce that such a lookup will produce a type of the correct kind. To work around this limitation, we need to manually simulate the lookup for each shape of |dtk|:
+\begin{myhs}
+\begin{code}
+type family Ty dtk (tys :: LoT dtk) (t :: Term dtk k) :: k where
+  Ty (k1        -> ks) (t1          :&&: ts) (Var SZ)       = t1
+  Ty (k1 -> k2  -> ks) (t1 :&&: t2  :&&: ts) (Var (SS SZ))  = t2
+  -- and so on
+\end{code}
+\end{myhs}
+Although not very elegant, we think that this is a simple compromise solution. Haskell data types commonly do not have a huge number of type parameters, so we can get our way with a limited number of these expanded lookups.
+
+Using |Ty| we can write a definitive version of |NA|. This new version has a single constructor, since the job of computing the type of the field has been outsourced to the |Ty| type family. The new parameters in |NA| appear also in the new |SOPn| type, which interpets codes of the new shape:
+\begin{myhs}
+\begin{code}
+data NA (dtk :: Kind) :: LoT dtk -> Term dtk (Star) -> Star where
+  T :: forall dtk t tys dot Ty dtk tys t -> NA dtk tys t
+
+type SOPn dtk (c :: DataType dtk) (tys :: LoT dtk)
+  = NS (NP (NA dtk tys)) c
+\end{code}
+\end{myhs}
+In preparation for the next construction, we introduce the type variables for the |T| constructor explicitly. In particular, this is required to use visible type application~\cite{EisenbergWA16}. 
+
+\paragraph{A unified |GenericNSOP|.} The definition of the generic representation of a certain data type is not comprised only of its code, the two isomorphisms |from| and |to| are also required. We come to a problem here, because we need to be able to express on a single type signature the whole family of conversion functions:
+\begin{myhs}
+\begin{code}
+from   :: f      -> SOPn (Star)              (Code f) LoT0
+from1  :: f a    -> SOPn (k1 -> Star)        (Code f) (a :&&: LoT0)
+from2  :: f a b  -> SOPn (k1 -> k2 -> Star)  (Code f) (a :&&: b :&&: LoT0)
+-- and so on
+\end{code}
+\end{myhs}
+The problem is in the shape of the first argument, because |f| is applied to a different number of variables in each case. Following the same idea as we do for |SOPn|, we can describe the situation as |f| applied to a sequence of variables instead, whose length varies.
+\begin{myhs}
+\begin{code}
+from   :: Apply f LoT0                  -> SOPn ...
+from1  :: Apply f (a :&&: LoT0)         -> SOPn ...
+from2  :: Apply f (a :&&: b :&&: LoT0)  -> SOPn ...
+-- and so on
+\end{code}
+\end{myhs}
+The ancillary operation |Apply| is defined as a type family. In order to help the compiler in forecoming developments, we also include the kind of the context as an explicit argument to the family.
+\begin{myhs}
+\begin{code}
+type family Apply dtk (f :: dtk) (tys :: LoT dtk) :: (Star) where
+  Apply (Star)     f LoT0         = f
+  Apply (k -> ks)  f (t :&&: ts)  = Apply ks (f t) ts
+\end{code}
+\end{myhs}
+
+Our first attempt for a unified |GenericNSOP| type class is thus:
+\begin{myhs}
+\begin{code}
+class GenericNSOP dtk (f :: dtk) where
+  type Code f = DataType dtk
+  from  :: Apply dtk f tys -> SOPn dtk (Code f) tys
+  to    :: SOPn dtk (Code f) tys -> Apply dtk f tys
+\end{code}
+\end{myhs}
+Unfortunately, GHC rejects the signatures of the methods. The reason is that |f| appears only as an argument of type families, |Apply| and |Code|. None of the type families are injective, which means that the instantiation of |f| cannot be inferred in its usage sites. In fact, it we have |Either a b| as a result, there are three different calls to |Apply| which give the same result:\footnote{Although one could argue that the combination of the result of |Apply| and the sequence of types |tys| is enough to fix the parameter |f|.}
+\begin{myhs}
+\begin{code}
+Apply (Star -> Star -> Star)  Either        (a :&&:   b   :&&:  LoT0)
+Apply (Star -> Star)          (Either a)              (b  :&&:  LoT0)
+Apply (Star)                  (Either a b)                      LoT0
+\end{code}
+\end{myhs}
+In order to fix |f|, we introduce an additional proxy argument to both methods in the |GenericNSOP| type class.
+
 \subsection{Generic Functor}
+
+\subsection{Are We Inconsistent Yet?}
+\label{sec:inconsistent1}
 
 \section{Constraints}
 \label{sec:constraints}
+
+\section{Explicit Recursion}
+\label{sec:recursion}
+
+\subsection{Are We Inconsistent Yet?}
 
 \section{The Missing Piece: Existentials}
 \label{sec:exists}
