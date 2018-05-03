@@ -44,11 +44,13 @@
 \usepackage{cleveref}
 \usepackage{cmll}
 
+\hypersetup{draft}
+
 \begin{document}
 
 %% Title information
 \title{Generic Programming of All Kinds}
-\subtitle{A Tribute to Haskell's Power}
+\subtitle{A Tribute to the Power of Haskell}
 
 \author{Alejandro Serrano}
 \orcid{nnnn-nnnn-nnnn-nnnn}             %% \orcid is optional
@@ -701,6 +703,54 @@ Apply (Star)                  (Either a b)                      LoT0
 \end{code}
 \end{myhs}
 In order to fix |f|, we introduce an additional proxy argument to both methods in the |GenericNSOP| type class.
+
+It seems that all pieces are in place, and we can start writing an instance of |GenericNSOP| for lists:
+\begin{myhs}
+\begin{code}
+instance GenericNSOP (* -> *) [] where
+  type Code [] = ListCode
+
+  to _ []       =          Here $ Nil
+  to _ (x : xs) = There $  Here $ T x :* T xs :* Nil
+\end{code}
+\end{myhs}
+But GHC complains again:
+\begin{verbatim}
+Couldn't match
+  expected type 'Apply (* -> *) [] ts'
+  with actual type '[Ty (* -> *) ts (Var SZ)]'
+\end{verbatim}
+Although in theory just knowing the kind |dtk| of the data type we are describing is enough to know the shape of the context |LoT dtk|, this is not something which is reflected in the code. In fact, you could add another constructor to the definition of |LoT| and make this invariant not hold anymore. It is not enough either to add a proxy, because pattern matching on it does not refine the shape of the context. We need a singleton type for the context.
+\begin{myhs}
+\begin{code}
+data SLoT dtk (tys :: LoT dtk) where
+  SLoT0 ::                           SLoT (Star)     LoT0
+  (:&:) :: Proxy a -> SLoT ks as ->  SLoT (k -> ks)  (a :&&: as)
+\end{code}
+\end{myhs}
+Now, by pattern matching on a value of type |SLoT dtk|, the compiler gains enough information to check that |from| and |to| are correct. The definitive version of |GenericNSOP|, with an (almost correct) instance for lists is given in \Cref{fig:genericnsop}.
+
+\begin{figure*}
+\begin{myhs}
+\begin{code}
+class GenericNSOP dtk (f :: dtk) where
+  type Code f = DataType dtk
+  from  :: SLoT dtk tys -> Proxy f -> Apply dtk f tys -> SOPn dtk (Code f) tys
+  to    :: SLoT dtk tys -> Proxy f -> SOPn dtk (Code f) tys -> Apply dtk f tys
+
+instance UltimateGeneric (* -> *) [] where
+  type Code [] = P [ P [ ], P [ Var SZ, Kon [] :@: Var SZ ] ]
+
+  to (_ :&: SLoT0) _ []        =          Here $ Nil
+  to (_ :&: SLoT0) _ (x : xs)  = There $  Here $ T x :* T xs :* Nil
+
+  from (_ :&: SLoT0) _         (Here Nil)                    = []
+  from (_ :&: SLoT0) _ (There  (Here (T x :* T xs :* Nil)))  = x : xs
+\end{code}
+\end{myhs}
+\caption{The |GenericNSOP| type class and its instance for lists}
+\label{fig:genericnsop}
+\end{figure*}
 
 \subsection{Generic Functor}
 

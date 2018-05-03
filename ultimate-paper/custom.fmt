@@ -44,3 +44,5 @@
 %format LookupLoT = "LookupIn\Gamma"
 %format GenericNSOP = "\mathit{Generic}_\star^\mathsf{sop}"
 %format SOPn = "\mathit{SOP}_\star"
+%format SLoT0 = "\mathcal{S}\epsilon"
+%format :&: = ":\!\!\text{\&}\!\!:"
