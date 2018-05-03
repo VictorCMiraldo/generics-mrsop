@@ -53,3 +53,4 @@
 %format Set1 = "\mathsf{Set}_1"
 %format Set2 = "\mathsf{Set}_2"
 %format family = "\mathbf{family}"
+%format Fixn = "\mathit{Fix}_\star"
