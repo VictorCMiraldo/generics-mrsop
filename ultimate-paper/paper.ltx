@@ -889,6 +889,70 @@ data Atom (dtk :: Kind) k where
   Rec :: Atom dtk dtk
 \end{code}
 \end{myhs}
+As an example, we can provide a more informative code for |[]|, where the recursion is explicit:
+\begin{myhs}
+\begin{code}
+type ListCode = P [ P [ ], P [ Var SZ, Rec :@: Var SZ ] ]
+\end{code}
+\end{myhs}
+
+The next step is to extend the interpretation of atoms to include this new construction. As in the case of \citet{Noort2008}, we only tie the recursive knot at the level of the |GenericNSOP| type class. In the meantime, |Ty| is extended with a new argument, which declares which is the type to be used whenever |Rec| is found.
+\begin{myhs}
+\begin{code}
+type family Ty  (dtk :: Kind) (r :: dtk) (tys :: LoT dtk)
+                (t :: Atom dtk k) :: k where
+  ...
+  Ty dtk r tys Rec = r
+\end{code}
+\end{myhs}
+As a consequence, |NA| and |SOPn| also gain a new type parameter for this recursive position.
+\begin{myhs}
+\begin{code}
+data NA (dtk :: Kind) :: dtk -> LoT dtk -> Field dtk -> Star where ...
+type SOPn dtk (c :: DataType dtk) (r :: dtk) (tys :: LoT dtk)
+  = NS (NP (NA dtk r tys)) c
+\end{code}
+\end{myhs}
+Finally, the updated |GenericNSOP| mandates this recursive position to be instantiated with the data type we are describing, tying the knot. This approach is similar to the |GenericRegular| type class discussed in \Cref{sec:recursionpre}.
+\begin{myhs}
+\begin{code}
+class GenericNSOP dtk (f :: dtk) where
+  type Code f :: DataType dtk
+
+  to    :: ... -> Apply k f ts -> SOPn k (Code f) f ts
+  from  :: ... -> SOPn k (Code f) f ts -> Apply k f ts
+\end{code}
+\end{myhs}
+Since the constructors in |NA| do not change depending on whether we have used |Rec| or not to describe the datatype, the instances we provided for the previous version of |GenericNSOP| keep working in the version with explicit recursion.
+
+\paragraph{Updating |gfmap|.} On the other hand, we need a bit more care to define the generic operations. In \Cref{fig:gfmap3} we used an ancillary |FunctorField| type class to describe which fields we could map over. It is impossible, though, to write an instance of this form:
+\begin{myhs}
+\begin{code}
+instance (FunctorField x) => FunctorField (Rec :@: x)
+\end{code}
+\end{myhs}
+In fact, |gfmap| defines the operation for the type we are recurring over, so this instance ought to exist! In order to convince the compiler, we play the same trick as before: make the recursive position an additional argument to the type class, and only tie the knot at the level of |gfmap|.
+\begin{myhs}
+\begin{code}
+class FunctorField r (t :: Atom (* -> *) Type) where
+  gfmapF  ::  (a -> b)
+          ->  NA (* -> *) r (a :&&: LoT0) t
+          ->  NA (* -> *) r (b :&&: LoT0) t
+
+instance  (Functor r, FunctorField r x)
+          => FunctorField r (Rec :@: x) where
+  gfmapF f (T x)
+    = T (fmap (unT . gfmapF f . T atunder @x @r) x)
+\end{code}
+\end{myhs}
+The trick now is to make the |FunctorField| constraint applied recursively used in |All2| refer to the same |f| as in the code.
+\begin{myhs}
+\begin{code}
+gfmap  ::  (GenericNSOP (* -> *) f,
+           All2 (FunctorField f) (Code f))
+       =>  (a -> b) -> f a -> f b
+\end{code}
+\end{myhs}
 
 \subsection{Are We Inconsistent Yet?}
 

@@ -52,3 +52,4 @@
 %format Set0 = "\mathsf{Set}_0"
 %format Set1 = "\mathsf{Set}_1"
 %format Set2 = "\mathsf{Set}_2"
+%format family = "\mathbf{family}"
