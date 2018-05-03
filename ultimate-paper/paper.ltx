@@ -301,6 +301,7 @@ gsize = goS . from
 The only remarkable part of this implementation is the use of the |All2| type class to ensure that every type which appears in a field of the code has a corresponding |size| operation.
 
 \subsection{Explicit Recursion}
+\label{sec:recursionpre}
 
 Both |Generic| and |GenericSOP| mark recursive positions in the datatype \emph{implicitly}. This means that those fields which mention the datatype being defined are not treated in a different way to the others. You can only notice them as a programmer when you see that the |Rep| or |Code| mention the type itself, as was the case with the |Tree a| datatype from the Introduction.
 
@@ -582,9 +583,9 @@ By replacing |(n :: Nat)| with |SNat n| in the definition of |Var|, we are no lo
 \begin{myhs}
 \begin{code}
 data Atom (dtk :: Kind) k where
-  Var    :: SNat n  -> Term dtk (Pos n dtk)
-  Kon    :: k       -> Term dtk k
-  (:@:)  :: Term dtk (k1 -> k2) -> Term dtk k1 -> Term dtk k2
+  Var    :: SNat n  -> Atom dtk (Pos n dtk)
+  Kon    :: k       -> Atom dtk k
+  (:@:)  :: Atom dtk (k1 -> k2) -> Atom dtk k1 -> Atom dtk k2
 \end{code}
 \end{myhs}
 
@@ -629,7 +630,7 @@ For example, |Int :&&: Maybe :&&: Char :&&: LoT0| is a well-formed type of kind 
 In the previous iteration of |NA|, we had a constructor for each possible value of |Atom|. That solution does not scale for the whole syntax of atoms. For example, it is not possible to define the interpretation |Kon [] :@: Kon Int| by composing interpretations of |Kon []| and |Kon Int|, if only because the notion of a value of something of a kind different from |Star| is not well-formed in Haskell. Instead, we define a type family |Ty| which computes the type of a field given a context.
 \begin{myhs}
 \begin{code}
-type family Ty dtk (tys :: LoT dtk) (t :: Term dtk k) :: k where
+type family Ty dtk (tys :: LoT dtk) (t :: Atom dtk k) :: k where
   Ty dtk tys (Var n)    = LookupLoT n tys
   Ty dtk tys (Kon t)    = t
   Ty dtk tys (f :@: x)  = (Ty dtk tys f) (Ty dtk tys x)
@@ -638,7 +639,7 @@ type family Ty dtk (tys :: LoT dtk) (t :: Term dtk k) :: k where
 The ancillary operation |LookupLoT| should return the $n$-th position in the context |tys|. Alas, here we stumble upon a wall: the compiler is not able to deduce that such a lookup will produce a type of the correct kind. To work around this limitation, we need to manually simulate the lookup for each shape of |dtk|:
 \begin{myhs}
 \begin{code}
-type family Ty dtk (tys :: LoT dtk) (t :: Term dtk k) :: k where
+type family Ty dtk (tys :: LoT dtk) (t :: Atom dtk k) :: k where
   Ty (k1        -> ks) (t1          :&&: ts) (Var SZ)       = t1
   Ty (k1 -> k2  -> ks) (t1 :&&: t2  :&&: ts) (Var (SS SZ))  = t2
   -- and so on
@@ -649,7 +650,7 @@ Although not very elegant, we think that this is a simple compromise solution. H
 Using |Ty| we can write a definitive version of |NA|. This new version has a single constructor, since the job of computing the type of the field has been outsourced to the |Ty| type family. The new parameters in |NA| appear also in the new |SOPn| type, which interpets codes of the new shape:
 \begin{myhs}
 \begin{code}
-data NA (dtk :: Kind) :: LoT dtk -> Term dtk (Star) -> Star where
+data NA (dtk :: Kind) :: LoT dtk -> Atom dtk (Star) -> Star where
   T :: forall dtk t tys dot Ty dtk tys t -> NA dtk tys t
 
 type SOPn dtk (c :: DataType dtk) (tys :: LoT dtk)
@@ -789,7 +790,7 @@ gfmap f  =  to    (Proxy :&: SLoT0) Proxy
     goP Nil          = Nil
     goP (T x :* xs)  = gfmapF f (T x) :* goP xs
 
-class FunctorField (t :: Term (* -> *) Type) where
+class FunctorField (t :: Atom (* -> *) Type) where
   gfmapF  ::  (a -> b)
           ->  NA (* -> *) (a :&&: LoT0) t
           ->  NA (* -> *) (b :&&: LoT0) t
@@ -845,8 +846,8 @@ Up to now a data type was defined as |[[Atom dtk (Star)]]|, where each element o
 \begin{myhs}
 \begin{code}
 data Field (dtk :: Kind) where
-  Explicit :: Term dtk (*)         -> Field dtk
-  Implicit :: Term dtk Constraint  -> Field dtk
+  Explicit :: Atom dtk (*)         -> Field dtk
+  Implicit :: Atom dtk Constraint  -> Field dtk
 
 type DataType dtk = [[Field dtk]]
 \end{code}
@@ -878,6 +879,17 @@ The rather slim layer that we had to add to support constraints serve as a witne
 \section{Explicit Recursion}
 \label{sec:recursion}
 
+One of the main design decisions in a generic programming library is whether or not to use an explicit representation of recursion, as we discussed in \Cref{sec:recursionpre}. Our language of atoms does not include this possibility, following the lead of \texttt{generics-sop}. In this section we explore the feasibility of this extension.
+
+At the level of atoms adding a new |Rec| constructor is quite simple. The only question is which is the kind of such a term, but we have the answer right there: it is the kind of the data type we are describing! The updated version of |Atom| reads:
+\begin{myhs}
+\begin{code}
+data Atom (dtk :: Kind) k where
+  ...
+  Rec :: Atom dtk dtk
+\end{code}
+\end{myhs}
+
 \subsection{Are We Inconsistent Yet?}
 
 \section{The Missing Piece: Existentials}
@@ -885,6 +897,10 @@ The rather slim layer that we had to add to support constraints serve as a witne
 
 \subsection{Finding the Piece in Agda}
 
+
+\section{Related Work}
+
+\section{Conclusion and Future Work}
 
 %% Acknowledgments
 %\begin{acks}
