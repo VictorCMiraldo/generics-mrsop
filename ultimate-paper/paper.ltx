@@ -945,7 +945,7 @@ instance  (Functor r, FunctorField r x)
     = T (fmap (unT . gfmapF f . T atunder @x @r) x)
 \end{code}
 \end{myhs}
-The trick now is to make the |FunctorField| constraint applied recursively used in |All2| refer to the same |f| as in the code.
+The trick now is to make the |FunctorField| constraint used in |All2| refer to the same |f| as in the code.
 \begin{myhs}
 \begin{code}
 gfmap  ::  (GenericNSOP (* -> *) f,
@@ -953,6 +953,16 @@ gfmap  ::  (GenericNSOP (* -> *) f,
        =>  (a -> b) -> f a -> f b
 \end{code}
 \end{myhs}
+This introduces the demand of |f| being an instance of |Functor|. You can write this instance in general by using |gfmap| itself,
+\begin{myhs}
+\begin{code}
+instance Functor Rose where
+  fmap = gfmap
+\end{code}
+\end{myhs}
+This ties the recursive knot, and makes it possible to use |fmap| on every data type whose fields have the shapes supported by |FunctorField|.
+
+
 
 \subsection{Are We Inconsistent Yet?}
 
