@@ -96,6 +96,7 @@ type family Ty (dtk :: Kind) (tys :: LoT dtk) (t :: Term dtk k) :: k where
   -- and so on and so forth
   Ty (k1 -> ks) (t1 :&&: ts) (Var SZ)  = t1
   Ty (k1 -> k2 -> ks) (t1 :&&: t2 :&&: ts) (Var (SS SZ))  = t2
+  Ty (k1 -> k2 -> k3 -> ks) (t1 :&&: t2 :&&: t3 :&&: ts) (Var (SS (SS SZ)))  = t3
   -- and so on and so forth
   Ty dtk tys (Kon t) = t
   Ty dtk tys (f :@: x) = (Ty dtk tys f) (Ty dtk tys x)
@@ -148,90 +149,24 @@ instance UltimateGeneric (*) Showable where
   to   SLoT0 _ (Showable x) = B0 $ Ex $ Cr $ I :* E @_ @V0 x :* Nil
   from SLoT0 _ (B0 (Ex (Cr (I :* E x :* Nil)))) = Showable x
 
-{-
-  -- You can choose how much you want
-instance UltimateGeneric * [a] where
-  type Code [a] = '[ '[ ], '[ Explicit (Kon a), Explicit ([] :$: Kon a) ] ]
+data Tm t where
+  AnInt :: Int -> Tm Int
+  APair :: Tm a -> Tm b -> Tm (a, b)
+        -- forall a b. t ~ (a, b). Tm a -> Tm b -> Tm c
 
-  to SLoT0 _ []     = B0 Nil
-  to SLoT0 _ (x:xs) = B1 $ E x :* E xs :* Nil
+deriving instance Show (Tm t)
 
-  from SLoT0 _ (B0 Nil) = []
-  from SLoT0 _ (B1 (E x :* E xs :* Nil)) = x : xs
+instance UltimateGeneric (* -> *) Tm where
+  type Code Tm 
+    = '[ Constr '[ Implicit ((~) :$: Kon Int :@: V0), Explicit (Kon Int) ] 
+       , Exists KK (Exists KK (Constr '[
+           Implicit ((~) :$: V2 :@: ((,) :$: V0 :@: V1))
+         , Explicit (Tm :$: V0), Explicit (Tm :$: V1)
+         ]))
+       ]
 
-instance UltimateGeneric (* -> *) Maybe where
-  type Code Maybe = '[ '[ ], '[ Explicit V0 ] ]
+  to (SLoT1 _) _ (AnInt n) = B0 $ Cr $ I :* E n :* Nil
+  to (SLoT1 _) _ (APair x y) = B1 $ Ex $ Ex $ Cr $ I :* E x :* E y :* Nil
 
-  to s@(SLoT1 _) _ Nothing  = B0 $ Nil
-  to s@(SLoT1 _) p (Just x) = B1 $ E @_ @V0 x :* Nil
-
-  from s@(SLoT1 _) _ (B0 Nil) = Nothing
-  from s@(SLoT1 _) p (B1 (E x :* Nil)) = Just x
-
-instance UltimateGeneric (* -> * -> *) Either where
-  type Code Either = '[ '[ Explicit V0 ], '[ Explicit V1 ] ]
-
-  to (SLoT2 _ _) _ (Left  x) = B0 $ E @_ @V0 x :* Nil
-  to (SLoT2 _ _) _ (Right x) = B1 $ E @_ @V1 x :* Nil
-
-  from (SLoT2 _ _) _ (B0 (E x :* Nil)) = Left  x
-  from (SLoT2 _ _) _ (B1 (E x :* Nil)) = Right x
-
--- and other two for either
-
-data Eql a b where
-  Refl :: Eql a a
-       -- a ~ b => Eql a b 
-
-instance UltimateGeneric (k -> k -> *) Eql where
-  type Code Eql = '[ '[ Implicit ((~) :$: V0 :@: V1) ] ]
-
-  to   s@(SLoT2 _ _) _ Refl = B0 $ I :* Nil
-  from s@(SLoT2 _ _) _ (B0 (I :* Nil)) = Refl
-
-
-class FunctorField (t :: Term (* -> *) Type) where
-  gfmapF :: (a -> b)
-         -> NA (* -> *) {- f -} (a :&&: LoT0) (Explicit t)
-         -> NA (* -> *) {- f -} (b :&&: LoT0) (Explicit t)
-
-instance FunctorField V0 where
-  gfmapF f (E x) = E (f x)
-instance (Functor f, FunctorField x) => FunctorField (f :$: x) where
-  gfmapF f (E x) = E (fmap (unE . gfmapF f . E @_ @x) x)
-instance FunctorField (Kon t) where
-  gfmapF f (E x) = E x
-
-type family AllE2 c xs :: Constraint where
-  AllE2 c '[] = ()
-  AllE2 c (x ': xs) = (AllE c x, AllE2 c xs)
-
-type family AllE c xs :: Constraint where
-  AllE c '[] = ()
-  AllE c (Explicit x ': xs) = (c x, AllE c xs)
-  -- AllE c (Implicit x ': xs)
-
-gfmap :: forall f a b
-       . (UltimateGeneric (* -> *) f, AllE2 FunctorField (Code f))
-      => (a -> b) -> f a -> f b
-gfmap f = from (SLoT1 (Proxy :: Proxy b)) (Proxy :: Proxy f)
-        . goS
-        . to   (SLoT1 (Proxy :: Proxy a)) (Proxy :: Proxy f)
-  where
-    goS :: AllE2 FunctorField xs
-        => NS (NP (NA (* -> *) (a :&&: LoT0))) xs
-        -> NS (NP (NA (* -> *) (b :&&: LoT0))) xs
-    goS (Here  x) = Here  (goP x)
-    goS (There x) = There (goS x)
-
-    goP :: AllE FunctorField xs
-        => NP (NA (* -> *) (a :&&: LoT0)) xs
-        -> NP (NA (* -> *) (b :&&: LoT0)) xs
-    goP Nil         = Nil
-    goP (E x :* xs) = gfmapF f (E x) :* goP xs
-
-fmapList :: (a -> b) -> [a] -> [b]
-fmapList = gfmap
-fmapMaybe :: (a -> b) -> Maybe a -> Maybe b
-fmapMaybe = gfmap
--}
+  from (SLoT1 _) _ (B0 (Cr (I :* E n :* Nil))) = AnInt n
+  from (SLoT1 _) _ (B1 (Ex (Ex (Cr (I :* E x :* E y :* Nil))))) = APair x y
