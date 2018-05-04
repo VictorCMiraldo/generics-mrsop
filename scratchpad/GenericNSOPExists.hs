@@ -62,7 +62,7 @@ data Field (dtk :: Kind) where
 data SKind (k :: *) = KK
 
 data Branch (dtk :: Kind) where
-  Exists :: SKind k -> Branch (k -> dtk) -> Branch dtk
+  Exists :: Kind -> Branch (k -> dtk) -> Branch dtk
   Constr :: [Field dtk] -> Branch dtk 
 
 type DataType dtk = [Branch dtk]
@@ -83,8 +83,8 @@ pattern B2 x = There (There (Here x))
 pattern B3 x = There (There (There (Here x)))
 
 data NE (dtk :: Kind) :: LoT dtk -> Branch dtk -> * where
-  Ex :: forall k (t :: k) (p :: SKind k) dtk tys r. 
-        NE (k -> dtk) (t :&&: tys) r -> NE dtk tys (Exists p r)
+  Ex :: forall k (t :: k) dtk tys r. 
+        NE (k -> dtk) (t :&&: tys) r -> NE dtk tys (Exists k r)
   Cr :: NP dtk tys fs -> NE dtk tys (Constr fs)
 
 infixr 5 :*
@@ -144,7 +144,7 @@ data Showable where
   Showable :: Show t => t -> Showable
 
 instance UltimateGeneric (*) Showable where
-  type Code Showable = '[ Exists KK (Constr '[ Implicit (Show :$: V0), Explicit V0 ]) ]
+  type Code Showable = '[ Exists (*) (Constr '[ Implicit (Show :$: V0), Explicit V0 ]) ]
 
   to   SLoT0 _ (Showable x) = B0 $ Ex $ Cr $ I :* E @_ @V0 x :* Nil
   from SLoT0 _ (B0 (Ex (Cr (I :* E x :* Nil)))) = Showable x
@@ -159,9 +159,9 @@ deriving instance Show (Tm t)
 instance UltimateGeneric (* -> *) Tm where
   type Code Tm 
     = '[ Constr '[ Implicit ((~) :$: Kon Int :@: V0), Explicit (Kon Int) ] 
-       , Exists KK (Exists KK (Constr '[
-           Implicit ((~) :$: V2 :@: ((,) :$: V0 :@: V1))
-         , Explicit (Tm :$: V0), Explicit (Tm :$: V1)
+       , Exists (*) (Exists (*) (Constr '[
+           Implicit ((~) :$: V2 :@: ((,) :$: V1 :@: V0))
+         , Explicit (Tm :$: V1), Explicit (Tm :$: V0)
          ]))
        ]
 
