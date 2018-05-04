@@ -43,6 +43,7 @@
 \usepackage{subcaption}
 \usepackage{cleveref}
 \usepackage{cmll}
+\usepackage{flushend}
 
 \hypersetup{draft}
 
@@ -1169,8 +1170,8 @@ type DataType dtk = [Branch dtk]
 \begin{myhs}
 \begin{code}
 data LoT (dtk :: Kind) where
-  LoT0    ::                 LoT (Star)
-  (:&&:)  :: k -> LoT ks ->  LoT (k -> ks)
+  LoT0    ::                  LoT (Star)
+  (:&&:)  :: k -> LoT ks ->   LoT (k -> ks)
 
 type family Ty dtk (r :: dtk) (tys :: LoT dtk) (t :: Atom dtk k) :: k where
   Ty (k1        -> ks) r (t1          :&&: ts) V0  = t1

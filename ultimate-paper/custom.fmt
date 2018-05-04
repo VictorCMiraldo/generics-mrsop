@@ -57,5 +57,5 @@
 %format family = "\mathbf{family}"
 %format Fixn = "\mathit{Fix}_\star"
 %format SKind = "\mathcal{S}\mathit{Kind}"
-%format KK = "\mathbb{K}"
+%format KK = "\mathbb{T}"
 %format ell = "\ell"
