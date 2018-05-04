@@ -1058,6 +1058,7 @@ The |GenericNSOP| type class, on the other hand, is not affected by these change
 %% Bibliography
 \bibliography{references}
 
+\newpage
 \appendix
 
 \section{Reference Implementation in Agda}
@@ -1109,7 +1110,9 @@ Without much effort it is possible to extend the |GenericNSOP| instances to perf
 
 \section{Full Implementation}
 
-\begin{figure*}
+Throughout the paper we have refined the different types and classes involved in our generic programming library. We give the end result as a reference, with support for constraints, explicit recursion, and existentials. \Cref{fig:full1} describes the language of codes, \Cref{fig:full2} the data types involved in the interpretation of the codes, and \Cref{fig:full3} the |GenericNSOP| type class and ancillary constructions.
+
+\begin{figure}
 \begin{myhs}
 \begin{code}
 data Atom (dtk :: Kind) k where
@@ -1131,19 +1134,26 @@ data Field (dtk :: Kind) where
   Explicit  :: Atom dtk (*)         -> Field dtk
   Implicit  :: Atom dtk Constraint  -> Field dtk
 
+data SKind (ell :: Kind) = KK
+
 data Branch (dtk :: Kind) where
-  Exists  :: (ell :: Kind) -> Branch (ell -> dtk)  -> Branch dtk
-  Constr  :: [Field dtk]                           -> Branch dtk
+  Exists  :: SKind ell -> Branch (ell -> dtk)   -> Branch dtk
+  Constr  :: [Field dtk]                        -> Branch dtk
 
 type DataType dtk = [Branch dtk]
 \end{code}
 \end{myhs}
 \caption{Full implementation, part 1: language of codes}
-\end{figure*}
+\label{fig:full1}
+\end{figure}
 
 \begin{figure*}
 \begin{myhs}
 \begin{code}
+data LoT (dtk :: Kind) where
+  LoT0    ::                 LoT (Star)
+  (:&&:)  :: k -> LoT ks ->  LoT (k -> ks)
+
 type family Ty dtk (r :: dtk) (tys :: LoT dtk) (t :: Atom dtk k) :: k where
   Ty (k1        -> ks) r (t1          :&&: ts) V0  = t1
   Ty (k1 -> k2  -> ks) r (t1 :&&: t2  :&&: ts) V1  = t2
@@ -1172,6 +1182,28 @@ type SOPn dtk (c :: DataType dtk) (r :: dtk) (tys :: LoT dtk) = NS (NB dtk r tys
 \end{code}
 \end{myhs}
 \caption{Full implementation, part 2: interpretation of codes}
+\label{fig:full2}
+\end{figure*}
+
+\begin{figure*}
+\begin{myhs}
+\begin{code}
+data SLoT dtk (tys :: LoT dtk) where
+  SLoT0  ::                            SLoT (Star)     LoT0
+  (:&:)  ::  Proxy a -> SLoT ks as ->  SLoT (k -> ks)  (a :&&: as)
+
+type family Apply dtk (f :: dtk) (tys :: LoT dtk) :: (Star) where
+  Apply (Star)     f LoT0         = f
+  Apply (k -> ks)  f (t :&&: ts)  = Apply ks (f t) ts
+
+class GenericNSOP dtk (f :: dtk) where
+  type Code f = DataType dtk
+  from  ::  SLoT dtk tys -> Proxy f ->  Apply dtk f tys -> SOPn dtk (Code f) f tys
+  to    ::  SLoT dtk tys -> Proxy f ->  SOPn dtk (Code f) f tys -> Apply dtk f tys
+\end{code}
+\end{myhs}
+\caption{Full implementation, part 3: |GenericNSOP| type class}
+\label{fig:full3}
 \end{figure*}
 
 \end{document}
