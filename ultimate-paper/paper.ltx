@@ -1050,6 +1050,19 @@ The |GenericNSOP| type class, on the other hand, is not affected by these change
 
 \section{Conclusion and Future Work}
 
+Through several refinements, starting with the original sum-of-products construction, we have been able to build a generic programming library supporting a wide range of Haskell data types. Our main novelties are the uniform treatment of types of different kinds, and the support for the most important features in GADTs. To do so, we have leveraged many of the Haskell extensions proposed in the literature and implemented in GHC.
+
+We cannot represent \emph{every} data type, though. With the introduction of the |TypeInType| extension, quantification in types works as a telescope. That is, the kind of a variable might depend on the variables introduced before it. For example, here |a| depends on the kind |dtk|:
+\begin{myhs}
+\begin{code}
+data KTProxy dtk t where
+  KTProxy :: forall dtk (t :: dtk) dot KTProxy dtk t
+\end{code}
+\end{myhs}
+The |Exists| combinator in our library, on the other hand, only allows \emph{constant} kinds to quantify over.
+
+Another shortcoming of our library is that only \emph{single} recursion can be represented. The \texttt{multirec}~\cite{Yakushev2009} library adds support families of mutually recursive data types, but with the caveat that all members have to be of kind |*|. It might be possible to use their construction --- adding an index to the |Rec| atom -- in a similar way for families in which all types share the same kind.
+
 %% Acknowledgments
 %\begin{acks}
 %\end{acks}
