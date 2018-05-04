@@ -1048,6 +1048,12 @@ The |GenericNSOP| type class, on the other hand, is not affected by these change
 
 \section{Related Work}
 
+Our approach to generic programming is heavily inspired by the original list-of-list-of-types construction by \citet{deVries2014}. Each of the extensions we present: support for multiple kinds, constraints, explicit recursion, and existentials, could be applied independently to the original framework. Conversely, \texttt{generics-sop} supports metadata about types and constructors, and the same techniques are readily applicable to our case.
+
+There seems to be a trade-off in the amount of \emph{traversal combinators} that can be implemented. \texttt{generics-sop} comes with a huge library of maps, sequences, and folds. Our definition of |gfmap|, on the other hand, traverses the |SOPn| structure manually; and we cannot easily abstract that pattern because of the very strong types which are involved.
+
+As far as we know, only \citet{Magalhaes2011} has tackled the problem of generic programming for GADTs. Their approach is based on pattern functors: the basic set of blocks is extended with |CEq|, which represents equalities at the level of constructors, and a ``mobility family'' |X| to fake existentials. Our approach reuses most of the machinery for regular types, by taking advantage of the availability of |Constraint| as a kind in GHC.
+
 \section{Conclusion and Future Work}
 
 Through several refinements, starting with the original sum-of-products construction, we have been able to build a generic programming library supporting a wide range of Haskell data types. Our main novelties are the uniform treatment of types of different kinds, and the support for the most important features in GADTs. To do so, we have leveraged many of the Haskell extensions proposed in the literature and implemented in GHC.
@@ -1067,7 +1073,6 @@ Another shortcoming of our library is that only \emph{single} recursion can be r
 %\begin{acks}
 %\end{acks}
 
-\newpage
 %% Bibliography
 \bibliography{references}
 
