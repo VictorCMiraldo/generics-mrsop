@@ -166,11 +166,9 @@ class Eql a b where
   Refl :: a ~ b => Eql a b
 \end{code}
 \end{myhs}
-we require the indices of |Eql|, namely |a| and |b|, to be equal. This is represented by the constraint |a ~ b| in the |Refl| constructor.
+we require the indices of |Eql|, namely |a| and |b|, to be equal. This is represented by the constraint |a ~ b| in the |Refl| constructor. In \Cref{sec:constraints} we explore how to extend our base framework to account for these constraints.
 
-In \Cref{sec:constraints} we explore how to extend our base framework to account for constraints.
-
-\item Constructor may also mention type variables which are not reflected in the indices. These are called \emph{existentials}, since once you pattern match you know that a type has been used, but not exactly which one.
+\item Constructor may also mention type variables which are not reflected in the indices. These are called \emph{existentials}, since once you pattern match you know that a type has been used, but not exactly which one. The support for existentials is discussed in \Cref{sec:exists}.
 \end{itemize}
 
 This paper also aims to witness how far the type level facilities in GHC have evolved. None of the contributions in this paper would be possible without datatype promotion, kind polymorphism ~\cite{Yorgey2012}, the |Constraint| kind~\cite{constraintkinds}, or the |TypeInType| extension~\cite{Weirich2013,Weirich2017}.
@@ -586,6 +584,14 @@ data Atom (dtk :: Kind) k where
   (:@:)  :: Atom dtk (k1 -> k2) -> Atom dtk k1 -> Atom dtk k2
 \end{code}
 \end{myhs}
+Let us also introduce some synonyms for the first, second, and third variable, in order to make the descriptions of types in the rest of the paper a bit more concise:
+\begin{myhs}
+\begin{code}
+type V0  = Var SZ
+type V1  = Var (SS SZ)
+type V2  = Var (SS (SS SZ))
+\end{code}
+\end{myhs}
 
 At this point we are using a GADT, |SNat|, to index yet another GADT, |Atom|. This means that the compiler needs to work with a promoted version of |SNat|. In order to promote a GADT we require the |TypeInType| extension. However, we are not using the full power of the |Star : Star| axiom, we discuss this matter in \Cref{sec:inconsistent1}.
 
@@ -598,12 +604,9 @@ type DataType dtk = [[Atom dtk (Star)]]
 As an example, here are the codes corresponding to |[]|, |Either|, and |Rose|. The fact that |Either| has two type parameter can be observed by the usage of both |SZ| and |SS SZ| as arguments to |Var|. The non-regular recursion pattern in |Rose| is translated to iterated uses of |(:@:)|.
 \begin{myhs}
 \begin{code}
-type  ListCode
-      = P [ P [ ], P [ Var SZ, Kon [] :@: Var SZ ] ]
-type EitherCode
-      = P [ P [ Var SZ ], P [ Var (SS SZ)] ]
-type RoseCode
-      = P [ P [ Var SZ, Kon [] :@: (Kon Rose :@: Var SZ) ] ]
+type  ListCode   = P [ P [ ], P [ V0, Kon [] :@: V0 ] ]
+type EitherCode  = P [ P [ V0 ], P [ V1 ] ]
+type RoseCode    = P [ P [ V0, Kon [] :@: (Kon Rose :@: V0) ] ]
 \end{code}
 \end{myhs}
 
@@ -638,8 +641,8 @@ The ancillary operation |LookupLoT| should return the $n$-th position in the con
 \begin{myhs}
 \begin{code}
 type family Ty dtk (tys :: LoT dtk) (t :: Atom dtk k) :: k where
-  Ty (k1        -> ks) (t1          :&&: ts) (Var SZ)       = t1
-  Ty (k1 -> k2  -> ks) (t1 :&&: t2  :&&: ts) (Var (SS SZ))  = t2
+  Ty (k1        -> ks) (t1          :&&: ts) V0  = t1
+  Ty (k1 -> k2  -> ks) (t1 :&&: t2  :&&: ts) V1  = t2
   -- and so on
 \end{code}
 \end{myhs}
@@ -717,14 +720,14 @@ But GHC complains again:
 \begin{verbatim}
 Couldn't match
   expected type 'Apply (* -> *) [] ts'
-  with actual type '[Ty (* -> *) ts (Var SZ)]'
+  with actual type '[Ty (* -> *) ts V0]'
 \end{verbatim}
 Although in theory just knowing the kind |dtk| of the data type we are describing is enough to know the shape of the context |LoT dtk|, this is not something which is reflected in the code. In fact, you could add another constructor to the definition of |LoT| and make this invariant not hold anymore. It is not enough either to add a proxy, because pattern matching on it does not refine the shape of the context. We need a singleton type for the context.
 \begin{myhs}
 \begin{code}
 data SLoT dtk (tys :: LoT dtk) where
-  SLoT0 ::                           SLoT (Star)     LoT0
-  (:&:) :: Proxy a -> SLoT ks as ->  SLoT (k -> ks)  (a :&&: as)
+  SLoT0  ::                            SLoT (Star)     LoT0
+  (:&:)  ::  Proxy a -> SLoT ks as ->  SLoT (k -> ks)  (a :&&: as)
 \end{code}
 \end{myhs}
 Now, by pattern matching on a value of type |SLoT dtk|, the compiler gains enough information to check that |from| and |to| are correct. The definitive version of |GenericNSOP|, with an (almost correct) instance for lists is given in \Cref{fig:genericnsop}. Last but not least, GHC cannot check that the use of |T x| in |from| is well-typed:
@@ -736,7 +739,7 @@ We can fix this problem by being explicit about the type arguments to |T|. For t
 \begin{myhs}
 \begin{code}
 from (_ :&: SLoT0) _ (x : xs)
-  = There $ Here $ T @(Star -> Star) @(Var SZ) x :* T xs :* Nil
+  = There $ Here $ T @(Star -> Star) @V0 x :* T xs :* Nil
 \end{code}
 \end{myhs}
 In this case, we only need the annotation for that argument, and not for |xs|. We have not been able to find a common pattern about when these annotations are required, although it seems that references to variables almost always need them. If instances for |GenericNSOP| were automatically generated, one can just annotate every field to fail in the safe side.
@@ -751,8 +754,8 @@ class GenericNSOP dtk (f :: dtk) where
   to    ::  SLoT dtk tys -> Proxy f
         ->  SOPn dtk (Code f) tys -> Apply dtk f tys
 
-instance UltimateGeneric (* -> *) [] where
-  type Code [] = P [ P [ ], P [ Var SZ, Kon [] :@: Var SZ ] ]
+instance GenericNSOP (* -> *) [] where
+  type Code [] = P [ P [ ], P [ V0, Kon [] :@: V0 ] ]
 
   from (_ :&: SLoT0) _ []        =          Here $ Nil
   from (_ :&: SLoT0) _ (x : xs)  = There $  Here $ T x :* T xs :* Nil
@@ -795,7 +798,7 @@ class FunctorField (t :: Atom (* -> *) Type) where
           ->  NA (* -> *) (a :&&: LoT0) t
           ->  NA (* -> *) (b :&&: LoT0) t
 
-instance  FunctorField (Var SZ) where
+instance  FunctorField V0 where
   gfmapF f (T x)  =  T (f x)
 instance  (Functor f, FunctorField x)
           => FunctorField (Kon f :@: x) where
@@ -865,7 +868,7 @@ The two constructors look almost the same. But the fact that |Ty dtk tys t| appe
 \begin{code}
 instance GenericNSOP (k -> k -> *) Eql where
   type Code Eql
-    = P [ P [ Implicit (Kon (~) :@: Var SZ :@: Var (SS SZ)) ] ]
+    = P [ P [ Implicit (Kon (~) :@: V0 :@: V1) ] ]
 
   from  (_ :&: _ :&: SLoT0) _ Refl = Here $ I :* Nil
   to    (_ :&: _ :&: SLoT0) _ (Here (I :* Nil)) = Refl
@@ -890,7 +893,7 @@ data Atom (dtk :: Kind) k where
 As an example, we can provide a more informative code for |[]|, where the recursion is explicit:
 \begin{myhs}
 \begin{code}
-type ListCode = P [ P [ ], P [ Var SZ, Rec :@: Var SZ ] ]
+type ListCode = P [ P [ ], P [ V0, Rec :@: V0 ] ]
 \end{code}
 \end{myhs}
 
@@ -966,12 +969,82 @@ This ties the recursive knot, and makes it possible to use |fmap| on every data 
 
 Discuss better with Victor.
 
-\section{The Missing Piece: Existentials}
+\section{Existentials}
 \label{sec:exists}
 
+Apart from constraints, every constructor in a GADT may introduce one or more \emph{existentially quantified type variables}, which are available once your pattern match. Although seemingly rare, existentials become ubiquituous once you consider how GHC represents GADTs. Take the following data type, which follows the common idiom of indexing a type with the shape of the data it contains:
+\begin{myhs}
+\begin{code}
+data Tm t where
+  AnInt  ::  Int -> Tm Int
+  APair  ::  Tm a -> Tm b -> Tm (a, b)
+\end{code}
+\end{myhs}
+Under the hood, the refinement in the index of |Tm| is turned into an equality constraint, and every new new variable is quantified. Thus, we obtain the following form:
+\begin{myhs}
+\begin{code}
+data Tm t where
+  AnInt  ::                  t ~ Int     => Int -> Tm t
+  APair  ::  forall a b dot  t ~ (a, b)  => Tm a -> Tm b -> Tm t
+\end{code}
+\end{myhs}
+The language of codes described up is enough to describe |AnInt|, but cannot handle the introduction of new variables in |APair|. In this section we fix that problem.
 
-\subsection{Finding the Piece in Agda}
+In this case, the change does not affect atoms nor fields. Existentials are introduced at the level of constructors. Before, each constructor was merely a |[Field dtk]|, but now we are going to refine it with the possibility of introducing new type variables; for each new variable we need to record its kind. In a dependently-typed language we can encode this construction using a recursive |Branch| data type: we introduce new variables by repeated applications of |Exists|, and then move to describe the fields with |Constr|.
+\begin{myhs}
+\begin{code}
+data Branch (dtk :: Kind) where
+  Exists :: (ell :: Kind) -> Branch (ell -> dtk)  -> Branch dtk
+  Constr :: [Field dtk]                           -> Branch dtk
+\end{code}
+\end{myhs}
+Haskell does not support full dependent types, so |Branch| cannot be declared as above. As we did in \Cref{sec:allkinds} for the indices of variables, we use a singleton instead. In contrast with |SNat|, |SKind| does not reflect any information about the kind itself, but we do not need to inspect that information either for the upcoming constructions.\footnote{\citet{ReflectionOnTypes} describes |TypeRep|, which provides type-indexed type representations. However, it is not (yet) possible to promote |TypeRep| operations to the type level.}
+\begin{myhs}
+\begin{code}
+data SKind (ell :: Kind) = KK
 
+data Branch (dtk :: Kind) where
+  Exists :: SKind ell -> Branch (ell -> dtk)  -> Branch dtk
+  Constr :: [Field dtk]                       -> Branch dtk
+\end{code}
+\end{myhs}
+As a consequence of this intermediate layer, data types are no longer represented as mere lists of lists of fields, but as |[Branch dtk]|, where each element contains information both about existentials and about the fields.
+
+\begin{figure*}
+\begin{myhs}
+\begin{code}
+type TmCode 
+     =  ( P [                           Constr (P [  Implicit (Kon (~) :@: Kon Int :@: V0),  Explicit (Kon Int) ]) ,
+                Exists KK (Exists KK (  Constr (P [  Implicit (Kon (~) :@: V2 :@: (Kon (,) :@: V1 :@: V0)),
+                                                     Explicit (Kon Tm :@: V1), Explicit (Kon Tm :@: V0) ] ) ) )  ] )
+\end{code}
+\end{myhs}
+\caption{Code for |Tm|}
+\label{fig:codetm}
+\end{figure*}
+
+The |Tm| data type above can be described using our extended language of codes as given in \Cref{fig:codetm}. For that, we do not use the user-facing version, but the second representation with explicit quantification and equalities. Note that each |Exists| ``shift'' the position of type variables: the first variable in the context is now the second, and so on. As a result, |V0| refers to the last-introduced variable, |b| in this case, |V1| corresponds to |a|, and |V2| is the original type argument to |Tm|, which we called |t| in the data type declaration.
+
+\
+
+The next step is updated the interpretation of the codes. Unfortunately, since now a data type is not described by a list of lists, we cannot defined its interpretation as a simple composition of |NS|, |NP|, and |NA|. The type |NB| which interprets |Branch|es has this form:
+\begin{myhs}
+\begin{code}
+data NB (dtk :: Kind) :: LoT dtk -> Branch dtk -> Star where
+  Ex  ::  forall ell (t :: ell) (p :: SKind ell) dtk tys r dot
+          NB (ell -> dtk) (t :&&: tys) r  -> NB dtk tys (Exists p r)
+  Cr  ::  NP (NA dtk tys) fs              -> NB dtk tys (Constr fs)
+\end{code}
+\end{myhs}
+The recursion in the syntax of existential quantification is reflected in the recursive use of |NB| in the constructor |Ex|. More importantly, thanks to the singleton |SKind ell| we can obtain the kind |ell| which was introduced in the code. Then, we use existential quantification at the meta-level to generate a fresh type |t| of that kind, which we add to the context in the first position, matching the change in the structure that |Exists| performs in the kind. Once we do not need more existential variables, |Cr| just continues as usual, by requiring |NP (NA dtk tys)| for the fields |fs|.
+
+Since now the call to |NP| is baked into |NB|, we need to update the top-level |SOPn| type too.
+\begin{myhs}
+\begin{code}
+type SOPn dtk (c :: DataType dtk) (tys :: LoT dtk) = NS (NB dtk tys) c
+\end{code}
+\end{myhs}
+The |GenericNSOP| type class, on the other hand, is not affected by these changes. The instances, on the other hand, need to change their codes and isomorphisms to reflect the new intermediate layet between outer and inner lists.
 
 \section{Related Work}
 

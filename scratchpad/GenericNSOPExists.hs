@@ -21,7 +21,6 @@
 module Generic1SOP where
 
 import Data.Kind (type (*), type Type, Constraint)
-import Type.Reflection (TypeRep)
 
 type Kind = (*)
 
@@ -73,24 +72,38 @@ data LoT (ks :: Kind) where
   LoT0   :: LoT Type
   (:&&:) :: k -> LoT ks -> LoT (k -> ks)
 
+
+data NS :: (k -> *) -> [k] -> * where
+  Here   :: f k      -> NS f (k ': ks)
+  There  :: NS f ks  -> NS f (k ': ks)
+
+{-
 data NS (dtk :: Kind) :: LoT dtk -> DataType dtk -> * where
-  Here  :: NE dtk tys b  -> NS dtk tys (b ': bs)
+  Here  :: NB dtk tys b  -> NS dtk tys (b ': bs)
   There :: NS dtk tys bs -> NS dtk tys (b ': bs)
+-}
 
 pattern B0 x = Here x
 pattern B1 x = There (Here x)
 pattern B2 x = There (There (Here x))
 pattern B3 x = There (There (There (Here x)))
 
-data NE (dtk :: Kind) :: LoT dtk -> Branch dtk -> * where
+data NB (dtk :: Kind) :: LoT dtk -> Branch dtk -> * where
   Ex :: forall k (t :: k) (p :: SKind k) dtk tys r. 
-        NE (k -> dtk) (t :&&: tys) r -> NE dtk tys (Exists p r)
-  Cr :: NP dtk tys fs -> NE dtk tys (Constr fs)
+        NB (k -> dtk) (t :&&: tys) r -> NB dtk tys (Exists p r)
+  Cr :: NP (NA dtk tys) fs -> NB dtk tys (Constr fs)
 
+{-
 infixr 5 :*
 data NP (dtk :: Kind) :: LoT dtk -> [Field dtk] -> * where
   Nil  ::                                   NP dtk tys '[]
   (:*) :: NA dtk tys x -> NP dtk tys xs ->  NP dtk tys (x ': xs)
+-}
+
+infixr 5 :*
+data NP :: (k -> *) -> [k] -> * where
+  Nil  ::                    NP f '[]
+  (:*) :: f x -> NP f xs ->  NP f (x ': xs)
 
 type family Ty (dtk :: Kind) (tys :: LoT dtk) (t :: Term dtk k) :: k where
   -- and so on and so forth
@@ -108,7 +121,7 @@ data NA (dtk :: Kind) :: LoT dtk -> Field dtk -> * where
 unE :: NA dtk tys (Explicit t) -> Ty dtk tys t
 unE (E x) = x
 
-type SOPn k (c :: DataType k) (tys :: LoT k) = NS k tys c
+type SOPn k (c :: DataType k) (tys :: LoT k) = NS (NB k tys) c
 
 type family Apply k (f :: k) (tys :: LoT k) :: Type where
   Apply Type      f LoT0        = f
