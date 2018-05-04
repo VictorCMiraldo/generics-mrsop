@@ -399,7 +399,7 @@ data Par2  a b = Par2  b
 \end{myhs}
 By doing so, the kind of the representation can no longer be |Star -> Star|, we need at least |Star -> Star -> Star| to accomodate the two type parameter. Unfortunately, this means that none of |V1|, |U1|, |(:+:)|, and |(:*:)| can be used, since they all create or operate on types of kind |Star -> Star|. We could build a completely different set of primitive building blocks for two-parameter types, but the problem would repeat again once we consider three parameters.
 
-\subsection{|Generic1| in \texttt{generics-sop}}
+\subsection{|Generic1| in sum-of-products style}
 
 The key point to extend a generic framework to handle type constructors is to introduce marks for those places where the type parameter ought to appear. In the case of |Generic1|, it was only a matter of adding new |Par1| and |Rec1| types.
 
@@ -604,7 +604,7 @@ type DataType dtk = [[Atom dtk (Star)]]
 As an example, here are the codes corresponding to |[]|, |Either|, and |Rose|. The fact that |Either| has two type parameter can be observed by the usage of both |SZ| and |SS SZ| as arguments to |Var|. The non-regular recursion pattern in |Rose| is translated to iterated uses of |(:@:)|.
 \begin{myhs}
 \begin{code}
-type  ListCode   = P [ P [ ], P [ V0, Kon [] :@: V0 ] ]
+type ListCode    = P [ P [ ], P [ V0, Kon [] :@: V0 ] ]
 type EitherCode  = P [ P [ V0 ], P [ V1 ] ]
 type RoseCode    = P [ P [ V0, Kon [] :@: (Kon Rose :@: V0) ] ]
 \end{code}
@@ -847,8 +847,8 @@ Up to now a data type was defined as |[[Atom dtk (Star)]]|, where each element o
 \begin{myhs}
 \begin{code}
 data Field (dtk :: Kind) where
-  Explicit :: Atom dtk (*)         -> Field dtk
-  Implicit :: Atom dtk Constraint  -> Field dtk
+  Explicit  :: Atom dtk (*)         -> Field dtk
+  Implicit  :: Atom dtk Constraint  -> Field dtk
 
 type DataType dtk = [[Field dtk]]
 \end{code}
@@ -1004,8 +1004,8 @@ Haskell does not support full dependent types, so |Branch| cannot be declared as
 data SKind (ell :: Kind) = KK
 
 data Branch (dtk :: Kind) where
-  Exists :: SKind ell -> Branch (ell -> dtk)  -> Branch dtk
-  Constr :: [Field dtk]                       -> Branch dtk
+  Exists  :: SKind ell -> Branch (ell -> dtk)  -> Branch dtk
+  Constr  :: [Field dtk]                       -> Branch dtk
 \end{code}
 \end{myhs}
 As a consequence of this intermediate layer, data types are no longer represented as mere lists of lists of fields, but as |[Branch dtk]|, where each element contains information both about existentials and about the fields.
@@ -1106,5 +1106,72 @@ data instance Fix' (k1 -> k2 -> Star) dt a b
 \end{code}
 \end{myhs}
 Without much effort it is possible to extend the |GenericNSOP| instances to perform the deep conversion to |Fix dtk (Code f)| in addition to the shallow conversion to |SOPn dtk (Code f) f|.
+
+\section{Full Implementation}
+
+\begin{figure*}
+\begin{myhs}
+\begin{code}
+data Atom (dtk :: Kind) k where
+  Var    :: SNat n  -> Atom dtk (Pos n dtk)
+  Kon    :: k       -> Atom dtk k
+  (:@:)  :: Atom dtk (k1 -> k2) -> Atom dtk k1 -> Atom dtk k2
+  Rec    :: Atom dtk dtk
+
+type V0  = Var SZ
+type V1  = Var (SS SZ)
+type V2  = Var (SS (SS SZ))
+
+type family Pos (n :: Nat) (dtk :: Kind) :: Kind where
+  Pos n      Type       = TypeError (Text "Not found")
+  Pos Z      (x -> xs)  = x
+  Pos (S n)  (x -> xs)  = Pos n xs
+
+data Field (dtk :: Kind) where
+  Explicit  :: Atom dtk (*)         -> Field dtk
+  Implicit  :: Atom dtk Constraint  -> Field dtk
+
+data Branch (dtk :: Kind) where
+  Exists  :: (ell :: Kind) -> Branch (ell -> dtk)  -> Branch dtk
+  Constr  :: [Field dtk]                           -> Branch dtk
+
+type DataType dtk = [Branch dtk]
+\end{code}
+\end{myhs}
+\caption{Full implementation, part 1: language of codes}
+\end{figure*}
+
+\begin{figure*}
+\begin{myhs}
+\begin{code}
+type family Ty dtk (r :: dtk) (tys :: LoT dtk) (t :: Atom dtk k) :: k where
+  Ty (k1        -> ks) r (t1          :&&: ts) V0  = t1
+  Ty (k1 -> k2  -> ks) r (t1 :&&: t2  :&&: ts) V1  = t2
+  -- and so on
+  Ty dtk r tys (Kon t)    = t
+  Ty dtk r tys (f :@: x)  = (Ty dtk r tys f) (Ty dtk r tys x)
+  Ty dtk r tys Rec        = r
+
+data NA (dtk :: Kind) :: dtk -> LoT dtk -> Field dtk -> * where
+  E ::  forall dtk t r tys dot  Ty dtk r tys t  ->  NA dtk r tys (Explicit t)
+  I ::  forall dtk t r tys dot  Ty dtk r tys t  =>  NA dtk r tys (Implicit t)
+
+data NP :: (k -> Star) -> [k] -> Star where
+  Nil  ::                    NP f (P [])
+  (:*) :: f x -> NP f xs ->  NP f (x (P (:)) xs)
+
+data NB (dtk :: Kind) :: dtk -> LoT dtk -> Branch dtk -> Star where
+  Ex  ::  forall ell (t :: ell) (p :: SKind ell) dtk r tys c dot  NB (ell -> dtk) r (t :&&: tys) c  -> NB dtk r tys (Exists p c)
+  Cr  ::                                                          NP (NA dtk r tys) fs              -> NB dtk r tys (Constr fs)
+
+data NS :: (k -> Star) -> [k] -> Star where
+  Here   :: f k      -> NS f (k (P (:)) ks)
+  There  :: NS f ks  -> NS f (k (P (:)) ks)
+
+type SOPn dtk (c :: DataType dtk) (r :: dtk) (tys :: LoT dtk) = NS (NB dtk r tys) c
+\end{code}
+\end{myhs}
+\caption{Full implementation, part 2: interpretation of codes}
+\end{figure*}
 
 \end{document}
