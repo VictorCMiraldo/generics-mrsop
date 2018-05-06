@@ -302,7 +302,7 @@ The only remarkable part of this implementation is the use of the |All2| type cl
 
 Both |Generic| and |GenericSOP| mark recursive positions in the datatype \emph{implicitly}. This means that those fields which mention the datatype being defined are not treated in a different way to the others. You can only notice them as a programmer when you see that the |Rep| or |Code| mention the type itself, as was the case with the |Tree a| datatype from the Introduction.
 
-This is not the only possibility, though. \citet{Noort2008} and \citet{Yakushev2009} extend the |Generic| framework with an additional building block which marks recursive positions.
+This is not the only possibility, though. \citet{Noort2008} and \citet{Yakushev2009} extend the |Generic| framework with a new building block to mark recursive positions.
 \begin{myhs}
 \begin{code}
 data Rec p = Rec p
@@ -858,10 +858,8 @@ The interpretation functor |NA| has to be adapted:
 \begin{myhs}
 \begin{code}
 data NA (dtk :: Kind) :: LoT dtk -> Field dtk -> * where
-  E ::  forall dtk t tys dot
-        Ty dtk tys t -> NA dtk tys (Explicit t)
-  I ::  forall dtk t tys dot
-        Ty dtk tys t => NA dtk tys (Implicit t)
+  E ::  forall dtk t tys dot Ty dtk tys t  ->  NA dtk tys (Explicit t)
+  I ::  forall dtk t tys dot Ty dtk tys t  =>  NA dtk tys (Implicit t)
 \end{code}
 \end{myhs}
 The two constructors look almost the same. But the fact that |Ty dtk tys t| appears before a regular |->| arrow in |E|, and before a |=>| arrow in |I| is enough to require the right kind to come out of the application of |Ty|. This updated framework is enough to describe the shape of the |Eql| data type.
@@ -933,38 +931,39 @@ Since the constructors in |NA| do not change depending on whether we have used |
 instance (FunctorField x) => FunctorField (Rec :@: x)
 \end{code}
 \end{myhs}
-In fact, |gfmap| defines the operation for the type we are recurring over, so this instance ought to exist! In order to convince the compiler, we play the same trick as before: make the recursive position an additional argument to the type class, and only tie the knot at the level of |gfmap|.
+In fact, |gfmap| defines the operation for the type we are recurring over, so this instance ought to exist! In order to convince the compiler, we play the same trick as before: work with |r| as an independent entity, and only tie the knot at the level of |gfmap|. We need to pass the function which works on the recursive position as an additional argument.
 \begin{myhs}
 \begin{code}
 class FunctorField r (t :: Atom (* -> *) Type) where
-  gfmapF  ::  (a -> b)
+  gfmapF  ::  (forall x y dot (x -> y) -> r x -> r y)
+          ->  (a -> b)
           ->  NA (* -> *) r (a :&&: LoT0) t
           ->  NA (* -> *) r (b :&&: LoT0) t
-
-instance  (Functor r, FunctorField r x)
-          => FunctorField r (Rec :@: x) where
-  gfmapF f (T x)
-    = T (fmap (unT . gfmapF f . T atunder @x @r) x)
 \end{code}
 \end{myhs}
-The trick now is to make the |FunctorField| constraint used in |All2| refer to the same |f| as in the code.
+\begin{myhs}
+\begin{code}
+instance  (FunctorField r x)
+          => FunctorField r (Rec :@: x) where
+  gfmapF r f (T x)
+    = T (r (unT . gfmapF r f . T atunder @x @r) x)
+\end{code}
+\end{myhs}
+The trick now is to make the |FunctorField| constraint used in |All2| refer to the same |f| as in the code. And to close the loop, when we call |gfmapF|, we pass |gfmap| itself as the function to execute in the when |Rec| is found.
 \begin{myhs}
 \begin{code}
 gfmap  ::  (GenericNSOP (* -> *) f,
            All2 (FunctorField f) (Code f))
        =>  (a -> b) -> f a -> f b
+gfmap f  =  ...
+  where
+    goP Nil          = Nil
+    goP (T x :* xs)  = gfmapF gfmap f (T x) :* goP xs
 \end{code}
 \end{myhs}
-This introduces the demand of |f| being an instance of |Functor|. You can write this instance in general by using |gfmap| itself,
-\begin{myhs}
-\begin{code}
-instance Functor Rose where
-  fmap = gfmap
-\end{code}
-\end{myhs}
-This ties the recursive knot, and makes it possible to use |fmap| on every data type whose fields have the shapes supported by |FunctorField|.
+This approach makes the definition of |gfmap| self-contained, in contrast to the definition without explicit recursion, in which a |Functor| instance needs to be written to make recursion possible.
 
-\paragraph{Fixpoints of all kinds.} When the recursive structure of a type is known, it is possible to obtain the fixpoint of the corresponding functor, to obtain a representation which does not refer back to the original data type. In \Cref{sec:fixpointstar} we discuss how to extend the |Fix| construction to data types of any kind.
+\paragraph{Fixpoints of all kinds.} When the recursive structure of a type is known, it is possible to obtain the fixpoint of the corresponding functor, to obtain a representation which does not refer back to the original data type. In \Cref{sec:fixpointstar} we discuss how to extend the |Fix| construction to any kind.
 
 \subsection{Are We Inconsistent Yet?}
 

@@ -16,7 +16,7 @@
 {-# language ScopedTypeVariables #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
-{-# language UndecidableInstances #-}
+{-# language RankNTypes #-}
 module Generic1SOP where
 
 import Data.Kind (type (*), type Type, Constraint)
@@ -206,18 +206,19 @@ instance UltimateGeneric (k -> k -> *) Eql where
 
 
 class FunctorField (r :: * -> *) (t :: Term (* -> *) Type) where
-  gfmapF :: (a -> b)
+  gfmapF :: (forall x y. (x -> y) -> r x -> r y)
+         -> (a -> b)
          -> NA (* -> *) r (a :&&: LoT0) (Explicit t)
          -> NA (* -> *) r (b :&&: LoT0) (Explicit t)
 
 instance FunctorField r V0 where
-  gfmapF f (E x) = E (f x)
+  gfmapF _ f (E x) = E (f x)
 instance (Functor f, FunctorField r x) => FunctorField r (f :$: x) where
-  gfmapF f (E x) = E (fmap (unE . gfmapF f . E @_ @x @r) x)
+  gfmapF r f (E x) = E (fmap (unE . gfmapF r f . E @_ @x @r) x)
 instance FunctorField r (Kon t) where
-  gfmapF f (E x) = E x
-instance (Functor r, FunctorField r x) => FunctorField r (Rec :@: x) where
-  gfmapF f (E x) = E (fmap (unE . gfmapF f . E @_ @x @r) x)
+  gfmapF _ f (E x) = E x
+instance (FunctorField r x) => FunctorField r (Rec :@: x) where
+  gfmapF r f (E x) = E (r (unE . gfmapF r f . E @_ @x @r) x)
 
 type family AllE2 c xs :: Constraint where
   AllE2 c '[] = ()
@@ -245,7 +246,7 @@ gfmap f = from (SLoT1 (Proxy :: Proxy b)) (Proxy :: Proxy f)
         => NP (NA (* -> *) f (a :&&: LoT0)) xs
         -> NP (NA (* -> *) f (b :&&: LoT0)) xs
     goP Nil         = Nil
-    goP (E x :* xs) = gfmapF f (E x) :* goP xs
+    goP (E x :* xs) = gfmapF gfmap f (E x) :* goP xs
 
 fmapList :: (a -> b) -> [a] -> [b]
 fmapList = gfmap
