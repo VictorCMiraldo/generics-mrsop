@@ -185,12 +185,13 @@ Haskell~\cite{Sheard2002}.
 \subsection{Contributions}
 
 The |Generic| type class defined above only allows to represent ground
-types, in other words, types which kind |Star|. But this is not enough
-for all our purposes. For example, if we want to give a generic |fmap|
-definition, we need to know the structure of a type constructor of
-kind |Star -> Star| instead. Some libraries provide ad-hoc |Generic1|
+types, in other words, types of kind |Star|. But this is not enough
+for all our purposes. A generic |fmap|
+definition already requires the structure of a type constructor of
+kind |Star -> Star|. Some libraries provide ad-hoc |Generic1|
 classes for that single purpose.
 
+%% VCM: I think this para should come earlier! This is the bomb!
 The main contribution of this paper is to provide a \emph{single,
 unified} type class for generic programming over types of all kinds
 (\Cref{sec:allkinds}). We do so by using a variant of the
@@ -201,8 +202,8 @@ variant with explicit recursion. We explore the required background in
 Representing arbitrary constructor moves us a step forward to being
 able to accurately represent the shape of \emph{every} Haskell
 datatype. Since the introduction of Generalised Algebraic Data
-Types~\cite{Xi2003}, we need to additional combinators to make that
-dream true:
+Types~\cite{Xi2003}, we need to additional combinators to enable
+that:
 \begin{itemize}
   \item Each constructor may require one or more \emph{constraints} to
   be satisfied by the types of their fields. For example, when we write
@@ -218,14 +219,14 @@ dream true:
   \Cref{sec:constraints} we explore how to extend our base framework to
   account for these constraints.
 
-  \item Constructor may also mention type variables which are not
+  \item Constructor may mention type variables which are not
   reflected in the indices. These are called \emph{existentials}, since
   once you pattern match you know that a type has been used, but not
   exactly which one. The support for existentials is discussed in
   \Cref{sec:exists}.
 \end{itemize}
 
-This paper also aims to witness how far the type level facilities in
+Our work witnesses how far the type level facilities in
 GHC have evolved. None of the contributions in this paper would be
 possible without datatype promotion, kind polymorphism
 ~\cite{Yorgey2012}, the |Constraint| kind~\cite{constraintkinds}, or
@@ -242,7 +243,7 @@ in the Introduction, we focus on the |Generic| line of work.
 
 In order to define an operation generically, we create two dedicated
 \emph{type classes}, one for ground types and one for type
-constructors. A simple generic operation is |size|, which counts the
+constructors. Take the |size| function, which counts the
 number of constructors.
 \begin{myhs}
 \begin{code}
@@ -253,7 +254,7 @@ class GSize f where
   gsize  ::   f p  -> Integer
 \end{code}
 \end{myhs}
-We then write instances of the second class for each of the building
+All we have to do is to write instances of the second class for each of the building
 blocks of datatypes. The type class mechanism is how we reflect the
 type level structure into a term level implementation.
 \begin{myhs}
@@ -296,14 +297,14 @@ information around.
 
 Algebraic datatypes in Haskell have a very regular shape when
 represented using the building blocks above. There is always a choice
-among several constructor, each of them comprised of zero or more
+of constructor, with of zero or more
 fields. This general structure is called a \emph{sum of
 products}. Unfortunately, the representation using |Generic| is not
 strong enough to guarantee that shape; there is nothing forbidding us
 from writing:
 \begin{myhs}
 \begin{code}
-U1 :+: (K1 R Int :*: Maybe)
+U1 :*: (K1 R Int :+: Maybe)
 \end{code}
 \end{myhs}
 
@@ -374,7 +375,7 @@ type SOP c = NS (NP I) c
 \end{code}
 \end{myhs}
 As in the case of the built-in |Generic|, each datatype is tied to its
-code by a type class. In the implementation this class is also known
+code by a type class. In the \texttt{generics-sop} this class is also known
 as |Generic|, but we shall use a subscript to distinguish it.
 \begin{myhs}
 \begin{code}
@@ -449,7 +450,7 @@ newtype Fix f = Fix (f (Fix f))
 \end{code}
 \end{myhs}
 Some generic operations which use this explicit recursion information
-is the definition of diff and patch~\cite{Lempsink2009},
+is the definition of diff and patch~\cite{Lempsink2009,CacciariMiraldo2017},
 zippers~\cite{Hinze2003}, and tree regular
 expressions~\cite{Serrano2016}.
 
@@ -699,7 +700,7 @@ type family AllRec   c xs :: Constraint where
   AllRec c (P [])               = ()
   AllRec c (Rec x  (P (:)) xs)  = (c x, AllRec c xs)
   AllRec c (x      (P (:)) xs)  = AllRec c xs
-\end{code}
+\end{code} %$
 \end{myhs}
 \caption{Working |fmap| using |Generic1SOP|}
 \label{fig:gfmap2}
@@ -733,21 +734,22 @@ pieces come together in the right place. The resulting,
 \section{Generics of All Kinds}
 \label{sec:allkinds}
 
-The extension of |GenericSOP| to |Generic1SOP| was done three
+The extension of |GenericSOP| to |Generic1SOP| was done in three
 steps. First, we changed the language of the codes from lists of lists
-of types, to lists of lists of atoms. By doing so, we gained the
-flexibility of referring to refer to type parameters via |Var|, and to
-encode recursion via |Rec|. As a result of this change, we had to
-define a different interpretation functor |NA|. Finally, we defined
+of types, to lists of lists of atoms. By doing so, we were able to
+refer to type parameters via |Var|, and
+encode recursion via |Rec|. This entailed
+a different interpretation functor |NA|. Finally, we defined
 the |Generic1SOP| type class to tie each data type with its code. In
-this section we follow the same steps, with the goal of supporting
-types of any kind.
+this section we follow the same three steps, but this time we go one
+level higher. The resulting generic type-class will support types
+of arbitrary kinds.
 
-The first question then is how should we represent each of the types
-of the fields, that is, which is our new language of atoms. As we saw
+The first step is representing each of the types
+of the fields, that is, estabilishing our new language of atoms. As we saw
 in \Cref{sec:generic1}, which data types we are able to describe
-depends heavily on the choice of these primitive building blocks. In
-that case, we had to add an addition composition combinator |(:.:)| to
+is a consequence of the choice of these primitive building blocks. In
+that case, we had to add an additional composition combinator |(:.:)| to
 support nested recursion. Here this problem is magnified; for example,
 in the following data type of kind |Star -> (Star -> Star) -> Star ->
 Star|:
@@ -761,14 +763,11 @@ foresee all possible combinations of recursion and application, and
 thus extending the possibilities of the |Rec| constructor from |Atom|
 is a dead end.
 
-Since we want to express \emph{any} possible type which appears in a
-Haskell data type declaration, we look at its syntax from the Haskell
-Report~\cite[section 4.1.2]{haskell2010}. Essentially, a type is
-either a type variable, a type constructor, or an application of a
-type to another type. The syntax of types can also be characterized as
-that of the $\lambda$-calculus without abstraction. It is well-known
-how to encode $\lambda$-terms in Haskell: we just need to decide how
-to refer to variables, the simplest choice being de Bruijn indices.
+Looking at the Haskell Report~\cite[section 4.1.2]{haskell2010}, we see
+that a type follows closely the applicative fragment of the $\lambda$-calculus:
+it is either a type variable, a type constructor or an application.
+With the help of de Bruijn indices, this is straight forward to encode
+in Haskell:
 \begin{myhs}
 \begin{code}
 -- Natural numbers to represent indices
@@ -777,10 +776,10 @@ data Nat   = Z | S Nat
 data Atom  = Var Nat | Kon k | Atom :@: Atom
 \end{code}
 \end{myhs}
-Alas, this definition of |Atom| allows us to represent ill-kinded
-types such as |Kon Int :@: Var Z|. The solution is to add an index to
-|Atom| that states its kind. Then we can check that applications are
-well-formed by refining the |Kon| and |(:@:)| constructors:
+Alas, this definition of |Atom| is too permissive. It allows us to represent ill-kinded
+types such as |Kon Int :@: Var Z|. Adding an index to
+|Atom|, stating its kind, solves this problem. The refined
+|Kon| and |(:@:)| constructors ensure applications are well-kinded.
 \begin{myhs}
 \begin{code}
 Kon    :: k                            -> Atom k
@@ -790,12 +789,9 @@ Kon    :: k                            -> Atom k
 This is enough to reject the previous example |Kon Int :@: Var Z|,
 since the kind of |Int| is not of the form |k1 -> k2|.
 
-The only missing piece is how to encode the kind of a |Var|. It is not
-enough to know the index; the first type parameter in |[] :: Star ->
-Star| and |MayebT :: (Star -> Star) -> Star -> Star| have different
-kinds (|Star| and |Star -> Star|, respectively). As a result, our
-|Atom| type gains one additional parameter, which saves the kind of
-the data type whose fields we are representing. It is easy to define
+Let us look at how to encode the kind of a |Var|. We will innevitably
+need another parameter to |Atom|, recording what is the kind of
+the datatype we are representing. We now define
 an operation which looks up the kind of a certain variable within the
 kind of the whole data type:
 \begin{myhs}
@@ -806,14 +802,14 @@ type family Pos (n :: Nat) (dtk :: Kind) :: Kind where
   Pos (S n)  (x -> xs)  = Pos n xs
 \end{code}
 \end{myhs}
-This piece of code introduces some conventions we abide through the
+This piece of code introduces some notation we abide through the
 rest of the paper. First of all, we use the Greek letter |dtk| to
 refer to the kind of the data type we are describing. Second, although
 with the |TypeInType| extension the tower of types and kinds collapse
 into one single level, we write |Type| or |Kind| to distinguish the
 intended meaning in each occasion.
 
-Using |Pos|, we can finally compute the kind of a |Var| from its index
+Using |Pos|, we can compute the kind of a |Var| from its index
 and the kind of the complete data type. Essentially, we want to give
 |Var| the following type:
 \begin{myhs}
@@ -821,7 +817,7 @@ and the kind of the complete data type. Essentially, we want to give
 Var :: (n :: Nat) -> Atom dtk (Pos n dtk)
 \end{code}
 \end{myhs}
-Alas, Haskell is not a dependently-typed language, which means we
+Yet, Haskell is not a dependently-typed language, which means we
 cannot use the value of the argument as part of the rest of the
 type. To work around this restriction we use a
 \emph{singleton}~\cite{Eisenberg2012} for natural numbers. In short, a
@@ -862,14 +858,12 @@ type V2  = Var (SS (SS SZ))
 At this point we are using a GADT, |SNat|, to index yet another GADT,
 |Atom|. This means that the compiler needs to work with a promoted
 version of |SNat|. In order to promote a GADT we require the
-|TypeInType| extension. However, we are not using the full power of
-the |Star : Star| axiom, we discuss this matter in
+|TypeInType| extension. However, we are not using
+the |Star : Star| judgement in our construction, we discuss this matter in
 \Cref{sec:inconsistent1}.
 
 A datatype of kind |dtk| is now encoded as a list of list of the atoms
-defined above. However, not every atom is allowed as a field, the
-language requires those to be of kind |Star|. This requirement can be
-easily enforced by mandating the second parameter of |Atom|:
+defined above, given that they form a type of kind |Star|:
 \begin{myhs}
 \begin{code}
 type DataType dtk = [[Atom dtk (Star)]]
@@ -877,7 +871,7 @@ type DataType dtk = [[Atom dtk (Star)]]
 \end{myhs}
 As an example, here are the codes corresponding to |[]|, |Either|, and
 |Rose|. The fact that |Either| has two type parameter can be observed
-by the usage of both |SZ| and |SS SZ| as arguments to |Var|. The
+by the usage of both |V0| and |V1|. The
 non-regular recursion pattern in |Rose| is translated to iterated uses
 of |(:@:)|.
 \begin{myhs}
@@ -893,6 +887,8 @@ same in our new encoding of data types. As a result, the |NS| and |NP|
 types which interpret that structure do not need any modifications. On
 the other hand, the interpretation of atoms requires heavy
 adjustments.
+
+VICTOR IS HERE
 
 In the version of |NA| we presented in \Cref{sec:generic1}, we had a
 first argument of kind |Star|. That argument represented the value of
