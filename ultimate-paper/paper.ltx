@@ -792,6 +792,11 @@ this section we follow the same three steps, but this time we go one
 level higher. The resulting generic type-class will support types
 of arbitrary kinds.
 
+Although we are using \texttt{TypeInType}, which collapses |Kind| and
+|Type| into the same level, we still write |Kind| and |Type| to distinguish 
+the intended meaning in each occasion. Moreover, we use |dtk| to denote
+the kind of the datatype we are encoding. 
+
 The first step is representing each of the types
 of the fields, that is, estabilishing our new language of atoms. As we saw
 in \Cref{sec:generic1}, which data types we are able to describe
@@ -824,23 +829,22 @@ data Atom  = Var Nat | Kon k | Atom :@: Atom
 \end{code}
 \end{myhs}
 Alas, this definition of |Atom| is too permissive. It allows us to represent ill-kinded
-types such as |Kon Int :@: Var Z|. Adding an index to
-|Atom|, stating its kind, solves this problem. The refined
+types such as |Kon Int :@: Var Z|. Lifting |Atom| to a GATD with an index
+solves this problem. The refined
 |Kon| and |(:@:)| constructors ensure applications are well-kinded.
 \begin{myhs}
 \begin{code}
-Kon    :: k                            -> Atom k
-(:@:)  :: Atom (k1 -> k2)  -> Atom k1  -> Atom k2
+data Atom (dtk :: Kind) (k :: Kind) :: Type where
+  Kon    :: k                                   -> Atom dtk k
+  (:@:)  :: Atom dtk (k1 -> k2) -> Atom dtk k1  -> Atom dtk k2
 \end{code}
 \end{myhs}
 This is enough to reject the previous example |Kon Int :@: Var Z|,
-since the kind of |Int| is not of the form |k1 -> k2|.
+since the kind of |Int| is not of the form |k1 -> k2|. 
 
-Let us look at how to encode the kind of a |Var|. We will innevitably
-need another parameter to |Atom|, recording what is the kind of
-the datatype we are representing. We now define
-an operation which looks up the kind of a certain variable within the
-kind of the whole data type:
+The |Var| constructor is slightly more complicated. We need 
+find the kind of the $n$-th variable within |dtk|. The |Pos|
+performs this very lookup:
 \begin{myhs}
 \begin{code}
 type family Pos (n :: Nat) (dtk :: Kind) :: Kind where
@@ -849,26 +853,19 @@ type family Pos (n :: Nat) (dtk :: Kind) :: Kind where
   Pos (S n)  (x -> xs)  = Pos n xs
 \end{code}
 \end{myhs}
-This piece of code introduces some notation we abide through the
-rest of the paper. First of all, we use the Greek letter |dtk| to
-refer to the kind of the data type we are describing. Second, although
-with the |TypeInType| extension the tower of types and kinds collapse
-into one single level, we write |Type| or |Kind| to distinguish the
-intended meaning in each occasion.
 
-Using |Pos|, we can compute the kind of a |Var| from its index
-and the kind of the complete data type. Essentially, we want to give
-|Var| the following type:
+Using |Pos|, enabling us to lookup kinds of variables,
+we would like to give |Var| the following type:
 \begin{myhs}
 \begin{code}
-Var :: (n :: Nat) -> Atom dtk (Pos n dtk)
+  Var :: (n :: Nat) -> Atom dtk (Pos n dtk)
 \end{code}
 \end{myhs}
 Yet, Haskell is not a dependently-typed language, which means we
 cannot use the value of the argument as part of the rest of the
 type. To work around this restriction we use a
-\emph{singleton}~\cite{Eisenberg2012} for natural numbers. In short, a
-singleton for |tau| is a data type indexed by that |tau| which
+\emph{singleton}~\cite{Eisenberg2012} for natural numbers. 
+In short, a singleton for |tau| is a data type indexed by that |tau| which
 accurately reflects the structure of |tau|. Thus, by pattern matching
 on the singleton, we gain information about |tau| itself. Here is the
 definition of the singleton for |Nat|:
@@ -885,10 +882,10 @@ the result now just happen to share a reference to the same variable
 of kind |Nat|. The definitive version of |Atom| is:
 \begin{myhs}
 \begin{code}
-data Atom (dtk :: Kind) k where
-  Var    :: SNat n  -> Atom dtk (Pos n dtk)
-  Kon    :: k       -> Atom dtk k
-  (:@:)  :: Atom dtk (k1 -> k2) -> Atom dtk k1 -> Atom dtk k2
+data Atom (dtk :: Kind) (k :: Kind) :: Type where
+  Var    :: SNat n                              -> Atom dtk (Pos n dtk)
+  Kon    :: k                                   -> Atom dtk k
+  (:@:)  :: Atom dtk (k1 -> k2) -> Atom dtk k1  -> Atom dtk k2
 \end{code}
 \end{myhs}
 Let us also introduce some synonyms for the first, second, and third
