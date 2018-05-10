@@ -116,9 +116,7 @@ require Russel's paradox, proving the construction is consistent.
 
 
 \section{Introduction}
-
-
-(Datatype)-generic programming is a powerful tool to define functions
+(Datatype)-generic programming is a technique to define functions
 by induction over the structure of a datatype. Simpler mechanisms,
 such as the |deriving| clause, have been present in Haskell for a long
 time \cite{haskell2010}, although restricted to a few generic
@@ -129,12 +127,115 @@ comparison). Ultimately, GHC added special support via the
 |Data|~\cite{Lammel2003,Mitchell2007} and
 |Generic|~\cite{Magalhaes2010} type classes.
 
-There is a general idea behind the strand of work to which |Generic|
-belongs: if we represent the shape of each datatype as type-level
-information, then we can use type-level techniques to define the
-generic operations. Libraries differ in the primitive building blocks
-for those shapes, and in how these shapes are encoded. For example,
-|Generic| uses the following functors as building blocks:
+In fact, |GHC.Generics| is one of the most widespread libraries. One
+of the reasons for that is th lightweight encoding it employs. One of
+its key design aspects is to \emph{not} represent recursion
+explicitly, and, as we shall see on \Cref{sec:recursion}, this is a
+major point when designing a generic programming library.
+We try, as much as possible, to maintain a similar design, but
+we extend it to handle much more expressive datatypes.
+
+One of the downsides of |GHC.Generics| is that it only enables
+one to represent ground types, that is, types of kind |Star|. It
+does provide a second typeclass, |Generic1|, for types of kind |Star -> Star|,
+but that is as far as it goes. We show how can one extend this
+to arbitrary kinds using some of the more modern features of the Haskell language. 
+
+Within recent years, the Haskell language has gained a number of 
+extensions that enable a outstanding degree of type-level programming
+for a non-dependent language. Exploiting these recent additions we
+can provide a sound shallow encoding of all Haskell datatypes. For
+example, take the GADT given below.
+
+\begin{myhs}
+\begin{code}
+data IsInt :: Star -> Star where
+  Prf :: Int -> IsInt Int
+\end{code}
+\end{myhs}
+
+An inhabitant of |IsInt a| is, essentially, a proof that |a ~ Int|.
+In fact, we can lift that to a constraint.
+
+\begin{myhs}
+\begin{code}
+data IsInt :: Star -> Star where
+  Prf :: (a ~ Int) => a -> IsInt a
+\end{code}
+\end{myhs}
+
+Within our generic programming approach, this type would be encoded
+as given in \Cref{fig:first-example}. The outer list represents the choice
+of constructors, in our case there is only one. The inner list represents
+the fields of such constructors. In our case there are two: one constraint
+field, which we label \emph{implicit}, and one explicit field. The |(:@:)|
+operator represents type-level application and |V0| represent the first
+type variable. Our encoding also ensures that everything is
+\emph{well-kinded}.
+
+\begin{figure}
+\begin{myhs}
+\begin{code}
+type CodeIsInt = P [ P  [ Implicit (Kon (~) :@: V0 :@: Kon Int)
+                        , Explicit V0 ] ]
+\end{code}
+\end{myhs}
+\caption{Code for |IsInt|}
+\label{fig:first-example}
+\end{figure}
+
+\subsection{Contributions}
+
+The main contribution of this paper is to provide a \emph{single,
+unified} type class for generic programming over types of all kinds
+(\Cref{sec:allkinds}). We do so by using a variant of the
+sum-of-products representation. In \Cref{sec:recursion} we consider a
+variant with explicit recursion. We explore the required background in
+\Cref{sec:pre}.
+
+Representing arbitrary constructor moves us a step forward to being
+able to accurately represent the shape of \emph{every} Haskell
+datatype. Since the introduction of Generalised Algebraic Data
+Types~\cite{Xi2003}, we need to additional combinators to enable
+that:
+\begin{itemize}
+  \item Each constructor may require one or more \emph{constraints} to
+  be satisfied by the types of their fields. For example, when we write
+  a datatype to witness the equality between two types:
+  \begin{myhs}
+  \begin{code}
+  class Eql a b where
+    Refl :: a ~ b => Eql a b
+  \end{code}
+  \end{myhs}
+  we require the indices of |Eql|, namely |a| and |b|, to be equal. This
+  is represented by the constraint |a ~ b| in the |Refl| constructor. In
+  \Cref{sec:constraints} we explore how to extend our base framework to
+  account for these constraints.
+
+  \item Constructor may mention type variables which are not
+  reflected in the indices. These are called \emph{existentials}, since
+  once you pattern match you know that a type has been used, but not
+  exactly which one. The support for existentials is discussed in
+  \Cref{sec:exists}.
+\end{itemize}
+
+%% VCM: Not sure I like this para
+Our work witnesses how far the type level facilities in
+GHC have evolved. None of the contributions in this paper would be
+possible without datatype promotion, kind polymorphism
+~\cite{Yorgey2012}, the |Constraint| kind~\cite{constraintkinds}, or
+the |TypeInType| extension~\cite{Weirich2013,Weirich2017}.
+
+\section{Preliminaries}
+\label{sec:pre}
+Let us take a step back for a second and take a tour of older generic
+programming techniques. We will build up in complexity gradually, ultimately
+leading to our approach.
+
+The underlying general idea behind the majority the generic programming
+work is to represent the \emph{shape} of a datatype with some type-level information.
+For example, |Generic| uses the following functors as building blocks:
 \begin{myhs}
 \begin{code}
 data V1           p                           -- empty
@@ -183,59 +284,6 @@ provides an extension to the |deriving| mechanism to create these
 instances. In fact, all generic programming libraries automate this
 step, making use of metaprogramming facilities such as Template
 Haskell~\cite{Sheard2002}.
-
-\subsection{Contributions}
-
-The |Generic| type class defined above only allows to represent ground
-types, in other words, types of kind |Star|. But this is not enough
-for all our purposes. A generic |fmap|
-definition already requires the structure of a type constructor of
-kind |Star -> Star|. Some libraries provide ad-hoc |Generic1|
-classes for that single purpose.
-
-%% VCM: I think this para should come earlier! This is the bomb!
-The main contribution of this paper is to provide a \emph{single,
-unified} type class for generic programming over types of all kinds
-(\Cref{sec:allkinds}). We do so by using a variant of the
-sum-of-products representation. In \Cref{sec:recursion} we consider a
-variant with explicit recursion. We explore the required background in
-\Cref{sec:pre}.
-
-Representing arbitrary constructor moves us a step forward to being
-able to accurately represent the shape of \emph{every} Haskell
-datatype. Since the introduction of Generalised Algebraic Data
-Types~\cite{Xi2003}, we need to additional combinators to enable
-that:
-\begin{itemize}
-  \item Each constructor may require one or more \emph{constraints} to
-  be satisfied by the types of their fields. For example, when we write
-  a datatype to witness the equality between two types:
-  \begin{myhs}
-  \begin{code}
-  class Eql a b where
-    Refl :: a ~ b => Eql a b
-  \end{code}
-  \end{myhs}
-  we require the indices of |Eql|, namely |a| and |b|, to be equal. This
-  is represented by the constraint |a ~ b| in the |Refl| constructor. In
-  \Cref{sec:constraints} we explore how to extend our base framework to
-  account for these constraints.
-
-  \item Constructor may mention type variables which are not
-  reflected in the indices. These are called \emph{existentials}, since
-  once you pattern match you know that a type has been used, but not
-  exactly which one. The support for existentials is discussed in
-  \Cref{sec:exists}.
-\end{itemize}
-
-Our work witnesses how far the type level facilities in
-GHC have evolved. None of the contributions in this paper would be
-possible without datatype promotion, kind polymorphism
-~\cite{Yorgey2012}, the |Constraint| kind~\cite{constraintkinds}, or
-the |TypeInType| extension~\cite{Weirich2013,Weirich2017}.
-
-\section{Preliminaries}
-\label{sec:pre}
 
 Before exploring the novel ideas in the paper, we need to recap some
 notions from the current landscape of generic programming in GHC. As
