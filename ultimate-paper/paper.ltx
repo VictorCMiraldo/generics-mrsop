@@ -504,16 +504,14 @@ is the definition of diff and patch~\cite{Lempsink2009,CacciariMiraldo2017},
 zippers~\cite{Hinze2003}, and tree regular
 expressions~\cite{Serrano2016}.
 
-\section{Generic Type Constructors}
+\subsection{Generic Type Constructors}
 \label{sec:generic1}
 
-As we have mentioned in the Contributions, our goal is to encode the
-shape of datatypes of all possible kinds, not only |Star|. The reason
-is that many interesting generic operations --- including the
-well-known |fmap| from |Functor| --- are defined for higher-kinded
-types. In this section we look at the already-existing support in the
-|Generic| framework of GHC, and how to translate this idea to the
-\texttt{generics-sop} framework.
+If we want to write functions such as |fmap|, from |Functor|, generically,
+we need to have knowledge about which fields of a type of kind |Star -> Star|
+are, in fact, an occurence of its type parameter. In this section we
+look into how this has been done by |GHC.Generics| and how to
+translate this to the \texttt{generics-sop} style.
 
 The |Generic1| type class is the counterpart of |Generic| for types
 with one parameter, such as |Maybe| or |[]|. The definition is pretty
@@ -529,19 +527,20 @@ class Generic1 f where
 \end{code}
 \end{myhs}
 
-The bulding blocks from |Generic| need to be extended to mark those
-places where the type variable occurs. For those occasions in which
-the variable appears naked, we use |Par1|. It might also be the case
-that some type constructor is applied to that variable, in which case
-we use |Rec1|. The definition of these types look very similar to the
-identity and recursion functions defined previously, but the role in
-the representation is quite different.
+We now need two extra building blocks to represent types with one parameter.
+One to represent said parameter and another to represent type application to
+that parameter:
+
 \begin{myhs}
 \begin{code}
 data Par1    p = Par1 p
 data Rec1 f  p = Rec1 (f p)
 \end{code}
 \end{myhs}
+Although the application is named |Rec1|, it does \emph{not} mark recursion
+explicitly. Every application of a type constructor to the type variable has to
+be encoded by the means of |Rec1|, even if this is not a recursive application.
+
 We can now give a representation of the |Tree| type constructor. In
 contrast, before we had defined a family of representations for |Tree
 a|, regardless of the |a|.
@@ -551,10 +550,9 @@ U1 :+: (Rec1 Tree :*: Par1 :*: Rec1 Tree)
 \end{code}
 \end{myhs}
 
-|Rec1| is not powerful enough to represent every sort of recursion in
-Haskell datatypes. Rose trees are a prime example of
-\emph{non-regular} recursion, since |Rose a| appears under a list
-constructor.
+Our |Rec1| is not expressive enough to represent arbitrary recursion.
+If we want to represent nested datatypes, such as |Rose a| below,
+we need some extra machinery.
 \begin{myhs}
 \begin{code}
 data Rose a = Fork a [Rose a]
@@ -574,9 +572,6 @@ list constructor, and recursion done via |Rec1|.
 Par1 :*: ([] :.: Rec1 Rose)
 \end{code}
 \end{myhs}
-For the rest of the section we focus on the simplest subset of regular
-types, although non-regularity can be recovered by introducing
-explicit functor composition as done here.
 
 Defining generic operations for |Generic1| is done as for |Generic|;
 one just need to add additional instances for the new |Par1| and
@@ -600,8 +595,8 @@ instance (Functor f, GFunctor g)
 \end{code}
 \end{myhs}
 
-The main problem of |Generic1| is that the building blocks do not
-scale to more than one parameter. At the very least, we would need new
+Although |Generic1| works well for one type parameter, the general technique
+does not scale to more parameters. At the very least, we would need new
 |Par1| and |Par2| types which refer to each of the type variables.
 \begin{myhs}
 \begin{code}
@@ -615,7 +610,8 @@ type parameter. Unfortunately, this means that none of |V1|, |U1|,
 |(:+:)|, and |(:*:)| can be used, since they all create or operate on
 types of kind |Star -> Star|. We could build a completely different
 set of primitive building blocks for two-parameter types, but the
-problem would repeat again once we consider three parameters.
+problem would repeat again once we consider three parameters. We will
+address this issue in \Cref{sec:allkinds}.
 
 \subsection{|Generic1| in sum-of-products style}
 
@@ -657,7 +653,7 @@ P [ P [], P [ Rec Tree, Var, Rec Tree ] ]
 \end{code}
 \end{myhs}
 
-The last piece is the new |Generic1SOP| type class which ties each
+We can now define the |Generic1SOP| type class which ties each
 datatype to its code. We also define a |SOP1| type synonym for the
 nested application of the interpretation functors |NS|, |NP|, and
 |NA|:
@@ -687,9 +683,10 @@ instance Generic1SOP Tree where
 After a sequence of |There| and |Here| which indicate which
 constructor we are working with, we find a |(:*)|-separated list of
 fields, finished by |Nil|. In each case we need to mark whether that
-field arises from recursion (with |R|), for an ocurrence of the type
-parameter (with |V|), or simply from a constant type (with |K|, not
-shown in this example).
+field arises from an application of a type constructor to the
+parameter (with |R|), for an ocurrence of the type parameter (with
+|V|), or simply from a constant type (with |K|, not shown in this
+example).
 
 \begin{figure}
 \begin{myhs}
