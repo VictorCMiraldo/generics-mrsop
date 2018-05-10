@@ -83,14 +83,15 @@
 
 
 \begin{abstract}
-Lots of nice ideas here \\
-Line 2 \\
-Line 3 \\
-Line 4 \\
-Line 5 \\
-Line 6 \\
-Line 7 \\
-Line 8
+Datatype-generic programming is a widely used technique to define functions
+that work regularly over a class of datatypes. Examples include deriving serialization
+of data, equality or even functoriality. The \emph{state-of-the-art} of generic
+programming still lacks handling GADTs, multiple type variables, and some other features.
+This paper exploitis the \texttt{TypeInType} extension to
+encode the structure of any type. Our approach enables the programmer to
+handle features such as GADTs and an arbitrary number of type variables. 
+We also provide an Agda model of our construction that does \emph{not}
+require Russel's paradox, proving the construction is consistent.
 \end{abstract}
 
 
@@ -115,6 +116,7 @@ Line 8
 
 
 \section{Introduction}
+
 
 (Datatype)-generic programming is a powerful tool to define functions
 by induction over the structure of a datatype. Simpler mechanisms,
