@@ -926,13 +926,24 @@ type RoseCode    = P [ P [ V0, Kon [] :@: (Kon Rose :@: V0) ] ]
 \end{code}
 \end{myhs}
 
-\paragraph{A unified |NA|.} The sum-of-products structure stays the
-same in our new encoding of data types. As a result, the |NS| and |NP|
-types which interpret that structure do not need any modifications. On
-the other hand, the interpretation of atoms requires heavy
-adjustments.
+\paragraph{Interpreting Atoms.} This new language of Atoms did not
+touch the sum-of-products structure, hence, the |NS| and |NP| types do
+not need any modifications. On the other hand, the interpretation of
+atoms requires some type engineering. Recall the definition of |NA|
+given in \Cref{sec:generic1}:
 
-VICTOR IS HERE
+\begin{myhs}
+\begin{code}
+data NA :: * -> Atom -> * where
+  V :: a -> NA a Var
+  dots
+\end{code}
+\end{myhs}
+
+That first argument of kind |Star| represents the type of the argument
+of the functor we are interpreting. In the current setting, we might have an
+arbitray number of arguments, and these might be of arbitrary kinds
+other than |Star|. Hence, we define a context to 
 
 In the version of |NA| we presented in \Cref{sec:generic1}, we had a
 first argument of kind |Star|. That argument represented the value of

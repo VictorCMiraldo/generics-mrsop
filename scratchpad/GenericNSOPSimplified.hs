@@ -92,36 +92,103 @@ data NA (dtk :: Kind) :: {- dtk -> -} LoT dtk -> Term dtk Type -> * where
 unT :: NA dtk {- r -} tys t -> Ty dtk {- r -} tys t
 unT (T x) = x
 
-type SOPn k (c :: DataType k) {- (r :: k) -} (tys :: LoT k) = NS (NP (NA k {- r -} tys)) c
-
-type family Apply k (f :: k) (tys :: LoT k) :: Type where
-  Apply Type      f LoT0        = f
-  Apply (k -> ks) f (t :&&: ts) = Apply ks (f t) ts
-
 data Proxy (a :: k) = Proxy
+
+type Rep dtk (c :: DataType dtk) (tys :: LoT dtk)
+  = NS (NP (NA dtk tys)) c
+
+data SOPn dtk (c :: DataType dtk) (tys :: LoT dtk) where
+  SOPn :: (IsLoT dtk tys) => Rep dtk c tys -> SOPn dtk c tys
+
+sopLoT :: SOPn dtk c tys -> SLoT dtk tys
+sopLoT (SOPn _) = sslot
+
+class IsLoT k (ts :: LoT k) where
+  sslot :: SLoT k ts
+instance IsLoT Type LoT0 where
+  sslot = SLoT0
+instance IsLoT ks as => IsLoT (k -> ks) (a :&&: as) where
+  sslot = Proxy :&: sslot
 
 infixr 5 :&:
 data SLoT k (ts :: LoT k) where
   SLoT0 :: SLoT Type LoT0
   (:&:) :: Proxy a -> SLoT ks as -> SLoT (k -> ks) (a :&&: as)
 
+
+type family Apply k (f :: k) (tys :: LoT k) :: Type where
+  Apply Type      f LoT0        = f
+  Apply (k -> ks) f (t :&&: ts) = Apply ks (f t) ts
+
+
 pattern SLoT1 a = a :&: SLoT0
 pattern SLoT2 a b = a :&: b :&: SLoT0
 pattern SLoT3 a b c = a :&: b :&: c :&: SLoT0
 
+data ApplyT (dtk :: Kind) (f :: dtk) (tys :: LoT k) :: Type where
+  A0  :: f                   -> ApplyT Type       f  LoT0
+  Arg :: ApplyT dtk (f t) ts -> ApplyT (k -> dtk) f  (t :&&: ts)
+
 class UltimateGeneric k (f :: k) | f -> k where
   type Code f :: DataType k
 
-  to   :: SLoT k ts -> Proxy f -> Apply k f ts -> SOPn k (Code f) {- f -} ts
-  from :: SLoT k ts -> Proxy f -> SOPn k (Code f) {- f -} ts -> Apply k f ts
+  to   :: ApplyT k f ts -> SOPn k (Code f) ts
+  from :: SOPn k (Code f) ts -> ApplyT k f ts
 
-class SSLoT k (ts :: LoT k) where
-  sslot :: SLoT k ts
-instance SSLoT Type LoT0 where
-  sslot = SLoT0
-instance SSLoT ks as => SSLoT (k -> ks) (a :&&: as) where
-  sslot = Proxy :&: sslot
+mto :: forall dtk f ts . (UltimateGeneric dtk f , IsLoT dtk ts)
+    => Proxy f -> Apply dtk f ts -> SOPn dtk (Code f) ts
+mto p = to . go p (sslot :: SLoT dtk ts)
+  where
+    proxyApp :: forall f a . Proxy f -> Proxy a -> Proxy (f a)
+    proxyApp _ _ = Proxy
 
+    go :: forall dtk ts f . Proxy f -> SLoT dtk ts -> Apply dtk f ts -> ApplyT dtk f ts
+    go p SLoT0      x = A0 x
+    go p (t :&: ts) x = Arg (go (proxyApp p t) ts x)
+
+apply :: ApplyT dtk f ts -> Apply dtk f ts
+apply (A0 f) = f
+apply (Arg f) = apply f
+
+instance UltimateGeneric (* -> *) [] where
+  type Code [] = '[ '[ ], '[ V0, [] :$: V0 ] ]
+
+  to (Arg (A0 []))       = SOPn $ Here Nil
+  to (Arg (A0 (x : xs))) = SOPn $ There (Here (T x :* T xs :* Nil))
+
+  from (SOPn xs) = case sopLoT (SOPn xs) of
+    (a :&: SLoT0) -> case xs of
+       Here Nil                          -> Arg (A0 [])           
+       There (Here (T x :* T xs :* Nil)) -> Arg (A0 (x : xs))
+
+instance UltimateGeneric * [a] where
+  type Code [a] = '[ '[ ], '[ Kon a, [] :$: Kon a ] ]
+
+  to (A0 [])        = SOPn $ Here Nil
+  to (A0 (x : xs))  = SOPn $ There (Here (T x :* T xs :* Nil))
+
+  from (SOPn xs) = case sopLoT (SOPn xs) of
+    SLoT0 -> case xs of
+      Here Nil                          -> A0 []
+      There (Here (T x :* T xs :* Nil)) -> A0 (x : xs)
+
+{-
+  from SLoT0 _ (B0 Nil) = []
+  from SLoT0 _ (B1 (T x :* T xs :* Nil)) = x : xs
+-}
+
+{-
+  to s@(SLoT1 _) _ [] = B0 $ Nil
+  to s@(SLoT1 _) p (x : xs) = B1 $ T @(* -> *) @V0 x :* T xs :* Nil
+
+  from s@(SLoT1 _) _ (B0 Nil) = []
+  from s@(SLoT1 _) p (B1 (T x :* T xs :* Nil)) = x : xs
+-}
+
+{-
+-}
+
+{-
 to' :: (UltimateGeneric k f, SSLoT k ts)
     => Proxy f -> Apply k f ts -> SOPn k (Code f) {- f -} ts
 to' = to sslot
@@ -129,26 +196,10 @@ to' = to sslot
 from' :: (UltimateGeneric k f, SSLoT k ts)
       => Proxy f -> SOPn k (Code f) {- f -} ts -> Apply k f ts
 from' = from sslot
+-}
 
-instance UltimateGeneric (* -> *) [] where
-  type Code [] = '[ '[ ], '[ V0, [] :$: V0 ] ]
-
-  to s@(SLoT1 _) _ [] = B0 $ Nil
-  to s@(SLoT1 _) p (x : xs) = B1 $ T @(* -> *) @V0 x :* T xs :* Nil
-
-  from s@(SLoT1 _) _ (B0 Nil) = []
-  from s@(SLoT1 _) p (B1 (T x :* T xs :* Nil)) = x : xs
-
+{-
   -- You can choose how much you want
-instance UltimateGeneric * [a] where
-  type Code [a] = '[ '[ ], '[ Kon a, [] :$: Kon a ] ]
-
-  to SLoT0 _ []     = B0 Nil
-  to SLoT0 _ (x:xs) = B1 $ T x :* T xs :* Nil
-
-  from SLoT0 _ (B0 Nil) = []
-  from SLoT0 _ (B1 (T x :* T xs :* Nil)) = x : xs
-
 instance UltimateGeneric (* -> *) Maybe where
   type Code Maybe = '[ '[ ], '[ V0 ] ]
 
@@ -168,6 +219,7 @@ instance UltimateGeneric (* -> * -> *) Either where
   from (SLoT2 _ _) _ (B1 (T x :* Nil)) = Right x
 
 -- and other two for either
+-}
 
 class FunctorField (t :: Term (* -> *) Type) where
   gfmapF :: (a -> b)
@@ -177,7 +229,7 @@ class FunctorField (t :: Term (* -> *) Type) where
 instance FunctorField V0 where
   gfmapF f (T x) = T (f x)
 instance (Functor f, FunctorField x) => FunctorField (f :$: x) where
-  gfmapF f (T x) = T (fmap (unT . gfmapF f . T @_ @x) x)
+  gfmapF f (T k) = T (fmap (unT . gfmapF f . T @_ @_ @x) k)
 instance FunctorField (Kon t) where
   gfmapF f (T x) = T x
 
@@ -193,10 +245,16 @@ type family All c xs :: Constraint where
 gfmap :: forall f a b
        . (UltimateGeneric (* -> *) f, All2 FunctorField (Code f))
       => (a -> b) -> f a -> f b
-gfmap f = from (SLoT1 Proxy) (Proxy)
-        . goS
-        . to   (SLoT1 Proxy) (Proxy)
+gfmap f = apply
+        . from
+        . goRep
+        . mto Proxy
   where
+    goRep :: All2 FunctorField xs
+          => SOPn (* -> *) xs (a :&&: LoT0)
+          -> SOPn (* -> *) xs (b :&&: LoT0)
+    goRep (SOPn x) = SOPn (goS x)
+
     goS :: All2 FunctorField xs
         => NS (NP (NA (* -> *) (a :&&: LoT0))) xs
         -> NS (NP (NA (* -> *) (b :&&: LoT0))) xs
@@ -211,5 +269,8 @@ gfmap f = from (SLoT1 Proxy) (Proxy)
 
 fmapList :: (a -> b) -> [a] -> [b]
 fmapList = gfmap
+
+{-
 fmapMaybe :: (a -> b) -> Maybe a -> Maybe b
 fmapMaybe = gfmap
+-}
