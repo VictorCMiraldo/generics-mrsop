@@ -94,9 +94,23 @@ unT (T x) = x
 
 type SOPn k (c :: DataType k) {- (r :: k) -} (tys :: LoT k) = NS (NP (NA k {- r -} tys)) c
 
+data ApplyT (k :: Kind) (f :: k) (tys :: LoT k) :: Type where
+  A0  :: f                 -> ApplyT Type      f  LoT0
+  Arg :: ApplyT k (f t) ts -> ApplyT (k' -> k) f (t :&&: ts)
+
 type family Apply k (f :: k) (tys :: LoT k) :: Type where
   Apply Type      f LoT0        = f
   Apply (k -> ks) f (t :&&: ts) = Apply ks (f t) ts
+
+ravel :: forall k f ts. SSLoT k ts => Proxy f -> Apply k f ts -> ApplyT k f ts
+ravel = go (sslot @_ @ts)
+  where go :: forall k f ts. SLoT k ts -> Proxy f -> Apply k f ts -> ApplyT k f ts
+        go SLoT0      _ x = A0 x
+        go (t :&: ts) _ x = Arg (go ts Proxy x)
+
+unravel :: ApplyT k f ts -> Apply k f ts
+unravel (A0 f)  = f
+unravel (Arg f) = unravel f
 
 data Proxy (a :: k) = Proxy
 
@@ -109,12 +123,6 @@ pattern SLoT1 a = a :&: SLoT0
 pattern SLoT2 a b = a :&: b :&: SLoT0
 pattern SLoT3 a b c = a :&: b :&: c :&: SLoT0
 
-class UltimateGeneric k (f :: k) | f -> k where
-  type Code f :: DataType k
-
-  to   :: SLoT k ts -> Proxy f -> Apply k f ts -> SOPn k (Code f) {- f -} ts
-  from :: SLoT k ts -> Proxy f -> SOPn k (Code f) {- f -} ts -> Apply k f ts
-
 class SSLoT k (ts :: LoT k) where
   sslot :: SLoT k ts
 instance SSLoT Type LoT0 where
@@ -122,50 +130,65 @@ instance SSLoT Type LoT0 where
 instance SSLoT ks as => SSLoT (k -> ks) (a :&&: as) where
   sslot = Proxy :&: sslot
 
-to' :: (UltimateGeneric k f, SSLoT k ts)
-    => Proxy f -> Apply k f ts -> SOPn k (Code f) {- f -} ts
-to' = to sslot
+class UltimateGeneric k (f :: k) | f -> k where
+  type Code f :: DataType k
 
-from' :: (UltimateGeneric k f, SSLoT k ts)
-      => Proxy f -> SOPn k (Code f) {- f -} ts -> Apply k f ts
-from' = from sslot
+  to   :: ApplyT k f ts -> SOPn k (Code f) {- f -} ts
+  from :: SSLoT k ts => SOPn k (Code f) {- f -} ts -> ApplyT k f ts
 
 instance UltimateGeneric (* -> *) [] where
   type Code [] = '[ '[ ], '[ V0, [] :$: V0 ] ]
 
-  to s@(SLoT1 _) _ [] = B0 $ Nil
-  to s@(SLoT1 _) p (x : xs) = B1 $ T @(* -> *) @V0 x :* T xs :* Nil
+  to (Arg (A0 []))       = B0 $ Nil
+  to (Arg (A0 (x : xs))) = B1 $ T @(* -> *) @V0 x :* T xs :* Nil
 
-  from s@(SLoT1 _) _ (B0 Nil) = []
-  from s@(SLoT1 _) p (B1 (T x :* T xs :* Nil)) = x : xs
+  from :: forall ts. SSLoT (* -> *) ts
+       => SOPn (* -> *) (Code []) ts -> ApplyT (* -> *) [] ts
+  from sop = case sslot @_ @ts of
+    a :&: SLoT0 -> case sop of
+      B0 Nil -> Arg $ A0 []
+      B1 (T x :* T xs :* Nil) -> Arg $ A0 $ x : xs
 
   -- You can choose how much you want
 instance UltimateGeneric * [a] where
   type Code [a] = '[ '[ ], '[ Kon a, [] :$: Kon a ] ]
 
-  to SLoT0 _ []     = B0 Nil
-  to SLoT0 _ (x:xs) = B1 $ T x :* T xs :* Nil
+  to (A0 [])     = B0 Nil
+  to (A0 (x:xs)) = B1 $ T x :* T xs :* Nil
 
-  from SLoT0 _ (B0 Nil) = []
-  from SLoT0 _ (B1 (T x :* T xs :* Nil)) = x : xs
+  from :: forall ts. SSLoT (*) ts
+       => SOPn (*) (Code [a]) ts -> ApplyT (*) [a] ts
+  from sop = case sslot @_ @ts of
+    SLoT0 -> case sop of
+      B0 Nil -> A0 []
+      B1 (T x :* T xs :* Nil) -> A0 $ x : xs
 
 instance UltimateGeneric (* -> *) Maybe where
   type Code Maybe = '[ '[ ], '[ V0 ] ]
 
-  to s@(SLoT1 _) _ Nothing  = B0 $ Nil
-  to s@(SLoT1 _) p (Just x) = B1 $ T @_ @V0 x :* Nil
+  to (Arg (A0 Nothing))  = B0 $ Nil
+  to (Arg (A0 (Just x))) = B1 $ T @_ @V0 x :* Nil
 
-  from s@(SLoT1 _) _ (B0 Nil) = Nothing
-  from s@(SLoT1 _) p (B1 (T x :* Nil)) = Just x
+  from :: forall ts. SSLoT (* -> *) ts
+       => SOPn (* -> *) (Code Maybe) ts -> ApplyT (* -> *) Maybe ts
+  from sop = case sslot @_ @ts of
+    a :&: SLoT0 -> case sop of
+      B0 Nil -> Arg $ A0 Nothing
+      B1 (T x :* Nil) -> Arg $ A0 $ Just x
 
 instance UltimateGeneric (* -> * -> *) Either where
   type Code Either = '[ '[ V0 ], '[ V1 ] ]
 
-  to (SLoT2 _ _) _ (Left  x) = B0 $ T @_ @V0 x :* Nil
-  to (SLoT2 _ _) _ (Right x) = B1 $ T @_ @V1 x :* Nil
+  to (Arg (Arg (A0 (Left x))))  = B0 $ T @_ @V0 x :* Nil
+  to (Arg (Arg (A0 (Right x)))) = B1 $ T @_ @V1 x :* Nil
 
-  from (SLoT2 _ _) _ (B0 (T x :* Nil)) = Left  x
-  from (SLoT2 _ _) _ (B1 (T x :* Nil)) = Right x
+  from :: forall ts. SSLoT (* -> * -> *) ts
+       => SOPn   (* -> * -> *) (Code Either) ts
+       -> ApplyT (* -> * -> *) Either ts
+  from sop = case sslot @_ @ts of
+    a :&: b :&: SLoT0 -> case sop of
+      B0 (T x :* Nil) -> Arg $ Arg $ A0 $ Left  x
+      B1 (T x :* Nil) -> Arg $ Arg $ A0 $ Right x
 
 -- and other two for either
 
@@ -193,9 +216,9 @@ type family All c xs :: Constraint where
 gfmap :: forall f a b
        . (UltimateGeneric (* -> *) f, All2 FunctorField (Code f))
       => (a -> b) -> f a -> f b
-gfmap f = from (SLoT1 Proxy) (Proxy)
+gfmap f = unravel . from
         . goS
-        . to   (SLoT1 Proxy) (Proxy)
+        . to . ravel Proxy
   where
     goS :: All2 FunctorField xs
         => NS (NP (NA (* -> *) (a :&&: LoT0))) xs
