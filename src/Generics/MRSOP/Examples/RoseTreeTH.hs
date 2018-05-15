@@ -11,6 +11,7 @@
 {-# LANGUAGE FunctionalDependencies  #-}
 {-# LANGUAGE TemplateHaskell         #-}
 {-# LANGUAGE LambdaCase              #-}
+{-# LANGUAGE PatternSynonyms         #-}
 -- |Usage example with template haskell support.
 module Generics.MRSOP.Examples.RoseTreeTH where
 
