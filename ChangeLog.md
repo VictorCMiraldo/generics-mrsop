@@ -1,5 +1,5 @@
 # Revision history for generics-mrsop
 
-## 0.0.0.0  -- YYYY-mm-dd
+## 1.0.0.0  -- May 2018
 
 * First version. Released on an unsuspecting world.
