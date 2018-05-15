@@ -1002,7 +1002,7 @@ Our first attempt for a unified |GenericNSOP| type class is thus:
 \begin{myhs}
 \begin{code}
 class GenericNSOP dtk (f :: dtk) where
-  type Code f = DataType dtk
+  type Code f :: DataType dtk
   from  :: Apply dtk f tys -> SOPn dtk (Code f) tys
   to    :: SOPn dtk (Code f) tys -> Apply dtk f tys
 \end{code}
@@ -1047,8 +1047,8 @@ instance GenericNSOP (* -> *) [] where
   from (Arg (A0 [])        =          Here $ Nil
   from (Arg (A0 (x : xs))  = There $  Here $ T x :* T xs :* Nil
 
-  to         (Here Nil)                    = Arg (A0 [])
-  to (There  (Here (T x :* T xs :* Nil)))  = Arg (A0 (x : xs))
+  to         (Here Nil)                    = Arg $ A0 []
+  to (There  (Here (T x :* T xs :* Nil)))  = Arg $ A0 $ x : xs
 \end{code}
 \end{myhs}
 
@@ -1132,7 +1132,7 @@ is well typed.
 \begin{myhs}
 \begin{code}
 class GenericNSOP dtk (f :: dtk) where
-  type Code f = DataType dtk
+  type Code f :: DataType dtk
   from  ::  ApplyT dtk f tys -> SOPn dtk (Code f) tys
   to    ::  SSLoT dtk tys
         =>  SOPn dtk (Code f) tys -> ApplyT dtk f tys
@@ -1371,7 +1371,7 @@ instance GenericNSOP (k -> k -> *) Eql where
        ->  ApplyT (k -> k -> *) Refl tys
   to sop = case sslot atunder @tys of
     SLoTA (SLoTA SLoT0) -> case sop of
-      Here (I :* Nil) -> Arg (Arg (A0 Refl))
+      Here (I :* Nil) -> Arg $ Arg $ A0 Refl
 \end{code}
 \end{myhs}
 
@@ -1828,11 +1828,12 @@ type DataType dtk = [Branch dtk]
 \begin{figure*}
 \begin{myhs}
 \begin{code}
+infixr 5 :&&:
 data LoT (dtk :: Kind) where
   LoT0    ::                  LoT (Star)
   (:&&:)  :: k -> LoT ks ->   LoT (k -> ks)
 
-type family Ty dtk (r :: dtk) (tys :: LoT dtk) (t :: Atom dtk k) :: k where
+type family Ty (dtk :: Kind) (r :: dtk) (tys :: LoT dtk) (t :: Atom dtk k) :: k where
   Ty (k1        -> ks) r (t1          :&&: ts) V0  = t1
   Ty (k1 -> k2  -> ks) r (t1 :&&: t2  :&&: ts) V1  = t2
   -- and so on
@@ -1844,6 +1845,7 @@ data NA (dtk :: Kind) :: dtk -> LoT dtk -> Field dtk -> * where
   E ::  forall dtk t r tys dot  Ty dtk r tys t  ->  NA dtk r tys (Explicit t)
   I ::  forall dtk t r tys dot  Ty dtk r tys t  =>  NA dtk r tys (Implicit t)
 
+infixr 5 :*
 data NP :: (k -> Star) -> [k] -> Star where
   Nil  ::                    NP f (P [])
   (:*) :: f x -> NP f xs ->  NP f (x (P (:)) xs)
@@ -1883,7 +1885,7 @@ data ApplyT k (f :: k) (tys :: LoT k) :: Star where
                              -> ApplyT (k -> ks)  f (t :&&: ts)
 
 class GenericNSOP dtk (f :: dtk) where
-  type Code f = DataType dtk
+  type Code f :: DataType dtk
   from  ::  ApplyT dtk f tys -> SOPn dtk (Code f) f tys
   to    ::  SSLoT dtk tys
         =>  SOPn dtk (Code f) f tys -> Apply dtk f tys
