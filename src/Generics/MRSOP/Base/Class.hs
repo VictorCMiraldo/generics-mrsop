@@ -9,6 +9,7 @@
 {-# LANGUAGE ScopedTypeVariables     #-}
 {-# LANGUAGE TypeApplications        #-}
 {-# LANGUAGE FunctionalDependencies  #-}
+-- |Provides the main class of the library, 'Family'.
 module Generics.MRSOP.Base.Class where
 
 import Data.Function (on)

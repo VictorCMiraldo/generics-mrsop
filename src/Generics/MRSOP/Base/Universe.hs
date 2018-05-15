@@ -31,8 +31,8 @@ import Generics.MRSOP.Util
 -- used to index what are the types that are opaque to the library.
 --
 
--- |Atoms can be either opaque types or
---  type variables.
+-- |Atoms can be either opaque types, @kon@, or
+--  type variables, @Nat@.
 data Atom kon
   = K kon
   | I Nat
@@ -106,32 +106,47 @@ type PoA (ki :: kon -> *) (phi :: Nat -> *) = NP (NA ki phi)
 -- a 'Rep'. These are just the cannonical combination
 -- of their homonym versions in 'NS', 'NP' or 'NA'.
 
+-- |Maps over a representation.
 mapRep :: (forall ix . IsNat ix => f  ix -> g ix)
        -> Rep ki f c -> Rep ki g c
 mapRep = bimapRep id
 
+-- |Maps a monadic function over a representation.
 mapRepM :: (Monad m)
         => (forall ix . IsNat ix => f  ix -> m (g  ix))
         -> Rep ki f c -> m (Rep ki g c)
 mapRepM = bimapRepM return
 
+-- |Maps over both indexes of a representation.
 bimapRep :: (forall k  .             ki k  -> kj k)
          -> (forall ix . IsNat ix => f  ix -> g ix)
          -> Rep ki f c -> Rep kj g c
 bimapRep fk fi = Rep . mapNS (mapNP (mapNA fk fi)) . unRep
 
+-- |Monadic version of 'bimapRep'
 bimapRepM :: (Monad m)
           => (forall k  .             ki k  -> m (kj k))
           -> (forall ix . IsNat ix => f  ix -> m (g  ix))
           -> Rep ki f c -> m (Rep kj g c)
 bimapRepM fk fi = (Rep <$>) . mapNSM (mapNPM (mapNAM fk fi)) . unRep
 
+-- |Zip two representations together, in case they are made with the same
+--  constructor.
+--
+--  > zipRep (Here (NA_I x :* NP0)) (Here (NA_I y :* NP0))
+--  >   = return $ Here (NA_I (x :*: y) :* NP0)
+--
+--  > zipRep (Here (NA_I x :* NP0)) (There (Here ...))
+--  >   = mzero
+--
 zipRep :: (MonadPlus m)
        => Rep ki f c -> Rep kj g c
        -> m (Rep (ki :*: kj) (f :*: g) c)
 zipRep (Rep t) (Rep u)
   = Rep . mapNS (mapNP (uncurry' zipNA) . uncurry' zipNP) <$> zipNS t u
 
+-- |Monadic eliminator; This is just the cannonical combination of
+--  'elimNS', 'elimNPM' and 'elimNA'.
 elimRepM :: (Monad m)
          => (forall k . ki k -> m a)
          -> (forall k . IsNat k => f  k -> m a)
@@ -140,6 +155,7 @@ elimRepM :: (Monad m)
 elimRepM fk fi cat
   = cat <.> elimNS (elimNPM (elimNA fk fi)) . unRep
 
+-- |Pure eliminator.
 elimRep :: (forall k . ki k -> a)
         -> (forall k . f  k -> a)
         -> ([a] -> b)
@@ -147,6 +163,8 @@ elimRep :: (forall k . ki k -> a)
 elimRep kp fp cat
   = elimNS (cat . elimNP (elimNA kp fp)) . unRep
 
+-- |Compares two 'Rep' for equality; again, cannonical combination
+--  of 'eqNS', 'eqNP' and 'eqNA'
 eqRep :: (forall k  . ki  k  -> ki  k  -> Bool)
       -> (forall ix . fam ix -> fam ix -> Bool)
       -> Rep ki fam c -> Rep ki fam c -> Bool
@@ -222,6 +240,7 @@ sop = go . unRep
 newtype Fix (ki :: kon -> *) (codes :: [[[ Atom kon ]]]) (n :: Nat)
   = Fix { unFix :: Rep ki (Fix ki codes) (Lkup n codes) }
 
+-- |Retrieves the index of a 'Fix'
 proxyFixIdx :: Fix ki fam ix -> Proxy ix
 proxyFixIdx _ = Proxy
 

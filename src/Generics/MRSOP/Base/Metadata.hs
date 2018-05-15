@@ -6,6 +6,7 @@
 {-# LANGUAGE DataKinds              #-}
 {-# LANGUAGE PolyKinds              #-}
 {-# LANGUAGE StandaloneDeriving     #-}
+-- |Metadata maintenance; usefull for pretty-printing values.
 module Generics.MRSOP.Base.Metadata where
 
 import Data.Proxy
@@ -51,14 +52,17 @@ constructorInfo :: DatatypeInfo code -> NP ConstructorInfo code
 constructorInfo (ADT _ _ c) = c
 constructorInfo (New _ _ c) = c :* NP0
 
+-- |Associativity information for infix constructors.
 data Associativity
   = LeftAssociative
   | RightAssociative
   | NotAssociative
   deriving (Eq , Show)
 
+-- |Fixity information for infix constructors.
 type Fixity = Int
 
+-- |Constructor metadata.
 data ConstructorInfo :: [Atom kon] -> * where
   Constructor :: ConstructorName -> ConstructorInfo xs
   Infix       :: ConstructorName -> Associativity -> Fixity -> ConstructorInfo '[ x , y ]
@@ -69,6 +73,7 @@ constructorName (Constructor c) = c
 constructorName (Infix c _ _)   = c
 constructorName (Record c _)    = c
 
+-- |Record fields metadata
 data FieldInfo :: Atom kon -> * where
   FieldInfo :: { fieldName :: FieldName } -> FieldInfo k
 
@@ -78,6 +83,8 @@ deriving instance Show (ConstructorInfo code)
 deriving instance Show (DatatypeInfo code)
 deriving instance Show (FieldInfo atom)
 
+-- |Given a 'Family', provides the 'DatatypeInfo' for the type
+--  with index @ix@ in family 'fam'.
 class (Family ki fam codes) => HasDatatypeInfo ki fam codes ix
     | fam -> codes ki where
   datatypeInfo :: (IsNat ix)
@@ -94,7 +101,7 @@ datatypeInfoFor pf pty = datatypeInfo pf (proxyIdx pf pty)
     proxyIdx :: Proxy fam -> Proxy ty -> Proxy (Idx ty fam)
     proxyIdx _ _ = Proxy
 
--- ** Utilities for figuring names out
+-- ** Name Lookup
 
 -- |This is essentially a list lookup, but needs significant type
 --  information to go through. Returns the name of the @c@th constructor

@@ -18,6 +18,14 @@ import Data.Proxy
 
 import Generics.MRSOP.Util
 
+-- * Opaque Types
+--
+-- $opaquetypes
+--
+-- In order to plug in custom opaque types, the programmer
+-- must provide their own 'Kon' and 'Singl'. This module serves
+-- more as an example.
+
 -- | Types with kind 'Kon' will be used to
 --   index a 'Singl' type with their values inside.
 data Kon
@@ -52,6 +60,7 @@ instance Eq1 Singl where
 instance Show1 Singl where
   show1 = show
 
+-- |Equality over singletons
 eqSingl :: Singl k -> Singl k -> Bool
 eqSingl = (==)
 

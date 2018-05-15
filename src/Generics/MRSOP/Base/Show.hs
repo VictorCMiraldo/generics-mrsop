@@ -10,7 +10,7 @@
 {-# LANGUAGE TypeApplications     #-}
 -- |Implements a rudimentary show instance for our representations.
 --  We keep this isolated because the instance for @Show (Rep ki phi code)@
---  requires undecidable instances. ISolating this allows us to turn on this
+--  requires undecidable instances. Isolating this allows us to turn on this
 --  extension for this module only.
 module Generics.MRSOP.Base.Show where
 

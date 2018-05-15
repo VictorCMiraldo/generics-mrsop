@@ -10,6 +10,8 @@
 {-# LANGUAGE ScopedTypeVariables     #-}
 {-# LANGUAGE FunctionalDependencies  #-}
 {-# LANGUAGE PatternSynonyms         #-}
+-- |This module is analogous to 'Generics.MRSOP.Examples.RoseTreeTH',
+--  but we use no Template Haskell here.
 module Generics.MRSOP.Examples.RoseTree where
 
 import Data.Function (on)

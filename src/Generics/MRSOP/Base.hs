@@ -6,7 +6,7 @@
 {-# LANGUAGE DataKinds            #-}
 {-# LANGUAGE PolyKinds            #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
--- | Our universe representation
+-- | Re-exports everything from under @Generics.MRSOP.Base@
 module Generics.MRSOP.Base (module Export) where
 
 import Generics.MRSOP.Base.NS          as Export
