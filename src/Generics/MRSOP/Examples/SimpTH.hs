@@ -11,6 +11,8 @@
 {-# LANGUAGE TemplateHaskell         #-}
 {-# LANGUAGE LambdaCase              #-}
 {-# LANGUAGE PatternSynonyms         #-}
+-- |Uses a more involved example to test some
+--  of the functionalities of @generics-mrsop@.
 module Generics.MRSOP.Examples.SimpTH where
 
 import Data.Function (on)
