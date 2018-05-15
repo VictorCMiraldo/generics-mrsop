@@ -87,26 +87,23 @@ type family Ty (dtk :: Kind) {- (r :: dtk) -} (tys :: LoT dtk) (t :: Term dtk k)
 type f :$: x = Kon f :@: x
 
 data NA (dtk :: Kind) :: {- dtk -> -} LoT dtk -> Term dtk Type -> * where
-  T :: forall dtk t {- r -} tys. Ty dtk {- r -} tys t -> NA dtk {- r -} tys t
-
-unT :: NA dtk {- r -} tys t -> Ty dtk {- r -} tys t
-unT (T x) = x
+  T :: forall dtk t {- r -} tys. { unT :: Ty dtk {- r -} tys t } -> NA dtk {- r -} tys t
 
 type SOPn k (c :: DataType k) {- (r :: k) -} (tys :: LoT k) = NS (NP (NA k {- r -} tys)) c
 
 data ApplyT (k :: Kind) (f :: k) (tys :: LoT k) :: Type where
-  A0  :: f                 -> ApplyT Type      f  LoT0
-  Arg :: ApplyT k (f t) ts -> ApplyT (k' -> k) f (t :&&: ts)
+  A0  :: { unA0  :: f                 } -> ApplyT Type      f  LoT0
+  Arg :: { unArg :: ApplyT k (f t) ts } -> ApplyT (k' -> k) f (t :&&: ts)
 
 type family Apply k (f :: k) (tys :: LoT k) :: Type where
   Apply Type      f LoT0        = f
   Apply (k -> ks) f (t :&&: ts) = Apply ks (f t) ts
 
-ravel :: forall k f ts. SSLoT k ts => Proxy f -> Apply k f ts -> ApplyT k f ts
+ravel :: forall k f ts. SSLoT k ts => Apply k f ts -> ApplyT k f ts
 ravel = go (sslot @_ @ts)
-  where go :: forall k f ts. SLoT k ts -> Proxy f -> Apply k f ts -> ApplyT k f ts
-        go SLoT0      _ x = A0 x
-        go (t :&: ts) _ x = Arg (go ts Proxy x)
+  where go :: forall k f ts. SLoT k ts -> Apply k f ts -> ApplyT k f ts
+        go SLoT0      x = A0 x
+        go (SLoTA ts) x = Arg (go ts x)
 
 unravel :: ApplyT k f ts -> Apply k f ts
 unravel (A0 f)  = f
@@ -114,21 +111,22 @@ unravel (Arg f) = unravel f
 
 data Proxy (a :: k) = Proxy
 
-infixr 5 :&:
+-- infixr 5 :&:
 data SLoT k (ts :: LoT k) where
   SLoT0 :: SLoT Type LoT0
-  (:&:) :: Proxy a -> SLoT ks as -> SLoT (k -> ks) (a :&&: as)
+  SLoTA :: SLoT ks as -> SLoT (k -> ks) (a :&&: as)
 
-pattern SLoT1 a = a :&: SLoT0
-pattern SLoT2 a b = a :&: b :&: SLoT0
-pattern SLoT3 a b c = a :&: b :&: c :&: SLoT0
+
+pattern SLoT1 = SLoTA SLoT0
+pattern SLoT2 = SLoTA SLoT1
+pattern SLoT3 = SLoTA SLoT2
 
 class SSLoT k (ts :: LoT k) where
   sslot :: SLoT k ts
 instance SSLoT Type LoT0 where
   sslot = SLoT0
 instance SSLoT ks as => SSLoT (k -> ks) (a :&&: as) where
-  sslot = Proxy :&: sslot
+  sslot = SLoTA sslot
 
 class UltimateGeneric k (f :: k) | f -> k where
   type Code f :: DataType k
@@ -144,8 +142,7 @@ instance UltimateGeneric (* -> *) [] where
 
   from :: forall ts. SSLoT (* -> *) ts
        => SOPn (* -> *) (Code []) ts -> ApplyT (* -> *) [] ts
-  from sop = case sslot @_ @ts of
-    a :&: SLoT0 -> case sop of
+  from sop | SLoT1 <- sslot @_ @ts = case sop of
       B0 Nil -> Arg $ A0 []
       B1 (T x :* T xs :* Nil) -> Arg $ A0 $ x : xs
 
@@ -172,7 +169,7 @@ instance UltimateGeneric (* -> *) Maybe where
   from :: forall ts. SSLoT (* -> *) ts
        => SOPn (* -> *) (Code Maybe) ts -> ApplyT (* -> *) Maybe ts
   from sop = case sslot @_ @ts of
-    a :&: SLoT0 -> case sop of
+    SLoT1 -> case sop of
       B0 Nil -> Arg $ A0 Nothing
       B1 (T x :* Nil) -> Arg $ A0 $ Just x
 
@@ -186,7 +183,7 @@ instance UltimateGeneric (* -> * -> *) Either where
        => SOPn   (* -> * -> *) (Code Either) ts
        -> ApplyT (* -> * -> *) Either ts
   from sop = case sslot @_ @ts of
-    a :&: b :&: SLoT0 -> case sop of
+    SLoT2 -> case sop of
       B0 (T x :* Nil) -> Arg $ Arg $ A0 $ Left  x
       B1 (T x :* Nil) -> Arg $ Arg $ A0 $ Right x
 
@@ -218,7 +215,7 @@ gfmap :: forall f a b
       => (a -> b) -> f a -> f b
 gfmap f = unravel . from
         . goS
-        . to . ravel Proxy
+        . to . ravel
   where
     goS :: All2 FunctorField xs
         => NS (NP (NA (* -> *) (a :&&: LoT0))) xs
