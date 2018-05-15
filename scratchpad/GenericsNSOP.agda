@@ -10,7 +10,7 @@ open import Data.Unit.NonEta
 open import Data.Fin 
   hiding (_+_; lift)
 
-open import Data.Nat
+open import Data.Nat hiding (_⊔_)
 open import Data.Bool
 
 open import Relation.Binary.PropositionalEquality
@@ -77,7 +77,7 @@ module GenericsNSOP where
   Ty γ (Var n) = lkup γ n
   Ty γ (Kon x) = x
   Ty γ (App f x) = Ty γ f (Ty γ x)
-     
+
   -- Now, a constraint over kind k is just a map from k to set, or
   -- a predicate over it.
   Constraint : 𝕂 → 𝕂
@@ -111,6 +111,63 @@ module GenericsNSOP where
   ⟦_⟧S : ∀{k} → SoP k → Γ k → Set₂
   ⟦ ps ⟧S γ = Any (λ π → ⟦ π ⟧P γ) ps
 
+  -- gfmap
+
+  -- This is trickier. We can only automatically map
+  -- if a type has no constraints.
+  -- We call this ADTs
+  isADT-a : ∀{k} → Field k → Set₂
+  isADT-a (Explicit _) = Lift Unit
+  isADT-a (Implicit _) = Lift ⊥
+
+  isADT-p : ∀{k} → Prod k → Set₂
+  isADT-p = All isADT-a
+
+  isADT : ∀{k} → SoP k → Set₂
+  isADT = All isADT-p
+
+  κ : 𝕂
+  κ = ⋆ ⇒ ⋆
+
+  getField : ∀{k}(f : Field k)(prf : isADT-a f)
+           → Term k ⋆
+  getField (Explicit t) _ = t
+  getField (Implicit _) (lift ())
+
+  record FunctorField (t : Term κ ⋆) : Set₁ where
+    field
+      gfmap : ∀{A B}(f : A → B) → Ty (A ∷ []) t → Ty (B ∷ []) t
+  open FunctorField
+
+  data Allᵢ {a b}{A : Set a}{P : A → Set a}(Q : (x : A) → P x → Set b)
+          : {l : List A} → All P l → Set (a ⊔ b) where
+    Nil  : Allᵢ Q []
+    Cons : ∀{x xs}(px : P x){pxs : All P xs}(qx : Q x px) 
+         → Allᵢ Q pxs → Allᵢ Q (px ∷ pxs)
+
+  lift-map : ∀{a b}{A₁ A₂ : Set a}(f : A₁ → A₂)
+           → Lift {a} {b} A₁ → Lift {a} {b} A₂
+  lift-map f (lift x) = lift (f x)
+
+  A-map : ∀{A B}(a : Field κ)(prf : isADT-a a)(f : A → B)
+        → FunctorField (getField a prf) → ⟦ a ⟧A (A ∷ []) → ⟦ a ⟧A (B ∷ [])
+  A-map (Implicit _) (lift ()) f _ _ 
+  A-map (Explicit _) _         f ff x = lift-map (gfmap ff f) x
+  
+  P-map : ∀{A B}(p : Prod κ)(prf : isADT-p p)(f : A → B)
+        → Allᵢ (λ x fx → FunctorField (getField x fx)) prf 
+        → ⟦ p ⟧P (A ∷ []) → ⟦ p ⟧P (B ∷ [])
+  P-map .[] prf f ffs [] = []
+  P-map .(_ ∷ _) (h ∷ hs) f (Cons {x = x} _ qx r) (px ∷ xs) 
+   = A-map x h f qx px ∷ P-map _ hs f r xs 
+
+  S-map : ∀{A B}(s : SoP κ)(prf : isADT s)(f : A → B)
+        → Allᵢ (λ p fp → Allᵢ (λ x fx → FunctorField (getField x fx)) fp) prf 
+        → ⟦ s ⟧S (A ∷ []) → ⟦ s ⟧S (B ∷ [])
+  S-map (s ∷ _) (h ∷ hs) f (Cons {x = x} _ ff ffs) (here p) 
+    = here (P-map s h f ff p)
+  S-map (_ ∷ s) (h ∷ hs) f (Cons {x = x} _ ff ffs) (there p) 
+    = there (S-map s hs f ffs p)
 
   -- Maybe type:
   maybe : SoP (⋆ ⇒ ⋆)
@@ -121,6 +178,20 @@ module GenericsNSOP where
 
   just : ∀{A} → A → ⟦ maybe ⟧S (A ∷ [])
   just x = there (here (lift x ∷ []))
+
+  -- maybe-map
+
+  maybe-is-adt : isADT maybe
+  maybe-is-adt = [] ∷ (((lift unit) ∷ []) ∷ [])
+
+  maybe-ff : Allᵢ (λ p fp → Allᵢ (λ x fx → FunctorField (getField x fx)) fp) maybe-is-adt
+  maybe-ff = Cons [] Nil 
+            (Cons ((lift unit) ∷ []) 
+              (Cons (lift unit) (record { gfmap = λ f x → f x }) 
+                    Nil) Nil) 
+
+  maybe-map : ∀{A B} → (f : A → B) → ⟦ maybe ⟧S (A ∷ []) → ⟦ maybe ⟧S (B ∷ [])
+  maybe-map f = S-map maybe maybe-is-adt f maybe-ff
 
   -- One with constraints
   data X : Set → Set where
@@ -136,8 +207,10 @@ module GenericsNSOP where
   xbool b = here (refl ∷ ((lift b) ∷ []))
    
 
+{-
 
   gfmap : {t : SoP (⋆ ⇒ ⋆)}{A B : Set}
         → (A → B)
         → ⟦ t ⟧S (A ∷ []) → ⟦ t ⟧S (B ∷ [])
   gfmap = {!!}
+-}
