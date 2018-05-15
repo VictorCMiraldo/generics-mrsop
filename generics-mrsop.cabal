@@ -10,7 +10,7 @@ description:
   A couple usage examples can be found under "Generics.MRSOP.Examples"
   .
 
-license:             BSD3
+license:             MIT
 license-file:        LICENSE
 author:              Victor Miraldo and Alejandro Serrano
 maintainer:          v.cacciarimiraldo@gmail.com
