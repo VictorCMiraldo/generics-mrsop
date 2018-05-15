@@ -116,9 +116,23 @@ Line 8
 
 \section{Introduction}
 
-(Datatype)-generic programming is a powerful tool to define functions by induction over the structure of a datatype. Simpler mechanisms, such as the |deriving| clause, have been present in Haskell for a long time \cite{haskell2010}, although restricted to a few generic operation such as equality. Over the years, many different approaches have been described to allow the definition of generic functions by the programmer (see~\cite{Rodriguez2008,Magalhaes2012} for a comparison). Ultimately, GHC added special support via the |Data|~\cite{Lammel2003,Mitchell2007} and |Generic|~\cite{Magalhaes2010} type classes.
+(Datatype)-generic programming is a powerful tool to define functions
+by induction over the structure of a datatype. Simpler mechanisms,
+such as the |deriving| clause, have been present in Haskell for a long
+time \cite{haskell2010}, although restricted to a few generic
+operation such as equality. Over the years, many different approaches
+have been described to allow the definition of generic functions by
+the programmer (see~\cite{Rodriguez2008,Magalhaes2012} for a
+comparison). Ultimately, GHC added special support via the
+|Data|~\cite{Lammel2003,Mitchell2007} and
+|Generic|~\cite{Magalhaes2010} type classes.
 
-There is a general idea behind the strand of work to which |Generic| belongs: if we represent the shape of each datatype as type-level information, then we can use type-level techniques to define the generic operations. Libraries differ in the primitive building blocks for those shapes, and in how these shapes are encoded. For example, |Generic| uses the following functors as building blocks:
+There is a general idea behind the strand of work to which |Generic|
+belongs: if we represent the shape of each datatype as type-level
+information, then we can use type-level techniques to define the
+generic operations. Libraries differ in the primitive building blocks
+for those shapes, and in how these shapes are encoded. For example,
+|Generic| uses the following functors as building blocks:
 \begin{myhs}
 \begin{code}
 data V1           p                           -- empty
@@ -129,19 +143,31 @@ data (f  :*:  g)  p = (f p) :*: (g p)         -- product
 data M1 i c f     p = M1 (f p)                -- metadata
 \end{code}
 \end{myhs}
-By combining these blocks we can describe the structure of any algebraic datatype. We encode the choice of constructors by sums, and the combination of fields of a constructor by products, or by the unit functor if there are none. In turn, each field is represented by a constant functor. To make things more concrete, here is a definition for binary trees:
+By combining these blocks we can describe the structure of any
+algebraic datatype. We encode the choice of constructors by sums, and
+the combination of fields of a constructor by products, or by the unit
+functor if there are none. In turn, each field is represented by a
+constant functor. To make things more concrete, here is a definition
+for binary trees:
 \begin{myhs}
 \begin{code}
 data Tree a = Leaf | Node (Tree a) a (Tree a)
 \end{code}
 \end{myhs}
-The shape of this datatype is described by the following functor. For the sake of conciseness, we omit the additional information such as the name of constructors and fields, which would be present as metadata via the |M1| functor.
+The shape of this datatype is described by the following functor. For
+the sake of conciseness, we omit the additional information such as
+the name of constructors and fields, which would be present as
+metadata via the |M1| functor.
 \begin{myhs}
 \begin{code}
 U1 :+: (K1 R (Tree a) :*: K1 R a :*: K1 R (Tree a))
 \end{code}
 \end{myhs}
-We say that the type above is the \emph{representation} of |Tree a|. In order to use generic operations, we must tie each datatype with its representation, this is done via the |Generic| type class. In addition, we ought to witness the isomorphism at the term level via a pair of functions |to| and |from|.
+We say that the type above is the \emph{representation} of |Tree
+a|. In order to use generic operations, we must tie each datatype with
+its representation, this is done via the |Generic| type class. In
+addition, we ought to witness the isomorphism at the term level via a
+pair of functions |to| and |from|.
 \begin{myhs}
 \begin{code}
 class Generic a where
@@ -150,38 +176,74 @@ class Generic a where
   to    :: Rep a p -> a
 \end{code}
 \end{myhs}
-Fortunately, we do not have to write |Generic| instances by hand. GHC provides an extension to the |deriving| mechanism to create these instances. In fact, all generic programming libraries automate this step, making use of metaprogramming facilities such as Template Haskell~\cite{Sheard2002}.
+Fortunately, we do not have to write |Generic| instances by hand. GHC
+provides an extension to the |deriving| mechanism to create these
+instances. In fact, all generic programming libraries automate this
+step, making use of metaprogramming facilities such as Template
+Haskell~\cite{Sheard2002}.
 
 \subsection{Contributions}
 
-The |Generic| type class defined above only allows to represent ground types, in other words, types which kind |Star|. But this is not enough for all our purposes. For example, if we want to give a generic |fmap| definition, we need to know the structure of a type constructor of kind |Star -> Star| instead. Some libraries provide ad-hoc |Generic1| classes for that single purpose.
+The |Generic| type class defined above only allows to represent ground
+types, in other words, types which kind |Star|. But this is not enough
+for all our purposes. For example, if we want to give a generic |fmap|
+definition, we need to know the structure of a type constructor of
+kind |Star -> Star| instead. Some libraries provide ad-hoc |Generic1|
+classes for that single purpose.
 
-The main contribution of this paper is to provide a \emph{single, unified} type class for generic programming over types of all kinds (\Cref{sec:allkinds}). We do so by using a variant of the sum-of-products representation. In \Cref{sec:recursion} we consider a variant with explicit recursion. We explore the required background in \Cref{sec:pre}.
+The main contribution of this paper is to provide a \emph{single,
+unified} type class for generic programming over types of all kinds
+(\Cref{sec:allkinds}). We do so by using a variant of the
+sum-of-products representation. In \Cref{sec:recursion} we consider a
+variant with explicit recursion. We explore the required background in
+\Cref{sec:pre}.
 
-Representing arbitrary constructor moves us a step forward to being able to accurately represent the shape of \emph{every} Haskell datatype. Since the introduction of Generalised Algebraic Data Types~\cite{Xi2003}, we need to additional combinators to make that dream true:
+Representing arbitrary constructor moves us a step forward to being
+able to accurately represent the shape of \emph{every} Haskell
+datatype. Since the introduction of Generalised Algebraic Data
+Types~\cite{Xi2003}, we need to additional combinators to make that
+dream true:
 \begin{itemize}
-\item Each constructor may require one or more \emph{constraints} to be satisfied by the types of their fields. For example, when we write a datatype to witness the equality between two types:
-\begin{myhs}
-\begin{code}
-class Eql a b where
-  Refl :: a ~ b => Eql a b
-\end{code}
-\end{myhs}
-we require the indices of |Eql|, namely |a| and |b|, to be equal. This is represented by the constraint |a ~ b| in the |Refl| constructor. In \Cref{sec:constraints} we explore how to extend our base framework to account for these constraints.
+  \item Each constructor may require one or more \emph{constraints} to
+  be satisfied by the types of their fields. For example, when we write
+  a datatype to witness the equality between two types:
+  \begin{myhs}
+  \begin{code}
+  class Eql a b where
+    Refl :: a ~ b => Eql a b
+  \end{code}
+  \end{myhs}
+  we require the indices of |Eql|, namely |a| and |b|, to be equal. This
+  is represented by the constraint |a ~ b| in the |Refl| constructor. In
+  \Cref{sec:constraints} we explore how to extend our base framework to
+  account for these constraints.
 
-\item Constructor may also mention type variables which are not reflected in the indices. These are called \emph{existentials}, since once you pattern match you know that a type has been used, but not exactly which one. The support for existentials is discussed in \Cref{sec:exists}.
+  \item Constructor may also mention type variables which are not
+  reflected in the indices. These are called \emph{existentials}, since
+  once you pattern match you know that a type has been used, but not
+  exactly which one. The support for existentials is discussed in
+  \Cref{sec:exists}.
 \end{itemize}
 
-This paper also aims to witness how far the type level facilities in GHC have evolved. None of the contributions in this paper would be possible without datatype promotion, kind polymorphism ~\cite{Yorgey2012}, the |Constraint| kind~\cite{constraintkinds}, or the |TypeInType| extension~\cite{Weirich2013,Weirich2017}.
+This paper also aims to witness how far the type level facilities in
+GHC have evolved. None of the contributions in this paper would be
+possible without datatype promotion, kind polymorphism
+~\cite{Yorgey2012}, the |Constraint| kind~\cite{constraintkinds}, or
+the |TypeInType| extension~\cite{Weirich2013,Weirich2017}.
 
 \section{Preliminaries}
 \label{sec:pre}
 
-Before exploring the novel ideas in the paper, we need to recap some notions from the current landscape of generic programming in GHC. As in the Introduction, we focus on the |Generic| line of work.
+Before exploring the novel ideas in the paper, we need to recap some
+notions from the current landscape of generic programming in GHC. As
+in the Introduction, we focus on the |Generic| line of work.
 
 \subsection{Generic operations}
 
-In order to define an operation generically, we create two dedicated \emph{type classes}, one for ground types and one for type constructors. A simple generic operation is |size|, which counts the number of constructors.
+In order to define an operation generically, we create two dedicated
+\emph{type classes}, one for ground types and one for type
+constructors. A simple generic operation is |size|, which counts the
+number of constructors.
 \begin{myhs}
 \begin{code}
 class Size a where
@@ -191,7 +253,9 @@ class GSize f where
   gsize  ::   f p  -> Integer
 \end{code}
 \end{myhs}
-We then write instances of the second class for each of the building blocks of datatypes. The type class mechanism is how we reflect the type level structure into a term level implementation.
+We then write instances of the second class for each of the building
+blocks of datatypes. The type class mechanism is how we reflect the
+type level structure into a term level implementation.
 \begin{myhs}
 \begin{code}
 instance (GSize f , GSize g) => GSize (f :*: g) where
@@ -211,7 +275,10 @@ instance (Size c) => GSize (K1 i c) where
   gsize (K1 x)     = size x
 \end{code}
 \end{myhs}
-Note how the instance of constants |K1| points back to the type class for ground types, |Size|. We need one such instance for each datatype; but now we can reuse the generic implementation if we first transform the value into its representation.
+Note how the instance of constants |K1| points back to the type class
+for ground types, |Size|. We need one such instance for each datatype;
+but now we can reuse the generic implementation if we first transform
+the value into its representation.
 \begin{myhs}
 \begin{code}
 instance Size Int where
@@ -221,18 +288,31 @@ instance Size (Tree a) where
   size t = gsize (from t)
 \end{code}
 \end{myhs}
-The definition of |size| is very simple, other generic operations such as |show| or |parse| need to access the metadata and keep additional information around.
+The definition of |size| is very simple, other generic operations such
+as |show| or |parse| need to access the metadata and keep additional
+information around.
 
 \subsection{Sums of Products}
 
-Algebraic datatypes in Haskell have a very regular shape when represented using the building blocks above. There is always a choice among several constructor, each of them comprised of zero or more fields. This general structure is called a \emph{sum of products}. Unfortunately, the representation using |Generic| is not strong enough to guarantee that shape; there is nothing forbidding us from writing:
+Algebraic datatypes in Haskell have a very regular shape when
+represented using the building blocks above. There is always a choice
+among several constructor, each of them comprised of zero or more
+fields. This general structure is called a \emph{sum of
+products}. Unfortunately, the representation using |Generic| is not
+strong enough to guarantee that shape; there is nothing forbidding us
+from writing:
 \begin{myhs}
 \begin{code}
 U1 :+: (K1 R Int :*: Maybe)
 \end{code}
 \end{myhs}
 
-The landscape of type-level programming in GHC changed radically after the introduction of \emph{datatype promotion}~\cite{Yorgey2012}. By promoting a datatype you can use its constructors as if they were types, and the type being defined is promoted to a kind. For example, we can use a promoted Boolean value to encode whether a certain string has been validated or not.
+The landscape of type-level programming in GHC changed radically after
+the introduction of \emph{datatype promotion}~\cite{Yorgey2012}. By
+promoting a datatype you can use its constructors as if they were
+types, and the type being defined is promoted to a kind. For example,
+we can use a promoted Boolean value to encode whether a certain string
+has been validated or not.
 \begin{myhs}
 \begin{code}
 data VString (v :: Bool) = VString String
@@ -241,13 +321,28 @@ validate :: VString False -> VString True
 \end{code}
 \end{myhs}
 
-The \texttt{generic-sop} library~\cite{deVries2014} uses this facility to guarantee the sum-of-products invariants. Each datatype is described by a list of list of types, where the outer level should be thought as the choice between constructors, and each inner list represents the fields in that constructor. This description is called the \emph{code} of the datatype. For example, here is the code for |Tree a| defined above:\footnote{The quote sign serves to differentiate type level from term level when there is a risk of confusion.}
+The \texttt{generic-sop} library~\cite{deVries2014} uses this facility
+to guarantee the sum-of-products invariants. Each datatype is
+described by a list of list of types, where the outer level should be
+thought as the choice between constructors, and each inner list
+represents the fields in that constructor. This description is called
+the \emph{code} of the datatype. For example, here is the code for
+|Tree a| defined above:\footnote{The quote sign serves to
+differentiate type level from term level when there is a risk of
+confusion.}
 \begin{myhs}
 \begin{code}
 P [ P [], P [Tree a, a, Tree a]]
 \end{code}
 \end{myhs}
-But now another problem arises: we cannot construct terms of the code directly, we first need to turn it into a ground type. The kind of the type level list is |[[Star]]| -- where |Star| is the kind of ground types in Haskell -- whereas we can only write terms of kind |Star|. The bridge between the two worlds is given by the following two GADTs, |NS| interprets a list of elements as a choice, whereas |NP| requires a value for each element in the list, and thus encodes a product.
+But now another problem arises: we cannot construct terms of the code
+directly, we first need to turn it into a ground type. The kind of the
+type level list is |[[Star]]| -- where |Star| is the kind of ground
+types in Haskell -- whereas we can only write terms of kind
+|Star|. The bridge between the two worlds is given by the following
+two GADTs, |NS| interprets a list of elements as a choice, whereas
+|NP| requires a value for each element in the list, and thus encodes a
+product.
 \begin{myhs}
 \begin{code}
 data NS :: (k -> Star) -> [k] -> Star where
@@ -262,19 +357,25 @@ data NP :: (k -> Star) -> [k] -> Star where
   (:*) :: f x -> NP f xs ->  NP f (x (P (:)) xs)
 \end{code}
 \end{myhs}
-The first parameter in both |NS| and |NP| indicates how to treat elements of the type level list, by applying a certain constructor to each of them. For the product part we want to use the type as-is, and thus we use the identity functor there,
+The first parameter in both |NS| and |NP| indicates how to treat
+elements of the type level list, by applying a certain constructor to
+each of them. For the product part we want to use the type as-is, and
+thus we use the identity functor there,
 \begin{myhs}
 \begin{code}
 data I p = I p
 \end{code}
 \end{myhs}
-whereas for each member of |NS| we want to recursively use |NP|. The ground type representing a certain code |c| is then given by:
+whereas for each member of |NS| we want to recursively use |NP|. The
+ground type representing a certain code |c| is then given by:
 \begin{myhs}
 \begin{code}
 type SOP c = NS (NP I) c
 \end{code}
 \end{myhs}
-As in the case of the built-in |Generic|, each datatype is tied to its code by a type class. In the implementation this class is also known as |Generic|, but we shall use a subscript to distinguish it.
+As in the case of the built-in |Generic|, each datatype is tied to its
+code by a type class. In the implementation this class is also known
+as |Generic|, but we shall use a subscript to distinguish it.
 \begin{myhs}
 \begin{code}
 class GenericSOP a where
@@ -284,7 +385,11 @@ class GenericSOP a where
 \end{code}
 \end{myhs}
 
-This approach to generic programming allows the definition of generic operations without resorting to the type class mechanism. By pattern matching on the |NS| and |NP| constructors we gain enough information about the shape of the datatype. For example, here is the definition of the generic |size| operation:
+This approach to generic programming allows the definition of generic
+operations without resorting to the type class mechanism. By pattern
+matching on the |NS| and |NP| constructors we gain enough information
+about the shape of the datatype. For example, here is the definition
+of the generic |size| operation:
 \begin{myhs}
 \begin{code}
 gsize :: (GenericSOP a, All2 Size (Code a)) => a -> Integer
@@ -295,20 +400,35 @@ gsize = goS . from
          goP (x :* xs)   = size x + goP xs
 \end{code}
 \end{myhs}
-The only remarkable part of this implementation is the use of the |All2| type class to ensure that every type which appears in a field of the code has a corresponding |size| operation.
+The only remarkable part of this implementation is the use of the
+|All2| type class to ensure that every type which appears in a field
+of the code has a corresponding |size| operation.
 
 \subsection{Explicit Recursion}
 \label{sec:recursionpre}
 
-Both |Generic| and |GenericSOP| mark recursive positions in the datatype \emph{implicitly}. This means that those fields which mention the datatype being defined are not treated in a different way to the others. You can only notice them as a programmer when you see that the |Rep| or |Code| mention the type itself, as was the case with the |Tree a| datatype from the Introduction.
+Both |Generic| and |GenericSOP| mark recursive positions in the
+datatype \emph{implicitly}. This means that those fields which mention
+the datatype being defined are not treated in a different way to the
+others. You can only notice them as a programmer when you see that the
+|Rep| or |Code| mention the type itself, as was the case with the
+|Tree a| datatype from the Introduction.
 
-This is not the only possibility, though. \citet{Noort2008} and \citet{Yakushev2009} extend the |Generic| framework with a new building block to mark recursive positions.
+This is not the only possibility, though. \citet{Noort2008} and
+\citet{Yakushev2009} extend the |Generic| framework with a new
+building block to mark recursive positions.
 \begin{myhs}
 \begin{code}
 data Rec p = Rec p
 \end{code}
 \end{myhs}
-The |Rec| type is isomorphic to the |I| type used to represent codes in the \texttt{generic-sop} approach. The twist now is that in the corresponding |GenericRegular| type class the type for the parameter |p| of the functor is not generic --- as was the case with |Generic| --- but it is instantiated with the type being represented. This ties the recursion by making the |Rec| fields point back to the defined type itself.
+The |Rec| type is isomorphic to the |I| type used to represent codes
+in the \texttt{generic-sop} approach. The twist now is that in the
+corresponding |GenericRegular| type class the type for the parameter
+|p| of the functor is not generic --- as was the case with |Generic|
+--- but it is instantiated with the type being represented. This ties
+the recursion by making the |Rec| fields point back to the defined
+type itself.
 \begin{myhs}
 \begin{code}
 class GenericRegular a where
@@ -318,20 +438,37 @@ class GenericRegular a where
 \end{code}
 \end{myhs}
 
-The information about the recursive position opens more possibilities for generic operations. For example, we can define the \emph{fixpoint} of a representation, without any mention of the original datatype being represented. This allows us to operate on generic data without carrying around additional baggage about the contained types.
+The information about the recursive position opens more possibilities
+for generic operations. For example, we can define the \emph{fixpoint}
+of a representation, without any mention of the original datatype
+being represented. This allows us to operate on generic data without
+carrying around additional baggage about the contained types.
 \begin{myhs}
 \begin{code}
 newtype Fix f = Fix (f (Fix f))
 \end{code}
 \end{myhs}
-Some generic operations which use this explicit recursion information is the definition of diff and patch~\cite{Lempsink2009}, zippers~\cite{Hinze2003}, and tree regular expressions~\cite{Serrano2016}.
+Some generic operations which use this explicit recursion information
+is the definition of diff and patch~\cite{Lempsink2009},
+zippers~\cite{Hinze2003}, and tree regular
+expressions~\cite{Serrano2016}.
 
 \section{Generic Type Constructors}
 \label{sec:generic1}
 
-As we have mentioned in the Contributions, our goal is to encode the shape of datatypes of all possible kinds, not only |Star|. The reason is that many interesting generic operations --- including the well-known |fmap| from |Functor| --- are defined for higher-kinded types. In this section we look at the already-existing support in the |Generic| framework of GHC, and how to translate this idea to the \texttt{generics-sop} framework.
+As we have mentioned in the Contributions, our goal is to encode the
+shape of datatypes of all possible kinds, not only |Star|. The reason
+is that many interesting generic operations --- including the
+well-known |fmap| from |Functor| --- are defined for higher-kinded
+types. In this section we look at the already-existing support in the
+|Generic| framework of GHC, and how to translate this idea to the
+\texttt{generics-sop} framework.
 
-The |Generic1| type class is the counterpart of |Generic| for types with one parameter, such as |Maybe| or |[]|. The definition is pretty similar, except that |from1| and |to1| take as argument an instantiated version |f a| of the type constructor |f|. The same instantiation is done in the generic representation.
+The |Generic1| type class is the counterpart of |Generic| for types
+with one parameter, such as |Maybe| or |[]|. The definition is pretty
+similar, except that |from1| and |to1| take as argument an
+instantiated version |f a| of the type constructor |f|. The same
+instantiation is done in the generic representation.
 \begin{myhs}
 \begin{code}
 class Generic1 f where
@@ -341,41 +478,62 @@ class Generic1 f where
 \end{code}
 \end{myhs}
 
-The bulding blocks from |Generic| need to be extended to mark those places where the type variable occurs. For those occasions in which the variable appears naked, we use |Par1|. It might also be the case that some type constructor is applied to that variable, in which case we use |Rec1|. The definition of these types look very similar to the identity and recursion functions defined previously, but the role in the representation is quite different.
+The bulding blocks from |Generic| need to be extended to mark those
+places where the type variable occurs. For those occasions in which
+the variable appears naked, we use |Par1|. It might also be the case
+that some type constructor is applied to that variable, in which case
+we use |Rec1|. The definition of these types look very similar to the
+identity and recursion functions defined previously, but the role in
+the representation is quite different.
 \begin{myhs}
 \begin{code}
 data Par1    p = Par1 p
 data Rec1 f  p = Rec1 (f p)
 \end{code}
 \end{myhs}
-We can now give a representation of the |Tree| type constructor. In contrast, before we had defined a family of representations for |Tree a|, regardless of the |a|.
+We can now give a representation of the |Tree| type constructor. In
+contrast, before we had defined a family of representations for |Tree
+a|, regardless of the |a|.
 \begin{myhs}
 \begin{code}
 U1 :+: (Rec1 Tree :*: Par1 :*: Rec1 Tree)
 \end{code}
 \end{myhs}
 
-|Rec1| is not powerful enough to represent every sort of recursion in Haskell datatypes. Rose trees are a prime example of \emph{non-regular} recursion, since |Rose a| appears under a list constructor.
+|Rec1| is not powerful enough to represent every sort of recursion in
+Haskell datatypes. Rose trees are a prime example of
+\emph{non-regular} recursion, since |Rose a| appears under a list
+constructor.
 \begin{myhs}
 \begin{code}
 data Rose a = Fork a [Rose a]
 \end{code}
 \end{myhs}
-The solution is to introduce \emph{functor composition} as an additional building block:
+The solution is to introduce \emph{functor composition} as an
+additional building block:
 \begin{myhs}
 \begin{code}
 data (f :.: g) a = Comp (f (g a))
 \end{code}
 \end{myhs}
-The second field of |Fork| is described then as the composition of the list constructor, and recursion done via |Rec1|.
+The second field of |Fork| is described then as the composition of the
+list constructor, and recursion done via |Rec1|.
 \begin{myhs}
 \begin{code}
 Par1 :*: ([] :.: Rec1 Rose)
 \end{code}
 \end{myhs}
-For the rest of the section we focus on the simplest subset of regular types, although non-regularity can be recovered by introducing explicit functor composition as done here.
+For the rest of the section we focus on the simplest subset of regular
+types, although non-regularity can be recovered by introducing
+explicit functor composition as done here.
 
-Defining generic operations for |Generic1| is done as for |Generic|; one just need to add additional instances for the new |Par1| and |Rec1| functors, and for |f :.: g| if non-regular recursion is allowed. Here are the important pieces of the generic |fmap| declaration, taken from the \texttt{generic-deriving} package. The rest of the instances just apply |gfmap| recursively in every position.
+Defining generic operations for |Generic1| is done as for |Generic|;
+one just need to add additional instances for the new |Par1| and
+|Rec1| functors, and for |f :.: g| if non-regular recursion is
+allowed. Here are the important pieces of the generic |fmap|
+declaration, taken from the \texttt{generic-deriving} package. The
+rest of the instances just apply |gfmap| recursively in every
+position.
 \begin{myhs}
 \begin{code}
 class GFunctor f where
@@ -391,26 +549,46 @@ instance (Functor f, GFunctor g)
 \end{code}
 \end{myhs}
 
-The main problem of |Generic1| is that the building blocks do not scale to more than one parameter. At the very least, we would need new |Par1| and |Par2| types which refer to each of the type variables.
+The main problem of |Generic1| is that the building blocks do not
+scale to more than one parameter. At the very least, we would need new
+|Par1| and |Par2| types which refer to each of the type variables.
 \begin{myhs}
 \begin{code}
 data Par1  a b = Par1  a
 data Par2  a b = Par2  b
 \end{code}
 \end{myhs}
-By doing so, the kind of the representation can no longer be |Star -> Star|, we need at least |Star -> Star -> Star| to accomodate the two type parameter. Unfortunately, this means that none of |V1|, |U1|, |(:+:)|, and |(:*:)| can be used, since they all create or operate on types of kind |Star -> Star|. We could build a completely different set of primitive building blocks for two-parameter types, but the problem would repeat again once we consider three parameters.
+By doing so, the kind of the representation can no longer be |Star ->
+Star|, we need at least |Star -> Star -> Star| to accomodate the two
+type parameter. Unfortunately, this means that none of |V1|, |U1|,
+|(:+:)|, and |(:*:)| can be used, since they all create or operate on
+types of kind |Star -> Star|. We could build a completely different
+set of primitive building blocks for two-parameter types, but the
+problem would repeat again once we consider three parameters.
 
 \subsection{|Generic1| in sum-of-products style}
 
-The key point to extend a generic framework to handle type constructors is to introduce marks for those places where the type parameter ought to appear. In the case of |Generic1|, it was only a matter of adding new |Par1| and |Rec1| types.
+The key point to extend a generic framework to handle type
+constructors is to introduce marks for those places where the type
+parameter ought to appear. In the case of |Generic1|, it was only a
+matter of adding new |Par1| and |Rec1| types.
 
-The approach taken by \texttt{generics-sop} is to describe a datatype by a list of list of types. Ultimately, the elements of the nested lists are ground types, of kind |Star|. This precludes us from using the same form of codes directly, since we cannot add an indicators for variables or recursion. Instead, we introduce \emph{atoms}, which describe the choice we have for each of our fields:
+The approach taken by \texttt{generics-sop} is to describe a datatype
+by a list of list of types. Ultimately, the elements of the nested
+lists are ground types, of kind |Star|. This precludes us from using
+the same form of codes directly, since we cannot add an indicators for
+variables or recursion. Instead, we introduce \emph{atoms}, which
+describe the choice we have for each of our fields:
 \begin{myhs}
 \begin{code}
 data Atom = Var | Rec (Star -> Star) | Kon (Star)
 \end{code}
 \end{myhs}
-A code is no longer represented by |[[Star]]|, but rather |[[Atom]]|. The |NS| and |NP| types which interpret those codes are still valid; the nested list structure is still there. But we also need to interpret each of the atoms into a value of kind |Star|. For that we introduce yet another layer, which we call |NA|:
+A code is no longer represented by |[[Star]]|, but rather
+|[[Atom]]|. The |NS| and |NP| types which interpret those codes are
+still valid; the nested list structure is still there. But we also
+need to interpret each of the atoms into a value of kind |Star|. For
+that we introduce yet another layer, which we call |NA|:
 \begin{myhs}
 \begin{code}
 data NA :: Star -> Atom -> Star where
@@ -419,14 +597,19 @@ data NA :: Star -> Atom -> Star where
   K :: k    -> NA a (Kon k)
 \end{code}
 \end{myhs}
-Each of the constructors in |NA| closely matches the definition of |Par1|, |Rec1|, and |K1| in the |Generic1| framework. The code for our running example, |Tree|, reads as follows:
+Each of the constructors in |NA| closely matches the definition of
+|Par1|, |Rec1|, and |K1| in the |Generic1| framework. The code for our
+running example, |Tree|, reads as follows:
 \begin{myhs}
 \begin{code}
 P [ P [], P [ Rec Tree, Var, Rec Tree ] ]
 \end{code}
 \end{myhs}
 
-The last piece is the new |Generic1SOP| type class which ties each datatype to its code. We also define a |SOP1| type synonym for the nested application of the interpretation functors |NS|, |NP|, and |NA|:
+The last piece is the new |Generic1SOP| type class which ties each
+datatype to its code. We also define a |SOP1| type synonym for the
+nested application of the interpretation functors |NS|, |NP|, and
+|NA|:
 \begin{myhs}
 \begin{code}
 type SOP1 c a = NS (NP (NA a)) c
@@ -437,7 +620,10 @@ class Generic1SOP (f :: * -> *) where
   to1    :: SOP1 (Code1 f) a -> f a
 \end{code}
 \end{myhs}
-Up to this point we have omitted the implementation of the functions which witness the isomorphism between a regular datatype and its generic representation. It is instructive to consider how it looks for the case of |Tree| takes as a type constructor:
+Up to this point we have omitted the implementation of the functions
+which witness the isomorphism between a regular datatype and its
+generic representation. It is instructive to consider how it looks for
+the case of |Tree| takes as a type constructor:
 \begin{myhs}
 \begin{code}
 instance Generic1SOP Tree where
@@ -447,7 +633,12 @@ instance Generic1SOP Tree where
     = There $  Here $  R l :* V x :* R r :* Nil
 \end{code}
 \end{myhs}
-After a sequence of |There| and |Here| which indicate which constructor we are working with, we find a |(:*)|-separated list of fields, finished by |Nil|. In each case we need to mark whether that field arises from recursion (with |R|), for an ocurrence of the type parameter (with |V|), or simply from a constant type (with |K|, not shown in this example).
+After a sequence of |There| and |Here| which indicate which
+constructor we are working with, we find a |(:*)|-separated list of
+fields, finished by |Nil|. In each case we need to mark whether that
+field arises from recursion (with |R|), for an ocurrence of the type
+parameter (with |V|), or simply from a constant type (with |K|, not
+shown in this example).
 
 \begin{figure}
 \begin{myhs}
@@ -514,26 +705,70 @@ type family AllRec   c xs :: Constraint where
 \label{fig:gfmap2}
 \end{figure}
 
-Armed with our new |Generic1SOP|, we can implement a generic version of |fmap|. Our first attempt is the idealized version in \Cref{fig:gfmap}. As in the case of |GenericSOP|, we use |All2| to ensure that a certain constraint is satisfied by all atoms. Since our constraints only affect |Rec| positions, we define a combinator |OnRec| which only checks a constraint if the atom has the right shape.
+Armed with our new |Generic1SOP|, we can implement a generic version
+of |fmap|. Our first attempt is the idealized version in
+\Cref{fig:gfmap}. As in the case of |GenericSOP|, we use |All2| to
+ensure that a certain constraint is satisfied by all atoms. Since our
+constraints only affect |Rec| positions, we define a combinator
+|OnRec| which only checks a constraint if the atom has the right
+shape.
 
-Alas, that definition is not accepted directly by GHC, at least in version 8.4.1. First of all, the types involved in the ancillary definitions |goS|, |goP|, and |goA| are too complex to be inferred. We need to help the compiler by annotating the local declarations. We also used the |ScopedTypeVariables| extension to ensure that |f|, |a|, and |b| refer uniformly to the same variables in the code.
+Alas, that definition is not accepted directly by GHC, at least in
+version 8.4.1. First of all, the types involved in the ancillary
+definitions |goS|, |goP|, and |goA| are too complex to be inferred. We
+need to help the compiler by annotating the local declarations. We
+also used the |ScopedTypeVariables| extension to ensure that |f|, |a|,
+and |b| refer uniformly to the same variables in the code.
 
-The combination of the type family |All2| with the constraint |OnRec Functor|, which is refined depending on the type of atom we are pattern matching over, is too complex for the type checker. The solution is to define a more specific |AllRec2| type family, which only applies the constraint over |Rec| positions. We also need to merge the matching on |goP| and |goA| to mimic the definition of |AllRec2|, otherwise the compiler is not able to check that all the pieces come together in the right place. The resulting, \emph{working}, code is given in \Cref{fig:gfmap2}.
+The combination of the type family |All2| with the constraint |OnRec
+Functor|, which is refined depending on the type of atom we are
+pattern matching over, is too complex for the type checker. The
+solution is to define a more specific |AllRec2| type family, which
+only applies the constraint over |Rec| positions. We also need to
+merge the matching on |goP| and |goA| to mimic the definition of
+|AllRec2|, otherwise the compiler is not able to check that all the
+pieces come together in the right place. The resulting,
+\emph{working}, code is given in \Cref{fig:gfmap2}.
 
 \section{Generics of All Kinds}
 \label{sec:allkinds}
 
-The extension of |GenericSOP| to |Generic1SOP| was done three steps. First, we changed the language of the codes from lists of lists of types, to lists of lists of atoms. By doing so, we gained the flexibility of referring to refer to type parameters via |Var|, and to encode recursion via |Rec|. As a result of this change, we had to define a different interpretation functor |NA|. Finally, we defined the |Generic1SOP| type class to tie each data type with its code. In this section we follow the same steps, with the goal of supporting types of any kind.
+The extension of |GenericSOP| to |Generic1SOP| was done three
+steps. First, we changed the language of the codes from lists of lists
+of types, to lists of lists of atoms. By doing so, we gained the
+flexibility of referring to refer to type parameters via |Var|, and to
+encode recursion via |Rec|. As a result of this change, we had to
+define a different interpretation functor |NA|. Finally, we defined
+the |Generic1SOP| type class to tie each data type with its code. In
+this section we follow the same steps, with the goal of supporting
+types of any kind.
 
-The first question then is how should we represent each of the types of the fields, that is, which is our new language of atoms. As we saw in \Cref{sec:generic1}, which data types we are able to describe depends heavily on the choice of these primitive building blocks. In that case, we had to add an addition composition combinator |(:.:)| to support nested recursion. Here this problem is magnified; for example, in the following data type of kind |Star -> (Star -> Star) -> Star -> Star|:
+The first question then is how should we represent each of the types
+of the fields, that is, which is our new language of atoms. As we saw
+in \Cref{sec:generic1}, which data types we are able to describe
+depends heavily on the choice of these primitive building blocks. In
+that case, we had to add an addition composition combinator |(:.:)| to
+support nested recursion. Here this problem is magnified; for example,
+in the following data type of kind |Star -> (Star -> Star) -> Star ->
+Star|:
 \begin{myhs}
 \begin{code}
 data ReaderT r m a = r -> m a
 \end{code}
 \end{myhs}
-the second type variable is applied to the third one. We cannot foresee all possible combinations of recursion and application, and thus extending the possibilities of the |Rec| constructor from |Atom| is a dead end.
+the second type variable is applied to the third one. We cannot
+foresee all possible combinations of recursion and application, and
+thus extending the possibilities of the |Rec| constructor from |Atom|
+is a dead end.
 
-Since we want to express \emph{any} possible type which appears in a Haskell data type declaration, we look at its syntax from the Haskell Report~\cite[section 4.1.2]{haskell2010}. Essentially, a type is either a type variable, a type constructor, or an application of a type to another type. The syntax of types can also be characterized as that of the $\lambda$-calculus without abstraction. It is well-known how to encode $\lambda$-terms in Haskell: we just need to decide how to refer to variables, the simplest choice being de Bruijn indices.
+Since we want to express \emph{any} possible type which appears in a
+Haskell data type declaration, we look at its syntax from the Haskell
+Report~\cite[section 4.1.2]{haskell2010}. Essentially, a type is
+either a type variable, a type constructor, or an application of a
+type to another type. The syntax of types can also be characterized as
+that of the $\lambda$-calculus without abstraction. It is well-known
+how to encode $\lambda$-terms in Haskell: we just need to decide how
+to refer to variables, the simplest choice being de Bruijn indices.
 \begin{myhs}
 \begin{code}
 -- Natural numbers to represent indices
@@ -542,16 +777,27 @@ data Nat   = Z | S Nat
 data Atom  = Var Nat | Kon k | Atom :@: Atom
 \end{code}
 \end{myhs}
-Alas, this definition of |Atom| allows us to represent ill-kinded types such as |Kon Int :@: Var Z|. The solution is to add an index to |Atom| that states its kind. Then we can check that applications are well-formed by refining the |Kon| and |(:@:)| constructors:
+Alas, this definition of |Atom| allows us to represent ill-kinded
+types such as |Kon Int :@: Var Z|. The solution is to add an index to
+|Atom| that states its kind. Then we can check that applications are
+well-formed by refining the |Kon| and |(:@:)| constructors:
 \begin{myhs}
 \begin{code}
 Kon    :: k                            -> Atom k
 (:@:)  :: Atom (k1 -> k2)  -> Atom k1  -> Atom k2
 \end{code}
 \end{myhs}
-This is enough to reject the previous example |Kon Int :@: Var Z|, since the kind of |Int| is not of the form |k1 -> k2|.
+This is enough to reject the previous example |Kon Int :@: Var Z|,
+since the kind of |Int| is not of the form |k1 -> k2|.
 
-The only missing piece is how to encode the kind of a |Var|. It is not enough to know the index; the first type parameter in |[] :: Star -> Star| and |MayebT :: (Star -> Star) -> Star -> Star| have different kinds (|Star| and |Star -> Star|, respectively). As a result, our |Atom| type gains one additional parameter, which saves the kind of the data type whose fields we are representing. It is easy to define an operation which looks up the kind of a certain variable within the kind of the whole data type:
+The only missing piece is how to encode the kind of a |Var|. It is not
+enough to know the index; the first type parameter in |[] :: Star ->
+Star| and |MayebT :: (Star -> Star) -> Star -> Star| have different
+kinds (|Star| and |Star -> Star|, respectively). As a result, our
+|Atom| type gains one additional parameter, which saves the kind of
+the data type whose fields we are representing. It is easy to define
+an operation which looks up the kind of a certain variable within the
+kind of the whole data type:
 \begin{myhs}
 \begin{code}
 type family Pos (n :: Nat) (dtk :: Kind) :: Kind where
@@ -560,15 +806,29 @@ type family Pos (n :: Nat) (dtk :: Kind) :: Kind where
   Pos (S n)  (x -> xs)  = Pos n xs
 \end{code}
 \end{myhs}
-This piece of code introduces some conventions we abide through the rest of the paper. First of all, we use the Greek letter |dtk| to refer to the kind of the data type we are describing. Second, although with the |TypeInType| extension the tower of types and kinds collapse into one single level, we write |Type| or |Kind| to distinguish the intended meaning in each occasion.
+This piece of code introduces some conventions we abide through the
+rest of the paper. First of all, we use the Greek letter |dtk| to
+refer to the kind of the data type we are describing. Second, although
+with the |TypeInType| extension the tower of types and kinds collapse
+into one single level, we write |Type| or |Kind| to distinguish the
+intended meaning in each occasion.
 
-Using |Pos|, we can finally compute the kind of a |Var| from its index and the kind of the complete data type. Essentially, we want to give |Var| the following type:
+Using |Pos|, we can finally compute the kind of a |Var| from its index
+and the kind of the complete data type. Essentially, we want to give
+|Var| the following type:
 \begin{myhs}
 \begin{code}
 Var :: (n :: Nat) -> Atom dtk (Pos n dtk)
 \end{code}
 \end{myhs}
-Alas, Haskell is not a dependently-typed language, which means we cannot use the value of the argument as part of the rest of the type. To work around this restriction we use a \emph{singleton}~\cite{Eisenberg2012} for natural numbers. In short, a singleton for |tau| is a data type indexed by that |tau| which accurately reflects the structure of |tau|. Thus, by pattern matching on the singleton, we gain information about |tau| itself. Here is the definition of the singleton for |Nat|:
+Alas, Haskell is not a dependently-typed language, which means we
+cannot use the value of the argument as part of the rest of the
+type. To work around this restriction we use a
+\emph{singleton}~\cite{Eisenberg2012} for natural numbers. In short, a
+singleton for |tau| is a data type indexed by that |tau| which
+accurately reflects the structure of |tau|. Thus, by pattern matching
+on the singleton, we gain information about |tau| itself. Here is the
+definition of the singleton for |Nat|:
 \begin{myhs}
 \begin{code}
 data SNat (n :: Nat) where
@@ -576,7 +836,10 @@ data SNat (n :: Nat) where
   SS :: SNat n ->  SNat (S n)
 \end{code}
 \end{myhs}
-By replacing |(n :: Nat)| with |SNat n| in the definition of |Var|, we are no longer in dependently-typed territory. The first argument and the result now just happen to share a reference to the same variable of kind |Nat|. The definitive version of |Atom| is:
+By replacing |(n :: Nat)| with |SNat n| in the definition of |Var|, we
+are no longer in dependently-typed territory. The first argument and
+the result now just happen to share a reference to the same variable
+of kind |Nat|. The definitive version of |Atom| is:
 \begin{myhs}
 \begin{code}
 data Atom (dtk :: Kind) k where
@@ -585,7 +848,9 @@ data Atom (dtk :: Kind) k where
   (:@:)  :: Atom dtk (k1 -> k2) -> Atom dtk k1 -> Atom dtk k2
 \end{code}
 \end{myhs}
-Let us also introduce some synonyms for the first, second, and third variable, in order to make the descriptions of types in the rest of the paper a bit more concise:
+Let us also introduce some synonyms for the first, second, and third
+variable, in order to make the descriptions of types in the rest of
+the paper a bit more concise:
 \begin{myhs}
 \begin{code}
 type V0  = Var SZ
@@ -594,15 +859,27 @@ type V2  = Var (SS (SS SZ))
 \end{code}
 \end{myhs}
 
-At this point we are using a GADT, |SNat|, to index yet another GADT, |Atom|. This means that the compiler needs to work with a promoted version of |SNat|. In order to promote a GADT we require the |TypeInType| extension. However, we are not using the full power of the |Star : Star| axiom, we discuss this matter in \Cref{sec:inconsistent1}.
+At this point we are using a GADT, |SNat|, to index yet another GADT,
+|Atom|. This means that the compiler needs to work with a promoted
+version of |SNat|. In order to promote a GADT we require the
+|TypeInType| extension. However, we are not using the full power of
+the |Star : Star| axiom, we discuss this matter in
+\Cref{sec:inconsistent1}.
 
-A datatype of kind |dtk| is now encoded as a list of list of the atoms defined above. However, not every atom is allowed as a field, the language requires those to be of kind |Star|. This requirement can be easily enforced by mandating the second parameter of |Atom|:
+A datatype of kind |dtk| is now encoded as a list of list of the atoms
+defined above. However, not every atom is allowed as a field, the
+language requires those to be of kind |Star|. This requirement can be
+easily enforced by mandating the second parameter of |Atom|:
 \begin{myhs}
 \begin{code}
 type DataType dtk = [[Atom dtk (Star)]]
 \end{code}
 \end{myhs}
-As an example, here are the codes corresponding to |[]|, |Either|, and |Rose|. The fact that |Either| has two type parameter can be observed by the usage of both |SZ| and |SS SZ| as arguments to |Var|. The non-regular recursion pattern in |Rose| is translated to iterated uses of |(:@:)|.
+As an example, here are the codes corresponding to |[]|, |Either|, and
+|Rose|. The fact that |Either| has two type parameter can be observed
+by the usage of both |SZ| and |SS SZ| as arguments to |Var|. The
+non-regular recursion pattern in |Rose| is translated to iterated uses
+of |(:@:)|.
 \begin{myhs}
 \begin{code}
 type ListCode    = P [ P [ ], P [ V0, Kon [] :@: V0 ] ]
@@ -611,15 +888,30 @@ type RoseCode    = P [ P [ V0, Kon [] :@: (Kon Rose :@: V0) ] ]
 \end{code}
 \end{myhs}
 
-\paragraph{A unified |NA|.} The sum-of-products structure stays the same in our new encoding of data types. As a result, the |NS| and |NP| types which interpret that structure do not need any modifications. On the other hand, the interpretation of atoms requires heavy adjustments.
+\paragraph{A unified |NA|.} The sum-of-products structure stays the
+same in our new encoding of data types. As a result, the |NS| and |NP|
+types which interpret that structure do not need any modifications. On
+the other hand, the interpretation of atoms requires heavy
+adjustments.
 
-In the version of |NA| we presented in \Cref{sec:generic1}, we had a first argument of kind |Star|. That argument represented the value of the type parameter of the data type we were interpreting, as witnessed by the |V| constructor:
+In the version of |NA| we presented in \Cref{sec:generic1}, we had a
+first argument of kind |Star|. That argument represented the value of
+the type parameter of the data type we were interpreting, as witnessed
+by the |V| constructor:
 \begin{myhs}
 \begin{code}
 V :: a -> NA a Var
 \end{code}
 \end{myhs}
-But now we do not have just one, but a sequence of types, one for each of the type arguments of the data type we are interpreting. Furthermore, those types may have different kinds, once again as defined by the data type we are describing. This notion is not new, to interpret a term possibly containing variables we need a \emph{context} --- commonly represented by the Greek letter $\Gamma$ -- which assigns a value to each of the variables. Other than the special shape of the index, the data type for contexts looks very much like an heterogeneous list.
+But now we do not have just one, but a sequence of types, one for each
+of the type arguments of the data type we are
+interpreting. Furthermore, those types may have different kinds, once
+again as defined by the data type we are describing. This notion is
+not new, to interpret a term possibly containing variables we need a
+\emph{context} --- commonly represented by the Greek letter $\Gamma$
+-- which assigns a value to each of the variables. Other than the
+special shape of the index, the data type for contexts looks very much
+like an heterogeneous list.
 \begin{myhs}
 \begin{code}
 data LoT (dtk :: Kind) where
@@ -627,9 +919,17 @@ data LoT (dtk :: Kind) where
   (:&&:)  :: k -> LoT ks ->  LoT (k -> ks)
 \end{code}
 \end{myhs}
-For example, |Int :&&: Maybe :&&: Char :&&: LoT0| is a well-formed type of kind |LoT (Star -> (Star -> Star) -> Star -> Star)|.
+For example, |Int :&&: Maybe :&&: Char :&&: LoT0| is a well-formed
+type of kind |LoT (Star -> (Star -> Star) -> Star -> Star)|.
 
-In the previous iteration of |NA|, we had a constructor for each possible value of |Atom|. That solution does not scale for the whole syntax of atoms. For example, it is not possible to define the interpretation |Kon [] :@: Kon Int| by composing interpretations of |Kon []| and |Kon Int|, if only because the notion of a value of something of a kind different from |Star| is not well-formed in Haskell. Instead, we define a type family |Ty| which computes the type of a field given a context.
+In the previous iteration of |NA|, we had a constructor for each
+possible value of |Atom|. That solution does not scale for the whole
+syntax of atoms. For example, it is not possible to define the
+interpretation |Kon [] :@: Kon Int| by composing interpretations of
+|Kon []| and |Kon Int|, if only because the notion of a value of
+something of a kind different from |Star| is not well-formed in
+Haskell. Instead, we define a type family |Ty| which computes the type
+of a field given a context.
 \begin{myhs}
 \begin{code}
 type family Ty dtk (tys :: LoT dtk) (t :: Atom dtk k) :: k where
@@ -638,7 +938,11 @@ type family Ty dtk (tys :: LoT dtk) (t :: Atom dtk k) :: k where
   Ty dtk tys (f :@: x)  = (Ty dtk tys f) (Ty dtk tys x)
 \end{code}
 \end{myhs}
-The ancillary operation |LookupLoT| should return the $n$-th position in the context |tys|. Alas, here we stumble upon a wall: the compiler is not able to deduce that such a lookup will produce a type of the correct kind. To work around this limitation, we need to manually simulate the lookup for each shape of |dtk|:
+The ancillary operation |LookupLoT| should return the $n$-th position
+in the context |tys|. Alas, here we stumble upon a wall: the compiler
+is not able to deduce that such a lookup will produce a type of the
+correct kind. To work around this limitation, we need to manually
+simulate the lookup for each shape of |dtk|:
 \begin{myhs}
 \begin{code}
 type family Ty dtk (tys :: LoT dtk) (t :: Atom dtk k) :: k where
@@ -647,9 +951,16 @@ type family Ty dtk (tys :: LoT dtk) (t :: Atom dtk k) :: k where
   -- and so on
 \end{code}
 \end{myhs}
-Although not very elegant, we think that this is a simple compromise solution. Haskell data types commonly do not have a huge number of type parameters, so we can get our way with a limited number of these expanded lookups.
+Although not very elegant, we think that this is a simple compromise
+solution. Haskell data types commonly do not have a huge number of
+type parameters, so we can get our way with a limited number of these
+expanded lookups.
 
-Using |Ty| we can write a definitive version of |NA|. This new version has a single constructor, since the job of computing the type of the field has been outsourced to the |Ty| type family. The new parameters in |NA| appear also in the new |SOPn| type, which interpets codes of the new shape:
+Using |Ty| we can write a definitive version of |NA|. This new version
+has a single constructor, since the job of computing the type of the
+field has been outsourced to the |Ty| type family. The new parameters
+in |NA| appear also in the new |SOPn| type, which interpets codes of
+the new shape:
 \begin{myhs}
 \begin{code}
 data NA (dtk :: Kind) :: LoT dtk -> Atom dtk (Star) -> Star where
@@ -659,9 +970,15 @@ type SOPn dtk (c :: DataType dtk) (tys :: LoT dtk)
   = NS (NP (NA dtk tys)) c
 \end{code}
 \end{myhs}
-In preparation for the next construction, we introduce the type variables for the |T| constructor explicitly. In particular, this is required to use visible type application~\cite{EisenbergWA16}. 
+In preparation for the next construction, we introduce the type
+variables for the |T| constructor explicitly. In particular, this is
+required to use visible type application~\cite{EisenbergWA16}.
 
-\paragraph{A unified |GenericNSOP|.} The definition of the generic representation of a certain data type is not comprised only of its code, the two isomorphisms |from| and |to| are also required. We come to a problem here, because we need to be able to express on a single type signature the whole family of conversion functions:
+\paragraph{A unified |GenericNSOP|.} The definition of the generic
+representation of a certain data type is not comprised only of its
+code, the two isomorphisms |from| and |to| are also required. We come
+to a problem here, because we need to be able to express on a single
+type signature the whole family of conversion functions:
 \begin{myhs}
 \begin{code}
 from   :: f      -> SOPn (Star)              (Code f) LoT0
@@ -670,7 +987,10 @@ from2  :: f a b  -> SOPn (k1 -> k2 -> Star)  (Code f) (a :&&: b :&&: LoT0)
 -- and so on
 \end{code}
 \end{myhs}
-The problem is in the shape of the first argument, because |f| is applied to a different number of variables in each case. Following the same idea as we do for |SOPn|, we can describe the situation as |f| applied to a sequence of variables instead, whose length varies.
+The problem is in the shape of the first argument, because |f| is
+applied to a different number of variables in each case. Following the
+same idea as we do for |SOPn|, we can describe the situation as |f|
+applied to a sequence of variables instead, whose length varies.
 \begin{myhs}
 \begin{code}
 from   :: Apply f LoT0                  -> SOPn ...
@@ -679,7 +999,9 @@ from2  :: Apply f (a :&&: b :&&: LoT0)  -> SOPn ...
 -- and so on
 \end{code}
 \end{myhs}
-The ancillary operation |Apply| is defined as a type family. In order to help the compiler in forecoming developments, we also include the kind of the context as an explicit argument to the family.
+The ancillary operation |Apply| is defined as a type family. In order
+to help the compiler in forecoming developments, we also include the
+kind of the context as an explicit argument to the family.
 \begin{myhs}
 \begin{code}
 type family Apply dtk (f :: dtk) (tys :: LoT dtk) :: (Star) where
@@ -697,7 +1019,14 @@ class GenericNSOP dtk (f :: dtk) where
   to    :: SOPn dtk (Code f) tys -> Apply dtk f tys
 \end{code}
 \end{myhs}
-Unfortunately, GHC rejects the signatures of the methods. The reason is that |f| appears only as an argument of type families, |Apply| and |Code|. None of the type families are injective, which means that the instantiation of |f| cannot be inferred in its usage sites. In fact, it we have |Either a b| as a result, there are three different calls to |Apply| which give the same result:\footnote{Although one could argue that the combination of the result of |Apply| and the sequence of types |tys| is enough to fix the parameter |f|.}
+Unfortunately, GHC rejects the signatures of the methods. The reason
+is that |f| appears only as an argument of type families, |Apply| and
+|Code|. None of the type families are injective, which means that the
+instantiation of |f| cannot be inferred in its usage sites. In fact,
+it we have |Either a b| as a result, there are three different calls
+to |Apply| which give the same result:\footnote{Although one could
+argue that the combination of the result of |Apply| and the sequence
+of types |tys| is enough to fix the parameter |f|.}
 \begin{myhs}
 \begin{code}
 Apply (Star -> Star -> Star)  Either        (a :&&:   b   :&&:  LoT0)
@@ -705,9 +1034,11 @@ Apply (Star -> Star)          (Either a)              (b  :&&:  LoT0)
 Apply (Star)                  (Either a b)                      LoT0
 \end{code}
 \end{myhs}
-In order to fix |f|, we introduce an additional proxy argument to both methods in the |GenericNSOP| type class.
+In order to fix |f|, we introduce an additional proxy argument to both
+methods in the |GenericNSOP| type class.
 
-It seems that all pieces are in place, and we can start writing an instance of |GenericNSOP| for lists:
+It seems that all pieces are in place, and we can start writing an
+instance of |GenericNSOP| for lists:
 \begin{myhs}
 \begin{code}
 instance GenericNSOP (* -> *) [] where
@@ -723,7 +1054,13 @@ Couldn't match
   expected type 'Apply (* -> *) [] ts'
   with actual type '[Ty (* -> *) ts V0]'
 \end{verbatim}
-Although in theory just knowing the kind |dtk| of the data type we are describing is enough to know the shape of the context |LoT dtk|, this is not something which is reflected in the code. In fact, you could add another constructor to the definition of |LoT| and make this invariant not hold anymore. It is not enough either to add a proxy, because pattern matching on it does not refine the shape of the context. We need a singleton type for the context.
+Although in theory just knowing the kind |dtk| of the data type we are
+describing is enough to know the shape of the context |LoT dtk|, this
+is not something which is reflected in the code. In fact, you could
+add another constructor to the definition of |LoT| and make this
+invariant not hold anymore. It is not enough either to add a proxy,
+because pattern matching on it does not refine the shape of the
+context. We need a singleton type for the context.
 \begin{myhs}
 \begin{code}
 data SLoT dtk (tys :: LoT dtk) where
@@ -731,19 +1068,30 @@ data SLoT dtk (tys :: LoT dtk) where
   (:&:)  ::  Proxy a -> SLoT ks as ->  SLoT (k -> ks)  (a :&&: as)
 \end{code}
 \end{myhs}
-Now, by pattern matching on a value of type |SLoT dtk|, the compiler gains enough information to check that |from| and |to| are correct. The definitive version of |GenericNSOP|, with an (almost correct) instance for lists is given in \Cref{fig:genericnsop}. Last but not least, GHC cannot check that the use of |T x| in |from| is well-typed:
+Now, by pattern matching on a value of type |SLoT dtk|, the compiler
+gains enough information to check that |from| and |to| are
+correct. The definitive version of |GenericNSOP|, with an (almost
+correct) instance for lists is given in \Cref{fig:genericnsop}. Last
+but not least, GHC cannot check that the use of |T x| in |from| is
+well-typed:
 \begin{verbatim}
 Could not deduce:
   Ty (* -> *) (a ':&&: 'Epsilon) x0 ~ a
 \end{verbatim}
-We can fix this problem by being explicit about the type arguments to |T|. For that we use visible type application~\cite{EisenbergWA16}.
+We can fix this problem by being explicit about the type arguments to
+|T|. For that we use visible type application~\cite{EisenbergWA16}.
 \begin{myhs}
 \begin{code}
 from (_ :&: SLoT0) _ (x : xs)
   = There $ Here $ T @(Star -> Star) @V0 x :* T xs :* Nil
 \end{code}
 \end{myhs}
-In this case, we only need the annotation for that argument, and not for |xs|. We have not been able to find a common pattern about when these annotations are required, although it seems that references to variables almost always need them. If instances for |GenericNSOP| were automatically generated, one can just annotate every field to fail in the safe side.
+In this case, we only need the annotation for that argument, and not
+for |xs|. We have not been able to find a common pattern about when
+these annotations are required, although it seems that references to
+variables almost always need them. If instances for |GenericNSOP| were
+automatically generated, one can just annotate every field to fail in
+the safe side.
 
 \begin{figure}
 \begin{myhs}
@@ -814,17 +1162,47 @@ instance  FunctorField (Kon t) where
 \label{fig:gfmap3}
 \end{figure}
 
-We had to work quite a bit to obtain the definitive form of |GenericNSOP|. The other side of the coin in generic programming is how to define the generic operations. In fact, it is more important for this lattern mode of use to have a nice interface for the programmer, since the definition of |GenericNSOP| instances can be automated using Template Haskell or a similar metaprogramming technology.
+We had to work quite a bit to obtain the definitive form of
+|GenericNSOP|. The other side of the coin in generic programming is
+how to define the generic operations. In fact, it is more important
+for this lattern mode of use to have a nice interface for the
+programmer, since the definition of |GenericNSOP| instances can be
+automated using Template Haskell or a similar metaprogramming
+technology.
 
-The definition of a generic |fmap|, given in \Cref{fig:gfmap3}, does not differ significantly from that of \Cref{fig:gfmap2}, where we only had |Generic1SOP| at our hand. The main change is our treatment of atoms. In the case of |Generic1SOP|, we knew how to implement |fmap| for every possible shape of field. However, the language of atoms in |GenericNSOP| is much broader, and we cannot always write the desired implementation. In order to delineate which fields we can handle, we introduce a |FunctorField| type class. The instances correspond to three different scenarios:
+The definition of a generic |fmap|, given in \Cref{fig:gfmap3}, does
+not differ significantly from that of \Cref{fig:gfmap2}, where we only
+had |Generic1SOP| at our hand. The main change is our treatment of
+atoms. In the case of |Generic1SOP|, we knew how to implement |fmap|
+for every possible shape of field. However, the language of atoms in
+|GenericNSOP| is much broader, and we cannot always write the desired
+implementation. In order to delineate which fields we can handle, we
+introduce a |FunctorField| type class. The instances correspond to
+three different scenarios:
 \begin{itemize}
-\item If the field mentions the type variable, then we apply the function of type |a -> b| to it.
-\item If the field has the form |f a|, where |f| is a functor and |a| the type variable, we can apply the operation under the functor |f|. This idea generalizes to fields of the form |f1 (... (fn a))|, giving rise to a recursive instance.
-\item Finally, if the field does not mention the variable, |Kon t|, we just keep it unchanged.
-\end{itemize}
-In the second instance we make use of a partial type signature |atunder|~\cite{Winant2014}. That way we can ask the compiler to infer the kind which ought to be passed to |T| from the surrounding context. In this case it can be readily obtained from the following |@x| type application.
+  \item If the field mentions the type variable, then we apply the
+  function of type |a -> b| to it.
 
-Another important difference from the |Generic1SOP| version is that we need to manually pass proxies to |from| and |to|. It might be possible to automatize this part, but we feel that the overhead for the programmer is not very big. Note that the \emph{user} of the generic operation is oblivious to these fact, they can use the operation directly.
+  \item If the field has the form |f a|, where |f| is a functor and |a|
+  the type variable, we can apply the operation under the functor
+  |f|. This idea generalizes to fields of the form |f1 (... (fn a))|,
+  giving rise to a recursive instance.
+
+  \item Finally, if the field does not mention the variable, |Kon t|, we
+  just keep it unchanged.
+\end{itemize}
+In the second instance we make use of a partial type signature
+|atunder|~\cite{Winant2014}. That way we can ask the compiler to infer
+the kind which ought to be passed to |T| from the surrounding
+context. In this case it can be readily obtained from the following
+|@x| type application.
+
+Another important difference from the |Generic1SOP| version is that we
+need to manually pass proxies to |from| and |to|. It might be possible
+to automatize this part, but we feel that the overhead for the
+programmer is not very big. Note that the \emph{user} of the generic
+operation is oblivious to these fact, they can use the operation
+directly.
 \begin{verbatim}
 > gfmap (+1) [1,2,3]
 [2,3,4]
@@ -833,18 +1211,40 @@ Another important difference from the |Generic1SOP| version is that we need to m
 \subsection{Are We Inconsistent Yet?}
 \label{sec:inconsistent1}
 
-In order to perform the entire construction, we were forced to enable the |TypeInType| extension in GHC. This extension is quite powerful: it allows working with kinds as they were types, and to promote GADTs, among others. But it also adds an axiom |Star : Star|, which is known to introduce inconsistency when we view the language as a logic~\cite{Girard}. We would like to know whether this latter axiom is necessary for our construction, or it could be achieved using a hierarchy of universe levels.
+In order to perform the entire construction, we were forced to enable
+the |TypeInType| extension in GHC. This extension is quite powerful:
+it allows working with kinds as they were types, and to promote GADTs,
+among others. But it also adds an axiom |Star : Star|, which is known
+to introduce inconsistency when we view the language as a
+logic~\cite{Girard}. We would like to know whether this latter axiom
+is necessary for our construction, or it could be achieved using a
+hierarchy of universe levels.
 
-To answer the question we have build a model of |GenericNSOP| in Agda, which we describe in \Cref{sec:agda}. If we assume that our universe of basic types lives in |Set0|, our codes live in |Set1|, and our interpretation of those in |Set2|. The code compiles fine, showing that the |Star : Star| axiom is not essential to our construction.
+To answer the question we have build a model of |GenericNSOP| in Agda,
+which we describe in \Cref{sec:agda}. If we assume that our universe
+of basic types lives in |Set0|, our codes live in |Set1|, and our
+interpretation of those in |Set2|. The code compiles fine, showing
+that the |Star : Star| axiom is not essential to our construction.
 
 \section{Constraints}
 \label{sec:constraints}
 
-The move from ADTs to GADTs makes it possible to require a constraint to be satisfied when using a certain constructor of a data type. The |Eql a b| type described in the Introduction is one example: the constructor |Refl| mandates the two type arguments to coincide by imposing a constraint |a ~ b|.
+The move from ADTs to GADTs makes it possible to require a constraint
+to be satisfied when using a certain constructor of a data type. The
+|Eql a b| type described in the Introduction is one example: the
+constructor |Refl| mandates the two type arguments to coincide by
+imposing a constraint |a ~ b|.
 
-Since version 7.4.1, GHC treats constraints --- in short, anything which appears before the |=>| arrow --- as regular ground types, with the caveat that its kind is |Constraint| instead of |Star|. This means that we can reuse most of our framework.
+Since version 7.4.1, GHC treats constraints --- in short, anything
+which appears before the |=>| arrow --- as regular ground types, with
+the caveat that its kind is |Constraint| instead of |Star|. This means
+that we can reuse most of our framework.
 
-Up to now a data type was defined as |[[Atom dtk (Star)]]|, where each element of the inner list represents a field in a constructor. Now we introduce an additional layer, which specified for each field whether it is implicit --- and thus should have kind |Constraint| --- or explicit.
+Up to now a data type was defined as |[[Atom dtk (Star)]]|, where each
+element of the inner list represents a field in a constructor. Now we
+introduce an additional layer, which specified for each field whether
+it is implicit --- and thus should have kind |Constraint| --- or
+explicit.
 \begin{myhs}
 \begin{code}
 data Field (dtk :: Kind) where
@@ -862,7 +1262,11 @@ data NA (dtk :: Kind) :: LoT dtk -> Field dtk -> * where
   I ::  forall dtk t tys dot Ty dtk tys t  =>  NA dtk tys (Implicit t)
 \end{code}
 \end{myhs}
-The two constructors look almost the same. But the fact that |Ty dtk tys t| appears before a regular |->| arrow in |E|, and before a |=>| arrow in |I| is enough to require the right kind to come out of the application of |Ty|. This updated framework is enough to describe the shape of the |Eql| data type.
+The two constructors look almost the same. But the fact that |Ty dtk
+tys t| appears before a regular |->| arrow in |E|, and before a |=>|
+arrow in |I| is enough to require the right kind to come out of the
+application of |Ty|. This updated framework is enough to describe the
+shape of the |Eql| data type.
 \begin{myhs}
 \begin{code}
 instance GenericNSOP (k -> k -> *) Eql where
@@ -874,14 +1278,24 @@ instance GenericNSOP (k -> k -> *) Eql where
 \end{code}
 \end{myhs}
 
-The rather slim layer that we had to add to support constraints serve as a witness of how the different type level extensions in GHC behave well together.
+The rather slim layer that we had to add to support constraints serve
+as a witness of how the different type level extensions in GHC behave
+well together.
 
 \section{Explicit Recursion}
 \label{sec:recursion}
 
-One of the main design decisions in a generic programming library is whether or not to use an explicit representation of recursion, as we discussed in \Cref{sec:recursionpre}. Our language of atoms does not include this possibility, following the lead of \texttt{generics-sop}. In this section we explore the feasibility of this extension.
+One of the main design decisions in a generic programming library is
+whether or not to use an explicit representation of recursion, as we
+discussed in \Cref{sec:recursionpre}. Our language of atoms does not
+include this possibility, following the lead of
+\texttt{generics-sop}. In this section we explore the feasibility of
+this extension.
 
-At the level of atoms adding a new |Rec| constructor is quite simple. The only question is which is the kind of such a term, but we have the answer right there: it is the kind of the data type we are describing! The updated version of |Atom| reads:
+At the level of atoms adding a new |Rec| constructor is quite
+simple. The only question is which is the kind of such a term, but we
+have the answer right there: it is the kind of the data type we are
+describing! The updated version of |Atom| reads:
 \begin{myhs}
 \begin{code}
 data Atom (dtk :: Kind) k where
@@ -896,7 +1310,11 @@ type ListCode = P [ P [ ], P [ V0, Rec :@: V0 ] ]
 \end{code}
 \end{myhs}
 
-The next step is to extend the interpretation of atoms to include this new construction. As in the case of \citet{Noort2008}, we only tie the recursive knot at the level of the |GenericNSOP| type class. In the meantime, |Ty| is extended with a new argument, which declares which is the type to be used whenever |Rec| is found.
+The next step is to extend the interpretation of atoms to include this
+new construction. As in the case of \citet{Noort2008}, we only tie the
+recursive knot at the level of the |GenericNSOP| type class. In the
+meantime, |Ty| is extended with a new argument, which declares which
+is the type to be used whenever |Rec| is found.
 \begin{myhs}
 \begin{code}
 type family Ty  (dtk :: Kind) (r :: dtk) (tys :: LoT dtk)
@@ -913,7 +1331,10 @@ type SOPn dtk (c :: DataType dtk) (r :: dtk) (tys :: LoT dtk)
   = NS (NP (NA dtk r tys)) c
 \end{code}
 \end{myhs}
-Finally, the updated |GenericNSOP| mandates this recursive position to be instantiated with the data type we are describing, tying the knot. This approach is similar to the |GenericRegular| type class discussed in \Cref{sec:recursionpre}.
+Finally, the updated |GenericNSOP| mandates this recursive position to
+be instantiated with the data type we are describing, tying the
+knot. This approach is similar to the |GenericRegular| type class
+discussed in \Cref{sec:recursionpre}.
 \begin{myhs}
 \begin{code}
 class GenericNSOP dtk (f :: dtk) where
@@ -923,15 +1344,26 @@ class GenericNSOP dtk (f :: dtk) where
   from  :: ... -> SOPn k (Code f) f ts -> Apply k f ts
 \end{code}
 \end{myhs}
-Since the constructors in |NA| do not change depending on whether we have used |Rec| or not to describe the datatype, the instances we provided for the previous version of |GenericNSOP| keep working in the version with explicit recursion.
+Since the constructors in |NA| do not change depending on whether we
+have used |Rec| or not to describe the datatype, the instances we
+provided for the previous version of |GenericNSOP| keep working in the
+version with explicit recursion.
 
-\paragraph{Updating |gfmap|.} On the other hand, we need a bit more care to define the generic operations. In \Cref{fig:gfmap3} we used an ancillary |FunctorField| type class to describe which fields we could map over. It is impossible, though, to write an instance of this form:
+\paragraph{Updating |gfmap|.} On the other hand, we need a bit more
+care to define the generic operations. In \Cref{fig:gfmap3} we used an
+ancillary |FunctorField| type class to describe which fields we could
+map over. It is impossible, though, to write an instance of this form:
 \begin{myhs}
 \begin{code}
 instance (FunctorField x) => FunctorField (Rec :@: x)
 \end{code}
 \end{myhs}
-In fact, |gfmap| defines the operation for the type we are recurring over, so this instance ought to exist! In order to convince the compiler, we play the same trick as before: work with |r| as an independent entity, and only tie the knot at the level of |gfmap|. We need to pass the function which works on the recursive position as an additional argument.
+In fact, |gfmap| defines the operation for the type we are recurring
+over, so this instance ought to exist! In order to convince the
+compiler, we play the same trick as before: work with |r| as an
+independent entity, and only tie the knot at the level of |gfmap|. We
+need to pass the function which works on the recursive position as an
+additional argument.
 \begin{myhs}
 \begin{code}
 class FunctorField r (t :: Atom (* -> *) Type) where
@@ -949,7 +1381,10 @@ instance  (FunctorField r x)
     = T (r (unT . gfmapF r f . T atunder @x @r) x)
 \end{code}
 \end{myhs}
-The trick now is to make the |FunctorField| constraint used in |All2| refer to the same |f| as in the code. And to close the loop, when we call |gfmapF|, we pass |gfmap| itself as the function to execute in the when |Rec| is found.
+The trick now is to make the |FunctorField| constraint used in |All2|
+refer to the same |f| as in the code. And to close the loop, when we
+call |gfmapF|, we pass |gfmap| itself as the function to execute in
+the when |Rec| is found.
 \begin{myhs}
 \begin{code}
 gfmap  ::  (GenericNSOP (* -> *) f,
@@ -961,9 +1396,15 @@ gfmap f  =  ...
     goP (T x :* xs)  = gfmapF gfmap f (T x) :* goP xs
 \end{code}
 \end{myhs}
-This approach makes the definition of |gfmap| self-contained, in contrast to the definition without explicit recursion, in which a |Functor| instance needs to be written to make recursion possible.
+This approach makes the definition of |gfmap| self-contained, in
+contrast to the definition without explicit recursion, in which a
+|Functor| instance needs to be written to make recursion possible.
 
-\paragraph{Fixpoints of all kinds.} When the recursive structure of a type is known, it is possible to obtain the fixpoint of the corresponding functor, to obtain a representation which does not refer back to the original data type. In \Cref{sec:fixpointstar} we discuss how to extend the |Fix| construction to any kind.
+\paragraph{Fixpoints of all kinds.} When the recursive structure of a
+type is known, it is possible to obtain the fixpoint of the
+corresponding functor, to obtain a representation which does not refer
+back to the original data type. In \Cref{sec:fixpointstar} we discuss
+how to extend the |Fix| construction to any kind.
 
 \subsection{Are We Inconsistent Yet?}
 
@@ -972,7 +1413,12 @@ Discuss better with Victor.
 \section{Existentials}
 \label{sec:exists}
 
-Apart from constraints, every constructor in a GADT may introduce one or more \emph{existentially quantified type variables}, which are available once your pattern match. Although seemingly rare, existentials become ubiquituous once you consider how GHC represents GADTs. Take the following data type, which follows the common idiom of indexing a type with the shape of the data it contains:
+Apart from constraints, every constructor in a GADT may introduce one
+or more \emph{existentially quantified type variables}, which are
+available once your pattern match. Although seemingly rare,
+existentials become ubiquituous once you consider how GHC represents
+GADTs. Take the following data type, which follows the common idiom of
+indexing a type with the shape of the data it contains:
 \begin{myhs}
 \begin{code}
 data Tm t where
@@ -980,7 +1426,9 @@ data Tm t where
   APair  ::  Tm a -> Tm b -> Tm (a, b)
 \end{code}
 \end{myhs}
-Under the hood, the refinement in the index of |Tm| is turned into an equality constraint, and every new new variable is quantified. Thus, we obtain the following form:
+Under the hood, the refinement in the index of |Tm| is turned into an
+equality constraint, and every new new variable is quantified. Thus,
+we obtain the following form:
 \begin{myhs}
 \begin{code}
 data Tm t where
@@ -988,9 +1436,19 @@ data Tm t where
   APair  ::  forall a b dot  t ~ (a, b)  => Tm a -> Tm b -> Tm t
 \end{code}
 \end{myhs}
-The language of codes described up is enough to describe |AnInt|, but cannot handle the introduction of new variables in |APair|. In this section we fix that problem.
+The language of codes described up is enough to describe |AnInt|, but
+cannot handle the introduction of new variables in |APair|. In this
+section we fix that problem.
 
-In this case, the change does not affect atoms nor fields. Existentials are introduced at the level of constructors. Before, each constructor was merely a |[Field dtk]|, but now we are going to refine it with the possibility of introducing new type variables; for each new variable we need to record its kind. In a dependently-typed language we can encode this construction using a recursive |Branch| data type: we introduce new variables by repeated applications of |Exists|, and then move to describe the fields with |Constr|.
+In this case, the change does not affect atoms nor
+fields. Existentials are introduced at the level of
+constructors. Before, each constructor was merely a |[Field dtk]|, but
+now we are going to refine it with the possibility of introducing new
+type variables; for each new variable we need to record its kind. In a
+dependently-typed language we can encode this construction using a
+recursive |Branch| data type: we introduce new variables by repeated
+applications of |Exists|, and then move to describe the fields with
+|Constr|.
 \begin{myhs}
 \begin{code}
 data Branch (dtk :: Kind) where
@@ -998,7 +1456,14 @@ data Branch (dtk :: Kind) where
   Constr :: [Field dtk]                           -> Branch dtk
 \end{code}
 \end{myhs}
-Haskell does not support full dependent types, so |Branch| cannot be declared as above. As we did in \Cref{sec:allkinds} for the indices of variables, we use a singleton instead. In contrast with |SNat|, |SKind| does not reflect any information about the kind itself, but we do not need to inspect that information either for the upcoming constructions.\footnote{\citet{ReflectionOnTypes} describes |TypeRep|, which provides type-indexed type representations. However, it is not (yet) possible to promote |TypeRep| operations to the type level.}
+Haskell does not support full dependent types, so |Branch| cannot be
+declared as above. As we did in \Cref{sec:allkinds} for the indices of
+variables, we use a singleton instead. In contrast with |SNat|,
+|SKind| does not reflect any information about the kind itself, but we
+do not need to inspect that information either for the upcoming
+constructions.\footnote{\citet{ReflectionOnTypes} describes |TypeRep|,
+which provides type-indexed type representations. However, it is not
+(yet) possible to promote |TypeRep| operations to the type level.}
 \begin{myhs}
 \begin{code}
 data SKind (ell :: Kind) = KK
@@ -1008,7 +1473,10 @@ data Branch (dtk :: Kind) where
   Constr  :: [Field dtk]                       -> Branch dtk
 \end{code}
 \end{myhs}
-As a consequence of this intermediate layer, data types are no longer represented as mere lists of lists of fields, but as |[Branch dtk]|, where each element contains information both about existentials and about the fields.
+As a consequence of this intermediate layer, data types are no longer
+represented as mere lists of lists of fields, but as |[Branch dtk]|,
+where each element contains information both about existentials and
+about the fields.
 
 \begin{figure*}
 \begin{myhs}
@@ -1023,11 +1491,23 @@ type TmCode
 \label{fig:codetm}
 \end{figure*}
 
-The |Tm| data type above can be described using our extended language of codes as given in \Cref{fig:codetm}. For that, we do not use the user-facing version, but the second representation with explicit quantification and equalities. Note that each |Exists| ``shift'' the position of type variables: the first variable in the context is now the second, and so on. As a result, |V0| refers to the last-introduced variable, |b| in this case, |V1| corresponds to |a|, and |V2| is the original type argument to |Tm|, which we called |t| in the data type declaration.
+The |Tm| data type above can be described using our extended language
+of codes as given in \Cref{fig:codetm}. For that, we do not use the
+user-facing version, but the second representation with explicit
+quantification and equalities. Note that each |Exists| ``shift'' the
+position of type variables: the first variable in the context is now
+the second, and so on. As a result, |V0| refers to the last-introduced
+variable, |b| in this case, |V1| corresponds to |a|, and |V2| is the
+original type argument to |Tm|, which we called |t| in the data type
+declaration.
 
 \
 
-The next step is updated the interpretation of the codes. Unfortunately, since now a data type is not described by a list of lists, we cannot defined its interpretation as a simple composition of |NS|, |NP|, and |NA|. The type |NB| which interprets |Branch|es has this form:
+The next step is updated the interpretation of the
+codes. Unfortunately, since now a data type is not described by a list
+of lists, we cannot defined its interpretation as a simple composition
+of |NS|, |NP|, and |NA|. The type |NB| which interprets |Branch|es has
+this form:
 \begin{myhs}
 \begin{code}
 data NB (dtk :: Kind) :: LoT dtk -> Branch dtk -> Star where
@@ -1036,38 +1516,84 @@ data NB (dtk :: Kind) :: LoT dtk -> Branch dtk -> Star where
   Cr  ::  NP (NA dtk tys) fs              -> NB dtk tys (Constr fs)
 \end{code}
 \end{myhs}
-The recursion in the syntax of existential quantification is reflected in the recursive use of |NB| in the constructor |Ex|. More importantly, thanks to the singleton |SKind ell| we can obtain the kind |ell| which was introduced in the code. Then, we use existential quantification at the meta-level to generate a fresh type |t| of that kind, which we add to the context in the first position, matching the change in the structure that |Exists| performs in the kind. Once we do not need more existential variables, |Cr| just continues as usual, by requiring |NP (NA dtk tys)| for the fields |fs|.
+The recursion in the syntax of existential quantification is reflected
+in the recursive use of |NB| in the constructor |Ex|. More
+importantly, thanks to the singleton |SKind ell| we can obtain the
+kind |ell| which was introduced in the code. Then, we use existential
+quantification at the meta-level to generate a fresh type |t| of that
+kind, which we add to the context in the first position, matching the
+change in the structure that |Exists| performs in the kind. Once we do
+not need more existential variables, |Cr| just continues as usual, by
+requiring |NP (NA dtk tys)| for the fields |fs|.
 
-Since now the call to |NP| is baked into |NB|, we need to update the top-level |SOPn| type too.
+Since now the call to |NP| is baked into |NB|, we need to update the
+top-level |SOPn| type too.
 \begin{myhs}
 \begin{code}
 type SOPn dtk (c :: DataType dtk) (tys :: LoT dtk) = NS (NB dtk tys) c
 \end{code}
 \end{myhs}
-The |GenericNSOP| type class, on the other hand, is not affected by these changes. The instances, on the other hand, need to change their codes and isomorphisms to reflect the new intermediate layet between outer and inner lists.
+The |GenericNSOP| type class, on the other hand, is not affected by
+these changes. The instances, on the other hand, need to change their
+codes and isomorphisms to reflect the new intermediate layet between
+outer and inner lists.
 
 \section{Related Work}
 
-Our approach to generic programming is heavily inspired by the original list-of-list-of-types construction by \citet{deVries2014}. Each of the extensions we present: support for multiple kinds, constraints, explicit recursion, and existentials, could be applied independently to the original framework. Conversely, \texttt{generics-sop} supports metadata about types and constructors, and the same techniques are readily applicable to our case.
+Our approach to generic programming is heavily inspired by the
+original list-of-list-of-types construction by
+\citet{deVries2014}. Each of the extensions we present: support for
+multiple kinds, constraints, explicit recursion, and existentials,
+could be applied independently to the original framework. Conversely,
+\texttt{generics-sop} supports metadata about types and constructors,
+and the same techniques are readily applicable to our case.
 
-There seems to be a trade-off in the amount of \emph{traversal combinators} that can be implemented. \texttt{generics-sop} comes with a huge library of maps, sequences, and folds. Our definition of |gfmap|, on the other hand, traverses the |SOPn| structure manually; and we cannot easily abstract that pattern because of the very strong types which are involved.
+There seems to be a trade-off in the amount of \emph{traversal
+combinators} that can be implemented. \texttt{generics-sop} comes with
+a huge library of maps, sequences, and folds. Our definition of
+|gfmap|, on the other hand, traverses the |SOPn| structure manually;
+and we cannot easily abstract that pattern because of the very strong
+types which are involved.
 
-As far as we know, only \citet{Magalhaes2011} has tackled the problem of generic programming for GADTs. Their approach is based on pattern functors: the basic set of blocks is extended with |CEq|, which represents equalities at the level of constructors, and a ``mobility family'' |X| to fake existentials. Our approach reuses most of the machinery for regular types, by taking advantage of the availability of |Constraint| as a kind in GHC.
+As far as we know, only \citet{Magalhaes2011} has tackled the problem
+of generic programming for GADTs. Their approach is based on pattern
+functors: the basic set of blocks is extended with |CEq|, which
+represents equalities at the level of constructors, and a ``mobility
+family'' |X| to fake existentials. Our approach reuses most of the
+machinery for regular types, by taking advantage of the availability
+of |Constraint| as a kind in GHC.
 
 \section{Conclusion and Future Work}
 
-Through several refinements, starting with the original sum-of-products construction, we have been able to build a generic programming library supporting a wide range of Haskell data types. Our main novelties are the uniform treatment of types of different kinds, and the support for the most important features in GADTs. To do so, we have leveraged many of the Haskell extensions proposed in the literature and implemented in GHC.
+Through several refinements, starting with the original
+sum-of-products construction, we have been able to build a generic
+programming library supporting a wide range of Haskell data types. Our
+main novelties are the uniform treatment of types of different kinds,
+and the support for the most important features in GADTs. To do so, we
+have leveraged many of the Haskell extensions proposed in the
+literature and implemented in GHC.
 
-We cannot represent \emph{every} data type, though. With the introduction of the |TypeInType| extension, quantification in types works as a telescope. That is, the kind of a variable might depend on the variables introduced before it. For example, here |a| depends on the kind |dtk|:
+We cannot represent \emph{every} data type, though. With the
+introduction of the |TypeInType| extension, quantification in types
+works as a telescope. That is, the kind of a variable might depend on
+the variables introduced before it. For example, here |a| depends on
+the kind |dtk|:
 \begin{myhs}
 \begin{code}
 data KTProxy dtk t where
   KTProxy :: forall dtk (t :: dtk) dot KTProxy dtk t
 \end{code}
 \end{myhs}
-The |Exists| combinator in our library, on the other hand, only allows \emph{constant} kinds to quantify over.
+The |Exists| combinator in our library, on the other hand, only allows
+\emph{constant} kinds to quantify over.
 
-Another shortcoming of our library is that only \emph{single} recursion can be represented. The \texttt{multirec}~\cite{Yakushev2009} library adds support families of mutually recursive data types, but with the caveat that all members have to be of kind |*|. It might be possible to use their construction --- adding an index to the |Rec| atom -- in a similar way for families in which all types share the same kind.
+Another shortcoming of our library is that only \emph{single}
+recursion can be represented. The
+\texttt{multirec}~\cite{Yakushev2009} library adds support families of
+mutually recursive data types, but with the caveat that all members
+have to be of kind |*|. It might be possible to use their construction
+--- adding an index to the |Rec| atom -- in a similar way for families
+in which all types share the same kind.
 
 %% Acknowledgments
 %\begin{acks}
@@ -1085,7 +1611,14 @@ Another shortcoming of our library is that only \emph{single} recursion can be r
 \section{Fixpoints of All Kinds}
 \label{sec:fixpointstar}
 
-In the case of a type constructor with one argument, we can obtain a new type of kind |Star| by using the fixpoint of the type constructor. This fact allows us to convert a whole value into a generic representation which does not refer at all at the original types of the fields. We come here to a similar problem as with |Generic|: the construction using the |Fix| in \Cref{sec:recursionpre} only works for types of kind |*|, but we would like to have a similar construction working for \emph{every} kind.
+In the case of a type constructor with one argument, we can obtain a
+new type of kind |Star| by using the fixpoint of the type
+constructor. This fact allows us to convert a whole value into a
+generic representation which does not refer at all at the original
+types of the fields. We come here to a similar problem as with
+|Generic|: the construction using the |Fix| in \Cref{sec:recursionpre}
+only works for types of kind |*|, but we would like to have a similar
+construction working for \emph{every} kind.
 
 Let us start with the basic skeleton of a |Fixn| data type, modelled in a similar fashion to the single-kinded |Fix|,
 \begin{myhs}
