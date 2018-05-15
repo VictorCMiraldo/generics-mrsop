@@ -33,7 +33,6 @@ data Atom (dtk :: Kind) k where
   Var    :: SNat n  -> Atom dtk (Pos n dtk)
   Kon    :: k       -> Atom dtk k
   (:@:)  :: Atom dtk (k1 -> k2) -> Atom dtk k1 -> Atom dtk k2
-  Rec    :: Atom dtk dtk
 
 type V0  = Var SZ
 type V1  = Var (SS SZ)
@@ -49,12 +48,11 @@ data LoT (dtk :: Kind) where
   LoT0    ::                  LoT (*)
   (:&&:)  :: k -> LoT ks ->   LoT (k -> ks)
 
-type family Ty (dtk :: Kind) (r :: dtk) (tys :: LoT dtk) (t :: Atom dtk k) :: k where
-  Ty (k1       -> ks) r (t1         :&&: ts) V0  = t1
-  Ty (k1 -> k2 -> ks) r (t1 :&&: t2 :&&: ts) V1  = t2
-  Ty dtk r tys (Kon t)   = t
-  Ty dtk r tys (f :@: x) = (Ty dtk r tys f) (Ty dtk r tys x)
-  Ty dtk r tys Rec       = r
+type family Ty (dtk :: Kind) (tys :: LoT dtk) (t :: Atom dtk k) :: k where
+  Ty (k1       -> ks) (t1         :&&: ts) V0  = t1
+  Ty (k1 -> k2 -> ks) (t1 :&&: t2 :&&: ts) V1  = t2
+  Ty dtk tys (Kon t)   = t
+  Ty dtk tys (f :@: x) = (Ty dtk tys f) (Ty dtk tys x)
 
 data Field (dtk :: Kind) where
   Explicit  :: Atom dtk (*)         -> Field dtk
@@ -68,31 +66,31 @@ data Branch (dtk :: Kind) where
 
 type DataType dtk = [Branch dtk]
 
-data NA (dtk :: Kind) :: dtk -> LoT dtk -> Field dtk -> * where
-  E ::  forall dtk t r tys .  Ty dtk r tys t  ->  NA dtk r tys (Explicit t)
-  I ::  forall dtk t r tys .  Ty dtk r tys t  =>  NA dtk r tys (Implicit t)
+data NA (dtk :: Kind) :: LoT dtk -> Field dtk -> * where
+  E ::  forall dtk t tys .  Ty dtk tys t  ->  NA dtk tys (Explicit t)
+  I ::  forall dtk t tys .  Ty dtk tys t  =>  NA dtk tys (Implicit t)
 
 data NP :: (k -> *) -> [k] -> * where
   Nil  ::                    NP f '[]
   (:*) :: f x -> NP f xs ->  NP f (x ': xs)
 
-data NB (dtk :: Kind) :: dtk -> LoT dtk -> Branch dtk -> * where
-  Ex  ::  forall ell (t :: ell) (p :: SKind ell) dtk r tys c .
-          NB (ell -> dtk) r (t :&&: tys) c  -> NB dtk r tys (Exists p c)
-  Cr  ::  NP (NA dtk r tys) fs              -> NB dtk r tys (Constr fs)
+data NB (dtk :: Kind) :: LoT dtk -> Branch dtk -> * where
+  Ex  ::  forall ell (t :: ell) (p :: SKind ell) dtk tys c .
+          NB (ell -> dtk) (t :&&: tys) c  -> NB dtk tys (Exists p c)
+  Cr  ::  NP (NA dtk tys) fs              -> NB dtk tys (Constr fs)
 
 data NS :: (k -> *) -> [k] -> * where
   Here   :: f k      -> NS f (k ': ks)
   There  :: NS f ks  -> NS f (k ': ks)
 
-type SOPn dtk (c :: DataType dtk) (r :: dtk) (tys :: LoT dtk) = NS (NB dtk r tys) c
+type SOPn dtk (c :: DataType dtk) (tys :: LoT dtk) = NS (NB dtk tys) c
 
 data SLoT dtk (tys :: LoT dtk) where
   SLoT0  ::                 SLoT (*)     LoT0
   SLoTA  ::  SLoT ks ts ->  SLoT (k -> ks)  (t :&&: ts)
 
 class SSLoT k (tys :: LoT k) where
-  sslot :: SLoT k ts
+  sslot :: SLoT k tys
 instance SSLoT (*) LoT0 where
   sslot = SLoT0
 instance SSLoT ks ts => SSLoT (k -> ks) (t :&&: ts) where
@@ -105,9 +103,9 @@ data ApplyT k (f :: k) (tys :: LoT k) :: * where
 
 class GenericNSOP dtk (f :: dtk) where
   type Code f :: DataType dtk
-  from  ::  ApplyT dtk f tys -> SOPn dtk (Code f) f tys
+  from  ::  ApplyT dtk f tys -> SOPn dtk (Code f) tys
   to    ::  SSLoT dtk tys
-        =>  SOPn dtk (Code f) f tys -> Apply dtk f tys
+        =>  SOPn dtk (Code f) tys -> ApplyT dtk f tys
 
 type family Apply dtk (f :: dtk) (tys :: LoT dtk) :: (*) where
   Apply (*)       f LoT0         = f

@@ -43,7 +43,7 @@
 \usepackage{subcaption}
 \usepackage{cleveref}
 \usepackage{cmll}
-\usepackage{flushend}
+%\usepackage{flushend}
 
 \hypersetup{draft}
 
@@ -1140,8 +1140,8 @@ class GenericNSOP dtk (f :: dtk) where
 instance GenericNSOP (* -> *) [] where
   type Code [] = P [ P [ ], P [ V0, Kon [] :@: V0 ] ]
 
-  from (Arg (A0 [])        =          Here $ Nil
-  from (Arg (A0 (x : xs))
+  from (Arg (A0 []))        =          Here $ Nil
+  from (Arg (A0 (x : xs)))
     = There $ Here $ T @(Star -> Star) @V0 x :* T xs :* Nil
   
   to   ::  forall tys dot SSLoT (* -> *) tys
@@ -1480,8 +1480,8 @@ this form:
 \begin{myhs}
 \begin{code}
 data NB (dtk :: Kind) :: LoT dtk -> Branch dtk -> Star where
-  Ex  ::  forall ell (t :: ell) (p :: SKind ell) dtk tys r dot
-          NB (ell -> dtk) (t :&&: tys) r  -> NB dtk tys (Exists p r)
+  Ex  ::  forall ell (t :: ell) (p :: SKind ell) dtk tys c dot
+          NB (ell -> dtk) (t :&&: tys) c  -> NB dtk tys (Exists p c)
   Cr  ::  NP (NA dtk tys) fs              -> NB dtk tys (Constr fs)
 \end{code}
 \end{myhs}
@@ -1506,8 +1506,6 @@ The |GenericNSOP| type class, on the other hand, is not affected by
 these changes. The instances, on the other hand, need to change their
 codes and isomorphisms to reflect the new intermediate layer between
 outer and inner lists.
-
-
 
 \section{Related Work}
 
@@ -1677,7 +1675,7 @@ class GenericNSOP dtk (f :: dtk) where
 
   to    ::  ApplyT dtk f tys -> SOPn dtk (Code f) f tys
   from  ::  SSLoT dtk tys
-        =>  SOPn dtk (Code f) f ts -> Apply dtk f ts
+        =>  SOPn dtk (Code f) f ts -> ApplyT dtk f ts
 \end{code}
 \end{myhs}
 Since the constructors in |NA| do not change depending on whether we
@@ -1736,6 +1734,80 @@ This approach makes the definition of |gfmap| self-contained, in
 contrast to the definition without explicit recursion, in which a
 |Functor| instance needs to be written to make recursion possible.
 
+\subsection{Explicit Recursion and Existentials}
+
+The changes needed
+to introduce explicit recursion in our generic programming library
+can be applied to the basic language in \Cref{sec:allkinds} or 
+to the version with constraints described in \Cref{sec:constraints}.
+The combination from existentials (\Cref{sec:exists}) is a bit
+more problematic.
+
+For the language of codes the introduction of |Rec| does not stop
+the original implementation from compiling.
+But we also need to update the interpretation datatype |NB|, by adding
+an additional argument for the recursive position:
+\begin{myhs}
+\begin{code}
+data NB (dtk :: Kind) :: dtk -> LoT dtk -> Branch dtk -> Star where
+  Ex  ::  forall ell (t :: ell) (p :: SKind ell) dtk tys r c dot
+          NB (ell -> dtk) ? (t :&&: tys) c  -> NB dtk r tys (Exists p c)
+  Cr  ::  NP (NA dtk r tys) fs              -> NB dtk r tys (Constr fs)
+\end{code}
+\end{myhs}
+If we do not introduce any new variables -- the case of |Constr| -- we
+can pass down to NA the same type for the recursive position. On the other
+hand, the case of |Exists| forces the argument to |Ex| to have kind
+|ell -> dtk|. But |r| has kind |dtk| instead.
+
+The problem is that we are using the kind |dtk| for two different tasks.
+On the one hand, |dtk| fixes the shape of the context |LoT|. On the other
+hand, |dtk| specified which is the kind obtained when recursion is performed,
+that is, when |Rec| is used as part of an atom. When one uses |Exists|
+the additional type should only be introduced in the context, whereas
+the recursive positions should stay as they were.
+
+The solution is to decouple this two modes of use of |dtk|. An atom should
+take \emph{two} kind arguments: |rtk| specifies the kind of recursive
+positions, and |dtk| specifies the kinds in the context.
+\begin{myhs}
+\begin{code}
+data Atom (rtk :: Kind) (dtk :: Kind) k where
+  Var    :: SNat n  ->  Atom rtk dtk (Pos n dtk)
+  Kon    :: k       ->  Atom rtk dtk k
+  (:@:)  :: Atom rtk dtk (k1 -> k2) -> Atom rtk dtk k1
+                    ->  Atom rtk dtk k2
+  Rec    ::             Atom rtk dtk rtk
+\end{code}
+\end{myhs}
+This change generates a chain reaction of updates (we refer the reader to
+\Cref{sec:fullimpl} for the complete code), the most important being in |NB|:
+\begin{myhs}
+\begin{code}
+data  NB (rtk :: Kind) (dtk :: Kind)
+      :: rtk -> LoT dtk -> Branch rtk dtk -> Star where
+  Ex  ::  forall ell (t :: ell) (p :: SKind ell) rtk dtk r tys c dot
+          NB rtk (ell -> dtk) r (t :&&: tys) c
+                                    ->  NB rtk dtk r tys (Exists p c)
+  Cr  ::  NP (NA rtk dtk r tys) fs  -> NB rtk dtk r tys (Constr fs)
+\end{code}
+\end{myhs}
+Note how \emph{only} the context argument is extended from |dtk| to |ell -> dtk|.
+The kind of the recursive position is kept as |rtk|.
+
+The fact that |dtk| and |rtk| coincide before any existential is introduced
+is made explicit in the updated definitions of |DataType| and |SOPn|:
+\begin{myhs}
+\begin{code}
+type DataType dtk = [Branch dtk dtk]
+
+type SOPn dtk (c :: DataType dtk) (r :: dtk) (tys :: LoT dtk)
+  = NS (NB dtk dtk r tys) c
+\end{code}
+\end{myhs}
+In both cases the single argument which represents the kind of the datatype
+to describe is used as kind for recursion and context.
+
 \subsection{Fixpoints of All Kinds}
 
 In the case of a type constructor with one argument, we can obtain a
@@ -1766,8 +1838,8 @@ type instance Fix' (Star) dt = Fix Type dt LoT0
 However, once we move to |k -> Star|, this approach breaks. The only possibility to make |Fix'| return a type of kind |k -> Star| is to add an additional parameter to the |type instance| declaration, since there is $\lambda$-abstraction at the type level:
 \begin{myhs}
 \begin{code}
-type instance Fix' (k1 -> Type) dt a
-  = Fix (k1 -> Type) dt (a :&&: LoT0)
+type instance Fix' (k1 -> Star) dt a
+  = Fix (k1 -> Star) dt (a :&&: LoT0)
 \end{code}
 \end{myhs}
 This code is now rejected on the grounds that a |type instance| must mention exactly as many parameters as the corresponding |type family| declaration. Type families cannot be partially applied.
@@ -1787,17 +1859,18 @@ data instance Fix' (k1 -> k2 -> Star) dt a b
 Without much effort it is possible to extend the |GenericNSOP| instances to perform the deep conversion to |Fix dtk (Code f)| in addition to the shallow conversion to |SOPn dtk (Code f) f|.
 
 \section{Full Implementation}
+\label{sec:fullimpl}
 
-Throughout the paper we have refined the different types and classes involved in our generic programming library. We give the end result as a reference, with support for constraints, explicit recursion, and existentials. \Cref{fig:full1} describes the language of codes, \Cref{fig:full2} the datatypes involved in the interpretation of the codes, \Cref{fig:full3} the |GenericNSOP| type class and ancillary constructions, and \Cref{fig:full4} the conversion between applied types and the evidence-carrying |ApplyT|.
+Throughout the paper we have refined the different types and classes involved in our generic programming library. We give the end result as a reference, with support for constraints, existentials, and explicit recursion. \Cref{fig:full1} describes the language of codes, \Cref{fig:full2} the datatypes involved in the interpretation of the codes, \Cref{fig:full3} the |GenericNSOP| type class and ancillary constructions, and \Cref{fig:full4} the conversion between applied types and the evidence-carrying |ApplyT|.
 
 \begin{figure}
 \begin{myhs}
 \begin{code}
-data Atom (dtk :: Kind) k where
-  Var    :: SNat n  -> Atom dtk (Pos n dtk)
-  Kon    :: k       -> Atom dtk k
+data Atom (rtk :: Kind) (dtk :: Kind) k where
+  Var    :: SNat n  ->  Atom rtk dtk (Pos n dtk)
+  Kon    :: k       ->  Atom rtk dtk k
   (:@:)  :: Atom dtk (k1 -> k2) -> Atom dtk k1 -> Atom dtk k2
-  Rec    :: Atom dtk dtk
+  Rec    ::             Atom rtk dtk rtk
 
 type V0  = Var SZ
 type V1  = Var (SS SZ)
@@ -1808,17 +1881,17 @@ type family Pos (n :: Nat) (dtk :: Kind) :: Kind where
   Pos Z      (x -> xs)  = x
   Pos (S n)  (x -> xs)  = Pos n xs
 
-data Field (dtk :: Kind) where
-  Explicit  :: Atom dtk (*)         -> Field dtk
-  Implicit  :: Atom dtk Constraint  -> Field dtk
+data Field (rtk :: Kind) (dtk :: Kind) where
+  Explicit  :: Atom rtk dtk (*)         -> Field rtk dtk
+  Implicit  :: Atom rtk dtk Constraint  -> Field rtk dtk
 
 data SKind (ell :: Kind) = KK
 
-data Branch (dtk :: Kind) where
-  Exists  :: SKind ell -> Branch (ell -> dtk)   -> Branch dtk
-  Constr  :: [Field dtk]                        -> Branch dtk
+data Branch (rtk :: Kind) (dtk :: Kind) where
+  Exists  :: SKind ell -> Branch rtk (ell -> dtk)   -> Branch rtk dtk
+  Constr  :: [Field rtk dtk]                        -> Branch rtk dtk
 
-type DataType dtk = [Branch dtk]
+type DataType dtk = [Branch dtk dtk]
 \end{code}
 \end{myhs}
 \caption{Full implementation, part 1: language of codes}
@@ -1828,37 +1901,35 @@ type DataType dtk = [Branch dtk]
 \begin{figure*}
 \begin{myhs}
 \begin{code}
-infixr 5 :&&:
 data LoT (dtk :: Kind) where
   LoT0    ::                  LoT (Star)
   (:&&:)  :: k -> LoT ks ->   LoT (k -> ks)
 
-type family Ty (dtk :: Kind) (r :: dtk) (tys :: LoT dtk) (t :: Atom dtk k) :: k where
-  Ty (k1        -> ks) r (t1          :&&: ts) V0  = t1
-  Ty (k1 -> k2  -> ks) r (t1 :&&: t2  :&&: ts) V1  = t2
+type family Ty (rtk :: Kind) (dtk :: Kind) (r :: rtk) (tys :: LoT dtk) (t :: Atom rtk dtk k) :: k where
+  Ty rtk (k1        -> ks) r (t1          :&&: ts) V0  = t1
+  Ty rtk (k1 -> k2  -> ks) r (t1 :&&: t2  :&&: ts) V1  = t2
   -- and so on
-  Ty dtk r tys (Kon t)    = t
-  Ty dtk r tys (f :@: x)  = (Ty dtk r tys f) (Ty dtk r tys x)
-  Ty dtk r tys Rec        = r
+  Ty rtk dtk r tys (Kon t)    = t
+  Ty rtk dtk r tys (f :@: x)  = (Ty rtk dtk r tys f) (Ty rtk dtk r tys x)
+  Ty rtk dtk r tys Rec        = r
 
-data NA (dtk :: Kind) :: dtk -> LoT dtk -> Field dtk -> * where
-  E ::  forall dtk t r tys dot  Ty dtk r tys t  ->  NA dtk r tys (Explicit t)
-  I ::  forall dtk t r tys dot  Ty dtk r tys t  =>  NA dtk r tys (Implicit t)
+data NA (rtk :: Kind) (dtk :: Kind) :: rtk -> LoT dtk -> Field dtk -> * where
+  E ::  forall rtk dtk t r tys dot  Ty rtk dtk r tys t  ->  NA rtk dtk r tys (Explicit t)
+  I ::  forall rtk dtk t r tys dot  Ty rtk dtk r tys t  =>  NA rtk dtk r tys (Implicit t)
 
-infixr 5 :*
 data NP :: (k -> Star) -> [k] -> Star where
   Nil  ::                    NP f (P [])
   (:*) :: f x -> NP f xs ->  NP f (x (P (:)) xs)
 
-data NB (dtk :: Kind) :: dtk -> LoT dtk -> Branch dtk -> Star where
-  Ex  ::  forall ell (t :: ell) (p :: SKind ell) dtk r tys c dot  NB (ell -> dtk) r (t :&&: tys) c  -> NB dtk r tys (Exists p c)
-  Cr  ::                                                          NP (NA dtk r tys) fs              -> NB dtk r tys (Constr fs)
+data NB (rtk :: Kind) (dtk :: Kind) :: rtk -> LoT dtk -> Branch dtk -> Star where
+  Ex  ::  forall ell (t :: ell) (p :: SKind ell) rtk dtk r tys c dot  NB rtk (ell -> dtk) r (t :&&: tys) c  -> NB rtk dtk r tys (Exists p c)
+  Cr  ::                                                              NP (NA rtk dtk r tys) fs              -> NB rtk dtk r tys (Constr fs)
 
 data NS :: (k -> Star) -> [k] -> Star where
   Here   :: f k      -> NS f (k (P (:)) ks)
   There  :: NS f ks  -> NS f (k (P (:)) ks)
 
-type SOPn dtk (c :: DataType dtk) (r :: dtk) (tys :: LoT dtk) = NS (NB dtk r tys) c
+type SOPn dtk (c :: DataType dtk) (r :: dtk) (tys :: LoT dtk) = NS (NB dtk dtk r tys) c
 \end{code}
 \end{myhs}
 \caption{Full implementation, part 2: interpretation of codes}
@@ -1873,7 +1944,7 @@ data SLoT dtk (tys :: LoT dtk) where
   SLoTA  ::  SLoT ks ts ->  SLoT (k -> ks)  (t :&&: ts)
 
 class SSLoT k (tys :: LoT k) where
-  sslot :: SLoT k ts
+  sslot :: SLoT k tys
 instance SSLoT (*) LoT0 where
   sslot = SLoT0
 instance SSLoT ks ts => SSLoT (k -> ks) (t :&&: ts) where
@@ -1888,7 +1959,7 @@ class GenericNSOP dtk (f :: dtk) where
   type Code f :: DataType dtk
   from  ::  ApplyT dtk f tys -> SOPn dtk (Code f) f tys
   to    ::  SSLoT dtk tys
-        =>  SOPn dtk (Code f) f tys -> Apply dtk f tys
+        =>  SOPn dtk (Code f) f tys -> ApplyT dtk f tys
 \end{code}
 \end{myhs}
 \caption{Full implementation, part 3: |GenericNSOP| type class}
