@@ -1734,6 +1734,10 @@ This approach makes the definition of |gfmap| self-contained, in
 contrast to the definition without explicit recursion, in which a
 |Functor| instance needs to be written to make recursion possible.
 
+\subsection{Are We Inconsistent Yet?}
+
+Unfortunately, yes.
+
 \subsection{Explicit Recursion and Existentials}
 
 The changes needed
@@ -1914,8 +1918,8 @@ type family Ty (rtk :: Kind) (dtk :: Kind) (r :: rtk) (tys :: LoT dtk) (t :: Ato
   Ty rtk dtk r tys Rec        = r
 
 data NA (rtk :: Kind) (dtk :: Kind) :: rtk -> LoT dtk -> Field dtk -> * where
-  E ::  forall rtk dtk t r tys dot  Ty rtk dtk r tys t  ->  NA rtk dtk r tys (Explicit t)
-  I ::  forall rtk dtk t r tys dot  Ty rtk dtk r tys t  =>  NA rtk dtk r tys (Implicit t)
+  E ::  forall rtk dtk t r tys dot  { unE ::  Ty rtk dtk r tys t }  ->  NA rtk dtk r tys (Explicit t)
+  I ::  forall rtk dtk t r tys dot            Ty rtk dtk r tys t    =>  NA rtk dtk r tys (Implicit t)
 
 data NP :: (k -> Star) -> [k] -> Star where
   Nil  ::                    NP f (P [])
