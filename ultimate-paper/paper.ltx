@@ -1297,18 +1297,19 @@ unaware of the intermediate |ApplyT| datatype.
 
 In order to perform the entire construction, we were forced to enable
 the |TypeInType| extension in GHC. This extension is quite powerful:
-it allows working with kinds as they were types, and to promote GADTs,
-among others. But it also adds an axiom |Star : Star|, which is known
+it allows working with kinds as if they were types.
+But it also adds an axiom |Star : Star|, which is known
 to introduce inconsistency when we view the language as a
-logic~\cite{Girard}. We would like to know whether this latter axiom
-is necessary for our construction, or it could be achieved using a
-hierarchy of universe levels.
+logic~\cite{Girard}. Since we cannot choose to enable just parts
+of |TypeInType|, we have written a model, in Agda, 
+that models our construction \emph{without} using |Star : Star|.
 
-To answer the question we have build a model of |GenericNSOP| in Agda,
-which we describe in \Cref{sec:agda}. If we assume that our universe
-of basic types lives in |Set0|, our codes live in |Set1|, and our
-interpretation of those in |Set2|. The code compiles fine, showing
-that the |Star : Star| axiom is not essential to our construction.
+The Agda model of |GenericsNSOP| is described in \Cref{sec:agda}.
+In that model we use Agda's predicative hierarchy to separate the
+different elements of the construction. 
+Basic types live in |Set0|, our codes live in |Set1|, and our
+interpretation of those in |Set2|. This construction type checks,
+showing that the |Star : Star| axiom is not essential to our construction.
 
 \section{Constraints}
 \label{sec:constraints}
@@ -1372,7 +1373,7 @@ instance GenericNSOP (k -> k -> *) Eql where
   to sop = case sslot atunder @tys of
     SLoTA (SLoTA SLoT0) -> case sop of
       Here (I :* Nil) -> Arg $ Arg $ A0 Refl
-\end{code}
+\end{code} %$
 \end{myhs}
 
 The rather slim layer that we had to add to support constraints serve
@@ -1997,5 +1998,103 @@ ravel = go (sslot atunder @ts)
 
 \section{Reference Implementation in Agda}
 \label{sec:agda}
+
+%option agda
+
+  In this section we shall describe the Agda model of
+|GenericsNSOP|. Agda is a dep. typed language... bla... bla
+
+%format holder = "\_"
+%format KK = "\mathbb{K}"
+%format KZ = "\star"
+%format KS a b = "{" a "}\Rightarrow {" b "}"
+%format forall = "\forall"
+%format (interpK (a)) = "\llbracket {" a "}\rrbracket_{\mathbb{K}}"
+%format Gamma = "\Gamma"
+%format gamma = "\gamma"
+
+  The starting point for our construction is modelling the
+notion of kind, as we aim to encode arbitrarily kinded types.
+Here we mimick Haskell's kind syntax.
+
+\begin{myhs}
+\begin{code}
+data KK : Set where
+  KZ                : KK
+  KS holder holder  : KK -> KK -> KK
+\end{code}
+\end{myhs}
+ 
+  Although their semantics are simple, we already need to start
+mapping |KK| to |Set1|, since we want to have ground types
+in |Set|:
+
+\begin{myhs}
+\begin{code}
+interpK holder : KK -> Set1
+interpK KZ          = Set
+interpK (KS k1 k2)  = interpK k1 -> interpK k2
+\end{code}
+\end{myhs}
+
+  The amount of type parameters a kind provides is called
+its |arity|:
+
+\begin{myhs}
+\begin{code}
+arity : KK -> Nat
+arity KZ          = 0
+arity (KS k1 k2)  = 1 + arity k2
+\end{code}
+\end{myhs}
+
+  With arity and finite types at hand we can define 
+a lookup for the kind of the $n$-th parameter within a 
+outermost kind.
+
+\begin{myhs}
+\begin{code}
+pos : (k : KK) -> Fin (arity k) -> KK
+pos KZ          ()
+pos (KS k1 k2)  zero     = k1
+pos (KS k1 k2)  (suc n)  = pos k2 n
+\end{code}
+\end{myhs}
+
+  Next, we can define the language of terms and contexts, just like we did
+in \Cref{sec:allkinds}:
+
+\begin{myhs}
+\begin{code}
+data Term (dk : KK) : KK -> Set1 where
+  Var : (n : Fin (arity dk)) -> Term dk (arg dk n)
+  Kon : forall {k1} -> interpK k1 -> Term dk k1
+  App : forall {k1 k2} -> Term dk (KS k1 k2) -> Term dk k1 -> Term dk k2
+
+data Gamma : KK -> Set1 where
+  GZ : Gamma KZ
+  GS : forall {k1 k2} -> interpK k1 -> Gamma k2 -> Gamma (KS k1 k2)
+\end{code}
+\end{myhs}
+
+  Now, given a environment |gamma|, we can interpret a term
+|t : Term dk k| into an inhabitant of |interpK k|.
+
+\begin{myhs}
+\begin{code}
+Ty : forall {res k} -> Gamma k -> Term k res -> interpK res
+Ty gamma  (Var n)    = lkup gamma n
+Ty gamma  (Kon x)    = x
+Ty gamma  (App f x)  = Ty gamma f (Ty gamma x)
+\end{code}
+\end{myhs}
+
+  Were |lkup gamma n : interpK (pos k n)| returns the $n$-th entry in |gamma : Gamma k|.
+Finally, we are now able to define the fields of the constructors. These
+come in two flavours. Explicit fields are values of some ground type whereas
+implicit fields are constraints over the type parameters in scope.
+
+
+
 
 \end{document}
