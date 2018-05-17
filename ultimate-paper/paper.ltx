@@ -2010,8 +2010,13 @@ ravel = go (sslot atunder @ts)
 %format KS a b = "{" a "}\Rightarrow {" b "}"
 %format forall = "\forall"
 %format (interpK (a)) = "\llbracket {" a "}\rrbracket_{\mathbb{K}}"
+%format (interpA (a)) = "\llbracket {" a "}\rrbracket_{A}"
+%format (interpP (a)) = "\llbracket {" a "}\rrbracket_{P}"
+%format (interpS (a)) = "\llbracket {" a "}\rrbracket_{S}"
 %format Gamma = "\Gamma"
 %format gamma = "\gamma"
+%format alpha = "\alpha"
+%format pi    = "\pi"
 
   The starting point for our construction is modelling the
 notion of kind, as we aim to encode arbitrarily kinded types.
@@ -2067,9 +2072,10 @@ in \Cref{sec:allkinds}:
 \begin{myhs}
 \begin{code}
 data Term (dk : KK) : KK -> Set1 where
-  Var : (n : Fin (arity dk)) -> Term dk (arg dk n)
-  Kon : forall {k1} -> interpK k1 -> Term dk k1
-  App : forall {k1 k2} -> Term dk (KS k1 k2) -> Term dk k1 -> Term dk k2
+  Var  : (n : Fin (arity dk)) -> Term dk (arg dk n)
+  Kon  : forall {k1} -> interpK k1 -> Term dk k1
+  App  : forall {k1 k2} -> Term dk (KS k1 k2) -> Term dk k1 
+       -> Term dk k2
 
 data Gamma : KK -> Set1 where
   GZ : Gamma KZ
@@ -2094,7 +2100,61 @@ Finally, we are now able to define the fields of the constructors. These
 come in two flavours. Explicit fields are values of some ground type whereas
 implicit fields are constraints over the type parameters in scope.
 
+\begin{myhs}
+\begin{code}
+data Field (k : KK) : Set2 where
+  Explicit : Term k KZ          -> Field k
+  Implicit : (Gamma k -> Set1)  -> Field k
+\end{code}
+\end{myhs}
 
+  The most interesting part of the model is, in fact, the handling of constraints.
+A constraint is a predicate over the types that will be in scope when type
+checking that constructor. These types are the interpretation of some kind |k|, 
+|interpK k|, and hence, inhabitants of |Set1|. This forces us to map |Gamma k| 
+into |Set1|, which brings the universe of |Field| into |Set2|. Interpreting a |Field|
+can be done back in |Set1| again:
 
+\begin{myhs}
+\begin{code}
+interpA holder : forall {k} -> Field k -> Gamma k -> Set1
+interpA (Explicit t)    gamma  = Lift (Ty gamma t)
+interpA (Implicit ctr)  gamma  = ctr gamma
+\end{code}
+\end{myhs}
+
+  Where |Lift : Set -> Set1| lifts an inhabitant of a smaller universe into
+a bigger one. The rest of the model is trivial. We define a product of kind |k|
+and a sum of kind |k| as lists, and interpret them using |All| and |Any|, respectively.
+
+\begin{myhs}
+\begin{code}
+Prod SoP : KK -> Set2
+Prod  k = List (Field k)
+SoP   k = List (Prod k)
+
+interpP holder : forall {k} -> Prod k -> Gamma k -> Set2
+interpP as gamma = All (\ alpha -> interpA alpha gamma) as
+
+interpS holder : forall {k} -> Prod k -> Gamma k -> Set2
+interpS ps gamma = Any (\ pi -> interpP pi gamma) ps
+\end{code}
+\end{myhs}
+  
+  Finally, going full circle and encoding the example shown at the introduction
+would look like:
+
+\begin{myhs}
+\begin{code}
+data IsNat : Set -> Set where
+  Prf : Nat -> IsNat Nat
+
+isnatSOP : SoP (KS KZ KZ)
+isnatSOP = (Implicit ctr :: Explicit (Var zero) :: []) :: []
+  where
+    ctr : Gamma (KS KZ KZ) -> Set1
+    ctr (x :: []) = x == Nat
+\end{code}
+\end{myhs}
 
 \end{document}
