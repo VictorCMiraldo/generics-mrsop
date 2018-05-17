@@ -1335,7 +1335,7 @@ instance GenericNSOP (k -> k -> *) Eql where
   to sop = case sslot atunder @tys of
     SLoTA (SLoTA SLoT0) -> case sop of
       Here (I :* Nil) -> Arg $ Arg $ A0 Refl
-\end{code}
+\end{code} %$
 \end{myhs}
 \caption{The |GenericNSOP| instance for |Eql|}
 \label{fig:eqlgeneric}
@@ -1348,58 +1348,41 @@ well together.
 \section{Explicit Recursion}
 \label{sec:recursion}
 
-Both |Generic| and |GenericSOP| mark recursive positions in the
-datatype \emph{implicitly}. This means that those fields which mention
-the datatype being defined are not treated in a different way to the
-others. You can only notice them as a programmer when you see that the
-|Rep| or |Code| mention the type itself, as was the case with the
-|Tree a| datatype from the Introduction.
+  Up until now, we have not distinguished recursive positions from regular
+fields in our datatypes. This is also the case in |Generic| and |GenericSOP|,
+where recursion is \emph{implicit}.
+  
+  Marking recursion \emph{explicitly} is advantageous but introduces a
+more intricate design. It enables one to write combinators exploiting
+recursion schemes, such as fold, but it introduces some extra
+complexity to the atoms of the universe and one extra parameter to the
+interpretation of codes. In fact, some generic operations require this
+explicit recursion information.  Such as the definition of diff and
+patch~\cite{Lempsink2009,CacciariMiraldo2017},
+zippers~\cite{Hinze2003}, and tree regular expressions~\cite{Serrano2016}.
 
-This is not the only possibility, though. \citet{Noort2008} and
-\citet{Yakushev2009} extend the |Generic| framework with a new
-building block to mark recursive positions.
+  The technique of marking recursive positions~\cite{Noort2008,Yakushev2009}
+starts with expanding the atoms with a new building block:
 \begin{myhs}
 \begin{code}
 data Rec p = Rec p
 \end{code}
 \end{myhs}
-The |Rec| type is isomorphic to the |I| type used to represent codes
-in the \texttt{generic-sop} approach. The twist now is that in the
-corresponding |GenericRegular| type class the type for the parameter
-|p| of the functor is not generic --- as was the case with |Generic|
---- but it is instantiated with the type being represented. This ties
-the recursion by making the |Rec| fields point back to the defined
-type itself.
+Although isomorphic to |I|, |Rec| serves quite a different purpose.
+Nevertheless, the second step is to bubble up one extra parameter
+to the interpretation of codes, lifting it to |Star -> Star|. 
+The |from| function would then have a type similar to:
+
 \begin{myhs}
 \begin{code}
-class GenericRegular a where
-  type RepRegular a :: * -> *
-  from  :: a -> RepRegular a a
-  to    :: RepRegular a a -> a
+from :: a -> Rep a a
 \end{code}
 \end{myhs}
 
-The information about the recursive position opens more possibilities
-for generic operations. For example, we can define the \emph{fixpoint}
-of a representation, without any mention of the original datatype
-being represented. This allows us to operate on generic data without
-carrying around additional baggage about the contained types.
-\begin{myhs}
-\begin{code}
-newtype Fix f = Fix (f (Fix f))
-\end{code}
-\end{myhs}
-Some generic operations which use this explicit recursion information
-is the definition of diff and patch~\cite{Lempsink2009,CacciariMiraldo2017},
-zippers~\cite{Hinze2003}, and tree regular
-expressions~\cite{Serrano2016}.
+Passing |a| as this extra parameter closes the recursive knot. 
 
-In this section we extend our approach to generic programming to
-handle explicit recursion, if needed.
-At the level of atoms adding a new |Rec| constructor is quite
-simple. The only question is which is the kind of such a term, but we
-have the answer right there: it is the kind of the datatype we are
-describing! The updated version of |Atom| reads:
+Let us now apply the same technique to our scenario. We 
+start by extending the |Atom| type with a new constructor:
 \begin{myhs}
 \begin{code}
 data Atom (dtk :: Kind) k where
@@ -1407,8 +1390,9 @@ data Atom (dtk :: Kind) k where
   Rec :: Atom dtk dtk
 \end{code}
 \end{myhs}
-As an example, we can provide a more informative code for |[]|,
-where the recursion is explicit:
+The kind of a recursive occurence is exactly the kind of whatever
+datatype we are defining. As an example, we can provide a more
+informative code for |[]|, where the recursion is explicit:
 \begin{myhs}
 \begin{code}
 type ListCode = P [ P [ ], P [ V0, Rec :@: V0 ] ]
@@ -1454,8 +1438,27 @@ have used |Rec| or not to describe the datatype, the instances we
 provided for the previous version of |GenericNSOP| keep working in the
 version with explicit recursion.
 
-\paragraph{Updating |gfmap|.} On the other hand, we need a bit more
-care to define the generic operations. In \Cref{fig:gfmap3} we used an
+  It is important to note that marking recursive positions explicitly
+is still sound, as demonstrated by the Agda model in \Cref{sec:agda}. 
+Unfolding this recursion and taking the least fixed point of a type is 
+not, however. That is, we cannot write a |Fix| type, in the lines of:
+
+\begin{myhs}
+\begin{code}
+data Fix f = Fix (f (Fix f))
+\end{code}
+\end{myhs}
+
+  That is because the interpretation of sums lives in the second
+predicative universe (|Set2|), which forces |Fix| to live in |Set2| aswell. 
+However, the argument we have to pass to the interpretation of must be 
+an inhabitant of |Set1|, hence we cannot feed |Fix f| back into |f|.
+This would require the |Set : Set| axiom, breaking consistency.
+Hence, just marking the positions is fine, unfolding the recursion
+is where we would find problems.
+
+
+\paragraph{Updating |gfmap|.}  In \Cref{fig:gfmap3} we used an
 ancillary |FunctorField| type class to describe which fields we could
 map over. It is impossible, though, to write an instance of this form:
 \begin{myhs}
@@ -1504,10 +1507,6 @@ gfmap f  =  dots
 This approach makes the definition of |gfmap| self-contained, in
 contrast to the definition without explicit recursion, in which a
 |Functor| instance needs to be written to make recursion possible.
-
-\subsection{Are We Inconsistent Yet?}
-
-Unfortunately, yes.
 
 \section{Existentials}
 \label{sec:exists}
@@ -1721,7 +1720,11 @@ in which all types share the same kind.
 %option agda
 
   In this section we shall describe the Agda model of
-|GenericsNSOP|. Agda is a dep. typed language... bla... bla
+|GenericsNSOP|. Agda~\cite{Norell09} is a depentently typed language
+with a predicative hierarchy of universes. This allows us to
+model our construction with a finer level of detail. Ultimately
+showing one does not need the |Set : Set| axiom to make the construction
+work. 
 
 %format holder = "\_"
 %format KK = "\mathbb{K}"
@@ -1790,11 +1793,11 @@ in \Cref{sec:allkinds}:
 
 \begin{myhs}
 \begin{code}
-data Term (dk : KK) : KK -> Set1 where
-  Var  : (n : Fin (arity dk)) -> Term dk (arg dk n)
-  Kon  : forall {k1} -> interpK k1 -> Term dk k1
-  App  : forall {k1 k2} -> Term dk (KS k1 k2) -> Term dk k1 
-       -> Term dk k2
+data Atom (dk : KK) : KK -> Set1 where
+  Var  : (n : Fin (arity dk)) -> Atom dk (arg dk n)
+  Kon  : forall {k1} -> interpK k1 -> Atom dk k1
+  App  : forall {k1 k2} -> Atom dk (KS k1 k2) -> Atom dk k1 
+       -> Atom dk k2
 
 data Gamma : KK -> Set1 where
   GZ : Gamma KZ
@@ -1803,11 +1806,11 @@ data Gamma : KK -> Set1 where
 \end{myhs}
 
   Now, given a environment |gamma|, we can interpret a term
-|t : Term dk k| into an inhabitant of |interpK k|.
+|t : Atom dk k| into an inhabitant of |interpK k|.
 
 \begin{myhs}
 \begin{code}
-Ty : forall {res k} -> Gamma k -> Term k res -> interpK res
+Ty : forall {res k} -> Gamma k -> Atom k res -> interpK res
 Ty gamma  (Var n)    = lkup gamma n
 Ty gamma  (Kon x)    = x
 Ty gamma  (App f x)  = Ty gamma f (Ty gamma x)
@@ -1822,7 +1825,7 @@ implicit fields are constraints over the type parameters in scope.
 \begin{myhs}
 \begin{code}
 data Field (k : KK) : Set2 where
-  Explicit : Term k KZ          -> Field k
+  Explicit : Atom k KZ          -> Field k
   Implicit : (Gamma k -> Set1)  -> Field k
 \end{code}
 \end{myhs}
@@ -1875,6 +1878,19 @@ isnatSOP = (Implicit ctr :: Explicit (Var zero) :: []) :: []
     ctr (x :: []) = x == Nat
 \end{code}
 \end{myhs}
+
+  Adding an extra constructor to |Atom| to mark, explicitely, which
+are the recursive positions is quite simple. The constructor would have type:
+
+\begin{myhs}
+\begin{code}
+Rec : Term k k
+\end{code}
+\end{myhs}
+
+  And we would need one extra parameter of type |interpK k| in the interpretation
+functions. Again, as long as we do not take the least fixpoint of this construction,
+there is no need for the |Set : Set| axiom.
 
 %option haskell
 

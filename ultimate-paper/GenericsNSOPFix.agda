@@ -15,7 +15,7 @@ open import Data.Bool
 
 open import Relation.Binary.PropositionalEquality
 
-module GenericsNSOP where
+module GenericsNSOPFix where
 
   -- Start defining our kinds!
   infixr 50 _⇒_
@@ -59,6 +59,7 @@ module GenericsNSOP where
   -- lambda calculus here.
   data Term (k : 𝕂) : 𝕂 → Set₁ where
     Var : (n : pos𝕂 k) → Term k (arg k n)
+    Rec : Term k k
     Kon : ∀{k₁}    → ⟦ k₁ ⟧K → Term k k₁
     App : ∀{k₁ k₂} → Term k (k₁ ⇒ k₂) → Term k k₁ →  Term k k₂
     
@@ -73,15 +74,11 @@ module GenericsNSOP where
   lkup (t ∷ ts) zero    = t
   lkup (t ∷ ts) (suc n) = lkup ts n
 
-  Ty : ∀{res k} → Γ k → Term k res → ⟦ res ⟧K
-  Ty γ (Var n) = lkup γ n
-  Ty γ (Kon x) = x
-  Ty γ (App f x) = Ty γ f (Ty γ x)
-
-  -- Now, a constraint over kind k is just a map from k to set, or
-  -- a predicate over it.
-  Constraint : 𝕂 → 𝕂
-  Constraint k = k ⇒ ⋆
+  Ty : ∀{res k} → ⟦ k ⟧K → Γ k → Term k res → ⟦ res ⟧K
+  Ty vk γ (Var n) = lkup γ n
+  Ty vk γ Rec     = vk
+  Ty vk γ (Kon x) = x
+  Ty vk γ (App f x) = Ty vk γ f (Ty vk γ x)
 
   -- Here's the magic! Took me a while to figure this out!
   --
@@ -101,15 +98,15 @@ module GenericsNSOP where
   SoP : 𝕂 → Set₂
   SoP k = List (Prod k)
 
-  ⟦_⟧A : ∀{k} → Field k → Γ k → Set₁
-  ⟦ Explicit t   ⟧A γ = Lift (Ty γ t)
-  ⟦ Implicit ctr ⟧A γ = ctr γ
+  ⟦_⟧A : ∀{k} → Field k → ⟦ k ⟧K → Γ k → Set₁
+  ⟦ Explicit t   ⟧A vk γ = Lift (Ty vk γ t)
+  ⟦ Implicit ctr ⟧A vk γ = ctr γ
   
-  ⟦_⟧P : ∀{k} → Prod k → Γ k → Set₂
-  ⟦ as ⟧P γ = All (λ α → ⟦ α ⟧A γ) as
+  ⟦_⟧P : ∀{k} → Prod k → ⟦ k ⟧K → Γ k → Set₂
+  ⟦ as ⟧P vk γ = All (λ α → ⟦ α ⟧A vk γ) as
 
-  ⟦_⟧S : ∀{k} → SoP k → Γ k → Set₂
-  ⟦ ps ⟧S γ = Any (λ π → ⟦ π ⟧P γ) ps
+  ⟦_⟧S : ∀{k} → SoP k → ⟦ k ⟧K → Γ k → Set₂
+  ⟦ ps ⟧S vk γ = Any (λ π → ⟦ π ⟧P vk γ) ps
 
   app : ∀{k}(T : ⟦ k ⟧K) → Γ k → Set
   app {⋆}       T [] = T
@@ -118,8 +115,17 @@ module GenericsNSOP where
   record G {k}(T : ⟦ k ⟧K) : Set₂ where
     field
       Code : SoP k
-      from : (γ : Γ k) → app T γ → ⟦ Code ⟧S γ
+      from : (γ : Γ k) → app T γ → ⟦ Code ⟧S T γ
 
+
+  {-# NON_TERMINATING #-}
+  Fix : ∀{k}(σ : SoP k)(γ : Γ k) → Set₂
+  Fix σ γ = ⟦ σ ⟧S {!!} {!!}
+{-
+  data Fix {k}(σ : SoP k)(γ : Γ k) : ⟦ k ⟧K where
+    fix : ⟦ σ ⟧S (Fix σ γ) γ → Fix σ γ
+-}
+{-
   -- gfmap
 
   -- This is trickier. We can only automatically map
@@ -215,7 +221,7 @@ module GenericsNSOP where
   xbool : Bool → ⟦ sopX ⟧S (Bool ∷ [])
   xbool b = here (refl ∷ ((lift b) ∷ []))
    
-
+-}
 {-
 
   gfmap : {t : SoP (⋆ ⇒ ⋆)}{A B : Set}
