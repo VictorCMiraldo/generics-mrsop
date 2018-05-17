@@ -189,10 +189,14 @@ programming over these types.
 \bibliography{references}
 
 
-%% Appendix
-%% \appendix
-%% \section{Appendix}
-%% 
-%% %include src/appendix.lhs
+%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Appendix
+%
+%include src/appendix.lhs
+%
+%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%
 
 \end{document}

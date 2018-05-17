@@ -22,6 +22,8 @@
 %% More space between rows
 \newcommand{\ra}[1]{\renewcommand{\arraystretch}{#1}}
 
+\newcommand{\hide}[1]{}
+
 %% Logistic Stuff
 
 \definecolor{C1}{RGB}{0,153,204}
