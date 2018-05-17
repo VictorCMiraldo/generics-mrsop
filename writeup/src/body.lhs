@@ -1,3 +1,5 @@
+\newcommand{\mycaption}[1]{\vspace{-1em}\caption{#1}}
+
 \section{Introduction}
 \label{sec:introduction}
 
@@ -95,7 +97,7 @@ mutually recursive families, with the convenience of the more modern
   Mutual Recursion      &  \texttt{multirec}     &   \\
 \bottomrule
 \end{tabular}
-\caption{Spectrum of static generic programming libraries}
+\mycaption{Spectrum of static generic programming libraries}
 \label{fig:gplibraries}
 \end{figure}
 
@@ -362,7 +364,7 @@ $\begin{array}{l}
   \;  = |gsize (L1 (K1 1)) + gsize (L1 (K1 2))|\\
   \;  = |size (1 :: Int) + size (2 :: Int)|   
 \end{array}$
-\caption{Reduction of |size (Bin (Leaf 1) (Leaf 2))|}
+\mycaption{Reduction of |size (Bin (Leaf 1) (Leaf 2))|}
 \label{fig:sizederiv}
 \end{figure}
 
@@ -381,25 +383,25 @@ the final result. Literals of type |Int| illustrate
 what we call \emph{opaque types}: those types that constitute the base
 of the universe and are \emph{opaque} to the representation language.
 
-  In practice, one usually applies yet another maneuver to make this
-process more convenient. Note that the implementation of |size| for
-|Bin a| relies on the implementation of |gsize|, after converting a |Bin a|
-to its generic representation. We can instruct GHC to do this automatically
-using \emph{default method signatures}~\cite[section 9.8.1.4]{ghcUsersGuide} and modifying the |Size| class to:
-
-\begin{myhs}
-\begin{code}
-class Size (a :: Star) where
-  size :: a -> Int
-  default size  :: (GenericGen a , GSize (RepGen a))
-                => a -> Int
-  size = gsize . fromGen
-\end{code}
-\end{myhs}
-
-  The |default| keyword instructs Haskell to use the provided
-implementation whenever none is provided and the constraint |(GenericGen a , GSize (RepGen a))| 
-can be satisfied when declaring an instance for |Size a|. 
+%%   In practice, one usually applies yet another maneuver to make this
+%% process more convenient. Note that the implementation of |size| for
+%% |Bin a| relies on the implementation of |gsize|, after converting a |Bin a|
+%% to its generic representation. We can instruct GHC to do this automatically
+%% using \emph{default method signatures}~\cite[section 9.8.1.4]{ghcUsersGuide} and modifying the |Size| class to:
+%% 
+%% \begin{myhs}
+%% \begin{code}
+%% class Size (a :: Star) where
+%%   size :: a -> Int
+%%   default size  :: (GenericGen a , GSize (RepGen a))
+%%                 => a -> Int
+%%   size = gsize . fromGen
+%% \end{code}
+%% \end{myhs}
+%% 
+%%   The |default| keyword instructs Haskell to use the provided
+%% implementation whenever none is provided and the constraint |(GenericGen a , GSize (RepGen a))| 
+%% can be satisfied when declaring an instance for |Size a|. 
 
   One interesting aspect we should note here is the clearly
 \emph{shallow} encoding that |from| provides. That is, we only
@@ -415,10 +417,11 @@ whichever constructors make up the value. This is a direct consequence
 of not having access to the \emph{sum-of-products} structure that
 Haskell's |data| declarations follow.  A second issue is that the
 generic representation does not carry any information about the
-recursive structure of the type.  Instead, we are relying on the
-instance search mechanism to figure out that the recursive arguments
-can be consumed with the |default size| function. The
-\texttt{regular}~\cite{Noort2008} library addresses this issue by
+recursive structure of the type. 
+%% Instead, we are relying on the
+%% instance search mechanism to figure out that the recursive arguments
+%% can be consumed with the |default size| function. 
+The \texttt{regular}~\cite{Noort2008} library addresses this issue by
 having a specific \emph{pattern functor} for recursive positions.
 
   Perhaps even more subtle, but also more worrying, is that we have no
@@ -831,7 +834,7 @@ crush k cat = crushFix . deepFrom
     go (NA_K i) = k i
 \end{code}
 \end{myhs}
-\caption{Generic |crush| combinator}
+\mycaption{Generic |crush| combinator}
 \label{fig:crush}
 \end{figure}
 
@@ -1227,7 +1230,7 @@ class Family (kappa :: kon -> Star) (fam :: [Star]) (codes :: [[[Atom kon]]]) wh
   toMRec    :: SNat ix  -> RepMRec kappa (El fam) (Lkup codes ix) -> El fam ix
 \end{code}
 \end{myhs}
-\caption{|Family| type class with support for different opaque types}
+\mycaption{|Family| type class with support for different opaque types}
 \label{fig:int}
 \end{figure*}
 
@@ -1290,9 +1293,9 @@ or opaque type inside the representation and a way of combining these results.
 
 \begin{myhs}
 \begin{code}
-elimRep  ::  (forall k   dot kappa  k   -> a)
-         ->  (forall ix  dot phi    ix  -> a)
-         ->  ([a] -> b)
+elimRep  ::  (forall k   dot kappa  k   -> a) 
+         ->  (forall ix  dot phi    ix  -> a) 
+         ->  ([a] -> b) 
          ->  RepMRec kappa phi c -> b
 elimRep f_K f_I cat (C x_1 dots x_n) ^= cat [ fSq x_1 , dots , fSq x_n ]
 \end{code}
@@ -1357,19 +1360,21 @@ pretty-printing~\cite{Magalhaes2010}.
 
 \subsection{Equality}
 
-\begin{figure*}
+\begin{figure}
 \begin{myhs}
 \begin{code}
-geq  ::  (Family kappa fam codes) =>  (forall k dot kappa k -> kappa k -> Bool) ->  El fam ix -> El fam ix -> Bool
+geq  ::  (Family kappa fam codes) 
+     =>  (forall k dot kappa k -> kappa k -> Bool) 
+     ->  El fam ix -> El fam ix -> Bool
 geq eq_K x y = go (deepFrom x) (deepFrom y)
-  where
-    go :: Fix codes ix -> Fix codes ix -> Bool
-    go (Fix x) (Fix y)  = maybe False (elimRep (uncurry eq_K) (uncurry go) and) $ zipRep x y  
+  where go (Fix x) (Fix y) 
+      =  maybe False (elimRep (uncurry eq_K) (uncurry go) and) 
+      $  zipRep x y  
 \end{code} %$
 \end{myhs}
-\caption{Generic equality}
+\mycaption{Generic equality}
 \label{fig:genericeq}
-\end{figure*}
+\end{figure}
 
   As usually done on generic programming papers,
 we should define generic equality in our own framework. 
@@ -1407,10 +1412,6 @@ $\lambda$-calculus and their generic pattern synonyms:
 data LambdaTerm  =  Var  String
                  |  Abs  String      LambdaTerm
                  |  App  LambdaTerm  LambdaTerm
-
-pattern (Pat Var) x    = Tag           CZ    (NA_K x :* NP0)
-pattern (Pat Abs) x t  = Tag      (CS  CZ))  (NA_K x :* NA_I t :* NP0)
-pattern (Pat App) t u  = Tag (CS  (CS  CZ))  (NA_I t :* NA_I u :* NP0) 
 \end{code}
 \end{myhs}
 
@@ -1440,16 +1441,6 @@ class Monad m => MonadAlphaEq m where
 \end{code}
 \end{myhs}
 
-  Running a |scoped f| computation will push a new scope for running |f|
-and pop it after |f| is done. The |addRule v_1 v_2| function registers an equivalence
-of |v_1| and |v_2| in the top of the scope stack. Finally, |v_1 =~= v_2| is defined
-by pattern matching on the scope stack. If the stack is empty, then |(=~=) v_1 v_2 = (v_1 == v_2)|.
-Otherwise, let the stack be |s:ss|. We first traverse |s| gathering the rules
-referencing either |v_1| or |v_2|. If there are none, we check if |v_1 =~= v_2| under |ss|.
-If there are rules referencing either variable name in the topmost stack, we must
-ensure there is only one such rule, and it states a name equivalence between |v_1| and |v_2|.
-The implementation of these functions for |MonadAlphaEq (State [[ (String , String) ]])| is available as part of our library.
-
 \begin{figure}
 %format TermP  = "\HT{Term\_}"
 %format VarP   = "\HT{Var\_}"
@@ -1474,45 +1465,25 @@ alphaEq x y =  flip runState [[]]
       _                        -> step x
 \end{code}
 \end{myhs}
-\caption{$\alpha$-equivalence for a $\lambda$-calculus}
+\mycaption{$\alpha$-equivalence for a $\lambda$-calculus}
 \label{fig:alphalambda}
 \end{figure}
+
+  Running a |scoped f| computation will push a new scope for running |f|
+and pop it after |f| is done. The |addRule v_1 v_2| function registers an equivalence
+of |v_1| and |v_2| in the top of the scope stack. Finally, |v_1 =~= v_2| is defined
+by pattern matching on the scope stack. If the stack is empty, then |(=~=) v_1 v_2 = (v_1 == v_2)|.
+Otherwise, let the stack be |s:ss|. We first traverse |s| gathering the rules
+referencing either |v_1| or |v_2|. If there are none, we check if |v_1 =~= v_2| under |ss|.
+If there are rules referencing either variable name in the topmost stack, we must
+ensure there is only one such rule, and it states a name equivalence between |v_1| and |v_2|.
+The implementation of these functions for |MonadAlphaEq (State [[ (String , String) ]])| is available as part of our library.
 
   Returning to our main focus and leaving book-keeping functionality
 aside, we define in \Cref{fig:alphalambda} our alpha equivalence decision procedure by encoding what to do
 for |Var| and |Abs| constructors. The |App| can be eliminated generically.
 
-  There is a number of remarks to be made for this example. First,
-note the application of |zipRep|. If two |LambdaTerm|s are made with different
-constructors, |galphaEq| will already return |False| because |zipRep| will fail.
-When |zipRep| succeeds though, we get access to one constructor with
-paired fields inside. The |go| is then responsible for performing
-the necessary semantic actions for the |Var| and |Abs|
-constructors and applying a general eliminator for anything else.
-In the actual library, the \emph{pattern synonyms} |(Pat LambdaTerm)|, |(Pat Var)|,
- and |(Pat Abs)| are automatically 
-generated as we will see in \Cref{sec:templatehaskell}.
-
-  One might be inclined to believe that the generic programming here
-is more cumbersome than a straightforward pattern matching definition
-over |LambdaTerm|. If we consider a more intricate language,
-however, manual pattern matching becomes almost intractable
-very fast.
-
-Take the toy imperative language defined in \Cref{fig:alphatoy}.
-$\alpha$-equivalence for this language can be defined with just a 
-couple of changes to the definition for |LambdaTerm|.
-For one thing, |alhaEq|, |step| and |galphaEq| remain the same.  We just need to
-adapt the |go| function. Here writing
-$\alpha$-equivalence by pattern matching is not straightforward anymore.
-Moreover, if we decide to change this language and
-add more statements or more expressions, the changes to the |go|
-function are minimal, none if we do not introduce any additional construct
-which declares or uses variables. As long as we do not touch the
-constructors that |go| patterns matches on, we can even use the very same
-function.
-
-\begin{figure*}
+\begin{figure*}[t]
 \begin{minipage}[t]{.35\textwidth}
 \begin{myhs}
 \begin{code}
@@ -1553,166 +1524,39 @@ go _      x = step x
 \end{code}
 \end{myhs}
 \end{minipage}
-\caption{$\alpha$-quivalence for a toy imperative language}
+\mycaption{$\alpha$-quivalence for a toy imperative language}
 \label{fig:alphatoy}
 \end{figure*}
 
-\subsection{The Generic Zipper}
+  There is a number of remarks to be made for this example. First,
+note the application of |zipRep|. If two |LambdaTerm|s are made with different
+constructors, |galphaEq| will already return |False| because |zipRep| will fail.
+When |zipRep| succeeds though, we get access to one constructor with
+paired fields inside. The |go| is then responsible for performing
+the necessary semantic actions for the |Var| and |Abs|
+constructors and applying a general eliminator for anything else.
+In the actual library, the \emph{pattern synonyms} |(Pat LambdaTerm)|, |(Pat Var)|,
+ and |(Pat Abs)| are automatically 
+generated as we will see in \Cref{sec:templatehaskell}.
 
-  To conclude our examples section we will conduct a validation
-exercise involving a more complex application of generic
-programming. Zippers~\cite{Huet1997} are a well established technique
-for traversing a recursive data structure keeping track of the current
-\emph{focus point}. Defining generic zippers is nothing new, this has
-been done by many authors~\cite{Hinze2004,Adams2010,Yakushev2009} for
-many different classes of types in the past. To the best of the
-authors knowledge, this is the first definition in a direct
-\emph{sums-of-products} style.  We will not be explaining what
-\emph{are} zippers in detail, instead, we will give a quick reminder
-and show how zippers fit within our framework.
+  One might be inclined to believe that the generic programming here
+is more cumbersome than a straightforward pattern matching definition
+over |LambdaTerm|. If we consider a more intricate language,
+however, manual pattern matching becomes almost intractable
+very fast.
 
-  Generally speaking, the zipper keeps track of a focus point in a
-data structure and allows for the user to conveniently move this focus
-point and to apply functions to whatever is under focus.  This focus
-point is expressed by the means of a location type, |Loc|, with a
-couple associated functions:
-
-\begin{myhs}
-\begin{code}
-up      :: Loc a -> Maybe (Loc a)
-down    :: Loc a -> Maybe (Loc a)
-right   :: Loc a -> Maybe (Loc a)
-update  :: (a -> a) -> Loc a -> Loc a
-\end{code}
-\end{myhs}
-
-  Where |a| and |Loc a| are isomorphic, and can be converted by the
-means of |enter| and |leave| functions. For instance, the composition
-of |down|, |down|, |right| , |update f| will essentially move the
-focus two layers down from the root, then one element to the right and
-apply function |f| to the focused element, as shown below.
-
-\begin{center}
-\begin{tabular}{m{.2\linewidth} m{.15\linewidth} m{.2\linewidth}}
-\begin{forest}
-  [|a|,draw [|b| [|c_1|] [|c_2|] [|c_3|]] [|d|]]
-\end{forest}
-  & { \qquad \centering $\Rightarrow$ } &
-\begin{forest}
-  [|a| [|b| [|c_1|] [|f c_2|,draw] [|c_3|]] [|d|]]
-\end{forest}
-\end{tabular}
-\end{center}
-
-  In our case, this location type consists of a distinguished element
-of the family |El fam ix| and a stack of contexts with a hole of type |ix|, where
-we can plug in the distinguished element. This stack of contexts may build
-a value whose type is a different member of the family; we recall its index
-as |iy|. 
-
-For the sake of conciseness we present the datatypes for a fixed interpretation
-of opaque types |ki :: kon -> Star|, a family |fam ::
-[Star]| and its associated codes |codes :: [[[Atom kon]]]|.
-In the actual implementation all those elements appear as additional
-parameters to |Loc| and |Ctxs|.
-
-\begin{myhs}
-\begin{code}
-data Loc :: Nat -> Star where
-  Loc :: El fam iy -> Ctxs ix iy -> Loc ix
-\end{code}
-\end{myhs}
-
-  The second field of |Loc|, the stack of contexts,
-represents how deep into the recursive
-tree we have descended so far. Each time we unwrap another layer of recursion,
-we push some context onto the stack to be able to go back up. Note how
-the |Cons| constructor resembles some sort of composition operation.
-
-\begin{myhs}
-\begin{code}
-data Ctxs :: Nat -> Nat -> Star where
-  Nil   :: Ctxs ix ix
-  Cons  :: Ctx (Lkup codes iz) iy -> Ctxs ix iz -> Ctxs ix iy
-\end{code}
-\end{myhs}
-
-  Each element in this stack is an individual context, |Ctx c iy|.
-A context is defined by a choice of a constructor
-for the code |c|, paired a product of the correct type where one 
-of the elements is a hole. This hole represents where the distinguished element
-in |Loc| was supposed to be. 
-
-\begin{myhs}
-\begin{code}
-data Ctx :: [[Atom kon]] -> Nat -> Star where
-  Ctx :: Constr n c -> NPHole (Lkup n c) iy -> Ctx c iy
-
-data NPHole :: [Atom kon] -> Nat -> Star where
-  Here   :: NP (NA ki (El fam)) xs            -> NPHole (I ix  : xs)  ix
-  There  :: NA ki (El fam) x -> NPHole xs ix  -> NPHole (x     : xs)  ix
-\end{code}
-\end{myhs}
-
-  The navigation functions are a direct translation of those defined 
-for the \texttt{multirec}~\cite{Yakushev2009} library, that use the
-|first|, |fill|, and |next| primitives for working over |Ctx|s.
-The |fill| function can be taken over almost unchanged, whereas |first| and |next| require
-a simple trick: we have to wrap the |Nat| parameter of |NPHole| in an
-existential in order to manipulate it conveniently. The |ix| is packed up in an existential
-type since we do not really know beforehand which member of the mutually
-recursive family is seen first in an arbitrary product.
-
-\begin{myhs}
-\begin{code}
-data NPHoleE :: [Atom kon] -> Star where
-  Witness :: El fam ix -> NPHole c ix -> NPHoleE c
-\end{code}
-\end{myhs}
-
-  Now we can define the |firstE| and |nextE|, the counterparts of
-|first| and |next| from \texttt{multirec}. Intuitively,
-|firstE| returns the |NPHole| with the 
-first recursive position (if any) selected, |nextE| tries to find the
-next recursive position in an |NPHole|. These functions have the following types:
-
-\begin{myhs}
-\begin{code}
-firstE  :: NP (NA ki (El fam)) xs  -> Maybe (NPHoleE xs)
-nextE   :: NPHoleE xs              -> Maybe (NPHoleE xs)
-\end{code}
-\end{myhs}
-
-  To conclude we can now use flipped compositions for pure functions 
-|(>>>) :: (a -> b) -> (b -> c) -> a -> c| and monadic functions
-|(>=>) :: (Monad m) => (a -> m b) -> (b -> m c) -> a -> m c| to elegantly
-write some \emph{location based} instruction to transform some value
-of the type |LambdaTerm| defined in \Cref{sec:alphaequivalence}.
-Here |enter| and |leave| witness the isomorphism between |El fam ix|
-and |Loc ix|.
-
-\begin{myhs}
-\begin{code}
-tr :: LambdaTerm -> Maybe LambdaTerm
-tr = enter  >>>  down 
-            >=>  right 
-            >=>  update (const $ Var "c") 
-            >>>  leave 
-            >>>  return
-
-
-tr (App (Var "a") (Var "b")) 
-  == Just (App (Var "a") (Var "c"))
-\end{code}
-\end{myhs}
-
-  We invite the reader to check the source code for a more detailed
-account of the generic zipper.
-In fact, we were able to provide the same zipper interface 
-as the \texttt{multirec} library. Our implementation is shorter, however.
-This is because we do not need type classes to implement |firstE| and |nextE|.
-
-\
+Take the toy imperative language defined in \Cref{fig:alphatoy}.
+$\alpha$-equivalence for this language can be defined with just a 
+couple of changes to the definition for |LambdaTerm|.
+For one thing, |alhaEq|, |step| and |galphaEq| remain the same.  We just need to
+adapt the |go| function. Here writing
+$\alpha$-equivalence by pattern matching is not straightforward anymore.
+Moreover, if we decide to change this language and
+add more statements or more expressions, the changes to the |go|
+function are minimal, none if we do not introduce any additional construct
+which declares or uses variables. As long as we do not touch the
+constructors that |go| patterns matches on, we can even use the very same
+function.
 
   In this section we have shown several recurring examples from the
 generic programming community. \texttt{\nameofourlibrary} gives

@@ -1,5 +1,160 @@
 \appendix
 
+\section{The Generic Zipper}
+\label{sec:zipper}
+
+  To conclude our examples section we will conduct a validation
+exercise involving a more complex application of generic
+programming. Zippers~\cite{Huet1997} are a well established technique
+for traversing a recursive data structure keeping track of the current
+\emph{focus point}. Defining generic zippers is nothing new, this has
+been done by many authors~\cite{Hinze2004,Adams2010,Yakushev2009} for
+many different classes of types in the past. To the best of the
+authors knowledge, this is the first definition in a direct
+\emph{sums-of-products} style.  We will not be explaining what
+\emph{are} zippers in detail, instead, we will give a quick reminder
+and show how zippers fit within our framework.
+
+  Generally speaking, the zipper keeps track of a focus point in a
+data structure and allows for the user to conveniently move this focus
+point and to apply functions to whatever is under focus.  This focus
+point is expressed by the means of a location type, |Loc|, with a
+couple associated functions:
+
+\begin{myhs}
+\begin{code}
+up , dowm , right  :: Loc a -> Maybe (Loc a)
+update             :: (a -> a) -> Loc a -> Loc a
+\end{code}
+\end{myhs}
+
+  Where |a| and |Loc a| are isomorphic, and can be converted by the
+means of |enter| and |leave| functions. For instance, the composition
+of |down|, |down|, |right| , |update f| will essentially move the
+focus two layers down from the root, then one element to the right and
+apply function |f| to the focused element, as shown below.
+
+\begin{center}
+\begin{tabular}{m{.2\linewidth} m{.15\linewidth} m{.2\linewidth}}
+\begin{forest}
+  [|a|,draw [|b| [|c_1|] [|c_2|] [|c_3|]] [|d|]]
+\end{forest}
+  & { \qquad \centering $\Rightarrow$ } &
+\begin{forest}
+  [|a| [|b| [|c_1|] [|f c_2|,draw] [|c_3|]] [|d|]]
+\end{forest}
+\end{tabular}
+\end{center}
+
+  In our case, this location type consists of a distinguished element
+of the family |El fam ix| and a stack of contexts with a hole of type |ix|, where
+we can plug in the distinguished element. This stack of contexts may build
+a value whose type is a different member of the family; we recall its index
+as |iy|. 
+
+For the sake of conciseness we present the datatypes for a fixed interpretation
+of opaque types |ki :: kon -> Star|, a family |fam ::
+[Star]| and its associated codes |codes :: [[[Atom kon]]]|.
+In the actual implementation all those elements appear as additional
+parameters to |Loc| and |Ctxs|.
+
+\begin{myhs}
+\begin{code}
+data Loc :: Nat -> Star where
+  Loc :: El fam iy -> Ctxs ix iy -> Loc ix
+\end{code}
+\end{myhs}
+
+  The second field of |Loc|, the stack of contexts,
+represents how deep into the recursive
+tree we have descended so far. Each time we unwrap another layer of recursion,
+we push some context onto the stack to be able to go back up. Note how
+the |Cons| constructor resembles some sort of composition operation.
+
+\begin{myhs}
+\begin{code}
+data Ctxs :: Nat -> Nat -> Star where
+  Nil   :: Ctxs ix ix
+  Cons  :: Ctx (Lkup codes iz) iy -> Ctxs ix iz -> Ctxs ix iy
+\end{code}
+\end{myhs}
+
+  Each element in this stack is an individual context, |Ctx c iy|.
+A context is defined by a choice of a constructor
+for the code |c|, paired a product of the correct type where one 
+of the elements is a hole. This hole represents where the distinguished element
+in |Loc| was supposed to be. 
+
+\begin{myhs}
+\begin{code}
+data Ctx :: [[Atom kon]] -> Nat -> Star where
+  Ctx :: Constr n c -> NPHole (Lkup n c) iy -> Ctx c iy
+
+data NPHole :: [Atom kon] -> Nat -> Star where
+  Here   :: NP (NA ki (El fam)) xs            -> NPHole (I ix  : xs)  ix
+  There  :: NA ki (El fam) x -> NPHole xs ix  -> NPHole (x     : xs)  ix
+\end{code}
+\end{myhs}
+
+  The navigation functions are a direct translation of those defined 
+for the \texttt{multirec}~\cite{Yakushev2009} library, that use the
+|first|, |fill|, and |next| primitives for working over |Ctx|s.
+The |fill| function can be taken over almost unchanged, whereas |first| and |next| require
+a simple trick: we have to wrap the |Nat| parameter of |NPHole| in an
+existential in order to manipulate it conveniently. The |ix| is packed up in an existential
+type since we do not really know beforehand which member of the mutually
+recursive family is seen first in an arbitrary product.
+
+\begin{myhs}
+\begin{code}
+data NPHoleE :: [Atom kon] -> Star where
+  Witness :: El fam ix -> NPHole c ix -> NPHoleE c
+\end{code}
+\end{myhs}
+
+  Now we can define the |firstE| and |nextE|, the counterparts of
+|first| and |next| from \texttt{multirec}. Intuitively,
+|firstE| returns the |NPHole| with the 
+first recursive position (if any) selected, |nextE| tries to find the
+next recursive position in an |NPHole|. These functions have the following types:
+
+\begin{myhs}
+\begin{code}
+firstE  :: NP (NA ki (El fam)) xs  -> Maybe (NPHoleE xs)
+nextE   :: NPHoleE xs              -> Maybe (NPHoleE xs)
+\end{code}
+\end{myhs}
+
+  To conclude we can now use flipped compositions for pure functions 
+|(>>>) :: (a -> b) -> (b -> c) -> a -> c| and monadic functions
+|(>=>) :: (Monad m) => (a -> m b) -> (b -> m c) -> a -> m c| to elegantly
+write some \emph{location based} instruction to transform some value
+of the type |LambdaTerm| defined in \Cref{sec:alphaequivalence}.
+Here |enter| and |leave| witness the isomorphism between |El fam ix|
+and |Loc ix|.
+
+\begin{myhs}
+\begin{code}
+tr :: LambdaTerm -> Maybe LambdaTerm
+tr = enter  >>>  down 
+            >=>  right 
+            >=>  update (const $ Var "c") 
+            >>>  leave 
+            >>>  return
+
+
+tr (App (Var "a") (Var "b")) 
+  == Just (App (Var "a") (Var "c"))
+\end{code} %$
+\end{myhs}
+
+  We invite the reader to check the source code for a more detailed
+account of the generic zipper.
+In fact, we were able to provide the same zipper interface 
+as the \texttt{multirec} library. Our implementation is shorter, however.
+This is because we do not need type classes to implement |firstE| and |nextE|.
+
+
 \section{Template Haskell}
 \label{sec:templatehaskell}
 
