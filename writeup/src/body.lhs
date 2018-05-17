@@ -309,26 +309,21 @@ solely to disambiguate names that appear in many libraries. Hence,
 
   Defining a generic function is done in two
 steps. First, we define a class that exposes the function
-for arbitrary types, in our case, |size|.
+for arbitrary types, in our case, |size|, which we implement
+for any type via |gsize|:
 
 \begin{myhs}
 \begin{code}
 class Size (a :: Star) where
   size :: a -> Int
-\end{code}
-\end{myhs}
 
-  We provide an instance for |Bin a|:
-
-\begin{myhs}
-\begin{code}
 instance (Size a) => Size (Bin a) where
   size = gsize . fromGen
 \end{code}
 \end{myhs}
 
-  The |gsize| function, that operates on the representation of
-datatypes, is the second piece we need to define. We use another class
+  The |gsize| function operates at the level of the representation of
+datatypes. We use another class
 and the instance mechanism to encode a definition by induction on
 representations. Here, they are \emph{pattern functors}. 
 
@@ -371,7 +366,7 @@ $\begin{array}{l}
 \label{fig:sizederiv}
 \end{figure}
 
-  To finish the description of the generic |size| for any datatype,
+  To finish the description of the generic |size|,
 we also need instances for the
 \emph{unit}, \emph{void} and \emph{metadata} pattern functors,
 called |U1|, |V1|, and |M1| respectively. Their |GSize| is
@@ -438,8 +433,8 @@ generic combinators. Every generic function has to follow the
 \subsection{Explicit Sums of Products}
 \label{sec:explicitsop}
 
-  We will now examine the approach used by the \texttt{generics-sop}~\cite{deVries2014}
-library. The main difference is in the introduction of \emph{Codes},
+  We will now examine the approach used by \citet{deVries2014}.
+  The main difference is in the introduction of \emph{Codes},
 that limit the structure of representations.
 
   Had we had access to a representation of the \emph{sum-of-products}
@@ -511,7 +506,7 @@ from \texttt{GHC.Generics}.
 
   It makes no sense to go through all the trouble of adding the
 explicit \emph{sums-of-products} structure to forget this
-information in the representation, however. Indeed, instead of
+information in the representation. Instead of
 piggybacking on \emph{pattern functors}, we define |NS| and |NP| from
 scratch using \emph{GADTs}~\cite{Xi2003}.
 By pattern matching on the values of |NS| and |NP| we
@@ -591,7 +586,7 @@ also be translated to a generic representation. We can relieve this
 burden by recording, explicitly, which fields of a constructor are
 recursive or not.
 
-\section{Explicit Fix: Deriving Deep and Shallow Representations}
+\section{Explicit Fix: Diving Deep and Shallow}
 \label{sec:explicitfix}
 
   In this section we will start to look at our approach, essentially
@@ -641,8 +636,7 @@ the end of \Cref{sec:explicitsop}.  We can benefit the most from this
 in the simplicity of combinators we are able to write.
 
   Wrapping our |toFix| and |fromFix| isomorphism into a type class and writing the
-instance that witnesses that |Bin Int| has a |CodeFix| and is isomorphic
-to its representation is straightforward:
+instance that witnesses that |Bin Int| has a |CodeFix| is straightforward:
 
 \begin{myhs}
 \begin{code}
@@ -697,7 +691,10 @@ we will come back it in more details in \Cref{sec:family}.
 data View :: [[ Atom ]] -> Star -> Star where
   Tag  ::  Constr n sop -> NP (NA x) (Lkup sop n)
        ->  View sop x
-
+\end{code}
+\end{myhs}
+\begin{myhs}
+\begin{code}
 data Constr :: Nat -> [k] -> Star where
   CZ  ::              -> Constr Z      (x : xs)
   CS  :: Constr n xs  -> Constr (S n)  (x : xs)
@@ -937,7 +934,7 @@ data NA :: (Nat -> Star) -> Atom -> Star where
   NA_K  :: Int    -> NA phi KInt
 \end{code}
 \end{myhs}
-The additional |phi| naturally bubbles up to the representation of codes.
+This additional |phi| naturally bubbles up to |RepMRec|.
 \begin{myhs}
 \begin{code}
 type  RepMRec (phi :: Nat -> Star) (c :: [[Atom]])
@@ -947,16 +944,8 @@ type  RepMRec (phi :: Nat -> Star) (c :: [[Atom]])
 The only piece missing here is tying the recursive loop. If we want our
 representation to describe a family of datatypes, the obvious choice
 for |phi n| is to look the type at index |n| in |FamRose|. In fact,
-we are simply performing a type level lookup in the family in question.
-Recall the definition of |Lkup| from \Cref{sec:explicitfix}: 
-\begin{myhs}
-\begin{code}
-type family Lkup (ls :: [k]) (n :: Nat) :: k where
-  Lkup (P [])    _          = TypeError "Index out of bounds"
-  Lkup (x : xs)  (P Z)      = x
-  Lkup (x : xs)  ((P S) n)  = Lkup xs n
-\end{code}
-\end{myhs}
+we are simply performing a type level lookup in the family in question,
+so we can reuse the |Lkup| from \Cref{sec:explicitfix}: 
 
 In principle, this is enough to provide a ground representation for the family
 of types. Let |fam| be a family of types, like
@@ -1053,7 +1042,7 @@ fromMRec  :   (ix : Nat)
           ->  El fam ix -> RepMRec (El fam) (Lkup codes ix)
 \end{code}
 \end{myhs}
-Alas, Haskell is not dependently-typed. The usual trick is to introduce a
+Alas, Haskell is not dependently-typed. The trick is to introduce a
 \emph{singleton type} which reifies a type into its term-level representation.
 In the case of |Nat|, this type is |SNat|,
 \begin{myhs}
@@ -1179,8 +1168,8 @@ bother ourselves with possibly ill-formed representations and pattern matches
 which should never be reached?
 \end{enumerate}
 
-Our solution is to \emph{parametrize} the |Atom| type, allowing programmers to choose
-which opaque types they want to deal with:
+Our solution is to \emph{parametrize} |Atom|, 
+giving programmers the choice of opaque types:
 \begin{myhs}
 \begin{code}
 data Atom kon = I Nat | K kon
@@ -1273,7 +1262,7 @@ bimapNA f_K f_I  (NA_I  i)  = NA_I  (f_I  i)
 bimapNA f_K f_I  (NA_K  k)  = NA_K  (f_K  k)
 \end{code}
 \end{myhs}
-and this is how we write the function following this convention:
+which following this convention becomes:
 \begin{myhs}
 \begin{code}
 bimapNA f_K f_I x ^= fSq x
@@ -1459,9 +1448,7 @@ Otherwise, let the stack be |s:ss|. We first traverse |s| gathering the rules
 referencing either |v_1| or |v_2|. If there are none, we check if |v_1 =~= v_2| under |ss|.
 If there are rules referencing either variable name in the topmost stack, we must
 ensure there is only one such rule, and it states a name equivalence between |v_1| and |v_2|.
-We will not show the implementation of these functions as these can be checked in 
-the \texttt{Examples} directory of \texttt{\nameofourlibrary}. We implemented
-them for the |MonadAlphaEq (State [[ (String , String) ]])| instance. 
+The implementation of these functions for |MonadAlphaEq (State [[ (String , String) ]])| is available as part of our library.
 
 \begin{figure}
 %format TermP  = "\HT{Term\_}"
@@ -1603,23 +1590,19 @@ update  :: (a -> a) -> Loc a -> Loc a
 means of |enter| and |leave| functions. For instance, the composition
 of |down|, |down|, |right| , |update f| will essentially move the
 focus two layers down from the root, then one element to the right and
-apply function |f| to the focused element, as shown in \Cref{fig:zipperpic}.
+apply function |f| to the focused element, as shown below.
 
-\begin{figure}
 \begin{center}
-\begin{tabular}{m{.2\linewidth} m{.06\linewidth} m{.2\linewidth}}
+\begin{tabular}{m{.2\linewidth} m{.15\linewidth} m{.2\linewidth}}
 \begin{forest}
   [|a|,draw [|b| [|c_1|] [|c_2|] [|c_3|]] [|d|]]
 \end{forest}
-  & { \centering $\Rightarrow$ } &
+  & { \qquad \centering $\Rightarrow$ } &
 \begin{forest}
   [|a| [|b| [|c_1|] [|f c_2|,draw] [|c_3|]] [|d|]]
 \end{forest}
 \end{tabular}
 \end{center}
-\caption{Graphical representation of |down| , |down| , |right| and |update f|}
-\label{fig:zipperpic}
-\end{figure}
 
   In our case, this location type consists of a distinguished element
 of the family |El fam ix| and a stack of contexts with a hole of type |ix|, where
