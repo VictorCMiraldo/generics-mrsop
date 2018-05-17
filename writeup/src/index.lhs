@@ -1,4 +1,4 @@
-\documentclass[acmsmall,10pt,review,anonymous]{acmart}%
+\documentclass[sigplan,review,anonymous]{acmart}%
 \settopmatter{printfolios=true,printccs=false,printacmref=false}
 
 %%%%%%%%%%%%%%

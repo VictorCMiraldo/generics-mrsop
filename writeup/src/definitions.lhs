@@ -123,14 +123,14 @@
 %format fmap     = "\HV{\textit{fmap}}"
 %format fold     = "\HV{\textit{fold}}"
 
-%format :>: = "\HT{\triangleright}"
-%format :*  = "\HT{\times}"
-%format :*: = "\HT{:\!*\!:}"
-%format :+: = "\HT{:\!+\!:}"
-%format :@: = "\HT{:\!@\!:}"
-%format <$$> = "\HS{<\!\!\$\!\!>}"
-%format $$  = "\HS{\$}"
-%format <*> = "\HS{<\!\!*\!\!>}"
+%format :>: = "\mathrel{\HT{\triangleright}}"
+%format :*  = "\mathrel{\HT{\times}}"
+%format :*: = "\mathrel{\HT{:\!*\!:}}"
+%format :+: = "\mathrel{\HT{:\!+\!:}}"
+%format :@: = "\mathrel{\HT{:\!@\!:}}"
+%format <$$> = "\mathrel{\HS{<\!\!\$\!\!>}}"
+%format $$  = "\mathrel{\HS{\$}}"
+%format <*> = "\mathrel{\HS{<\!\!*\!\!>}}"
 
 %format <-> = "\HS{\leftrightarrow}"
 

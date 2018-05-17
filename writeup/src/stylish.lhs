@@ -36,8 +36,8 @@
 \newcommand{\HSString}[1]{\mathcolor{hsred2}{#1}}
 \newcommand{\HSSpecial}[1]{\mathcolor{hsblue4}{#1}}
 \newcommand{\HSSym}[1]{\mathcolor{hsblue4}{#1}}
-\newcommand{\HSCon}[1]{\mathcolor{hsblue3}{#1}}
-\newcommand{\HSVar}[1]{\mathcolor{hsblue5}{#1}}
+\newcommand{\HSCon}[1]{\mathcolor{hsblue3}{\mathit{#1}}}
+\newcommand{\HSVar}[1]{\mathcolor{hsblue5}{\mathit{#1}}}
 \newcommand{\HSComment}[1]{\mathcolor{hsgold2}{\textit{#1}}}
 
 %subst keyword a = "\HSKeyword{" a "}"
