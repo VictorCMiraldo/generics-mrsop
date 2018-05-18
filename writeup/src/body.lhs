@@ -75,9 +75,10 @@ functions, such as the generic |map| and |Zipper|, for instance.
 Oftentimes though, one actually needs more than just one recursive
 type, justifying the need to \texttt{multirec}~\cite{Yakushev2009}.
 
-These libraries are too permissive though, for instance, |U1 :*: Maybe|
+These libraries are too permissive though, for instance, |K1 R Int :*: Maybe|
 is a perfectly valid \texttt{GHC.Generics} \emph{pattern functor} but
-will break generic functions.  The way to fix this is to ensure that the
+will break generic functions, i.e., |Maybe| is not a supported combinator. 
+The way to fix this is to ensure that the
 \emph{pattern functors} abide by a certain format, by defining them
 by induction on some \emph{code}, that can be
 inspected and matched on. This is the approach of
@@ -225,9 +226,10 @@ data Stmt  = Assign Var Expr | Let Var Expr
 
 Another example is found in HTML and XML documents. 
 They are better described by a Rose tree, 
-which can be described by this family of datatypes\footnote{%
-It can actually be proved that |Rose a| is isomorphic to a regular
-datatype.}:
+which can be described by this family of datatypes:
+%% \footnote{%
+%% It can actually be proved that |Rose a| is isomorphic to a regular
+%% datatype.}:
 \begin{myhs}
 \begin{code}
 data Rose  a  =  Fork a [Rose a]
@@ -488,7 +490,7 @@ type instance  CodeSOP (Bin a) = P ([ P [a] , P ([Bin a , Bin a]) ])
   The \emph{representation} is then defined by induction on
 |CodeSOP| by the means of generalized $n$-ary sums, |NS|, and $n$-ary products,
 |NP|. With a slight abuse of notation, one can view |NS| and |NP|
-through the lens of the following isomorphisms:
+through the lens of the following type isomorphisms:
 \begin{align*}
   | NS f [k_1 , k_2 , dots]| &\equiv |f k_1 :+: (f k_2 :+: dots)| \\
   | NP f [k_1 , k_2 , dots]| &\equiv |f k_1 :*: (f k_2 :*: dots)| 
@@ -522,8 +524,8 @@ data NS :: (k -> Star) -> [k] -> Star where
   There  :: NS f ks  -> NS f (k (P (:)) ks)
 
 data NP :: (k -> Star) -> [k] -> Star where
-  NP0  ::                    NP f (P [])
-  :*   :: f x -> NP f xs ->  NP f (x (P (:)) xs)
+  NP0   ::                    NP f (P [])
+  (:*)  :: f x -> NP f xs ->  NP f (x (P (:)) xs)
 \end{code}
 \end{myhs}
 
@@ -542,6 +544,8 @@ newtype I (a :: Star) = I { unI :: a }
   To support the claim that one can define general combinators for
 working with these representations, let us look at |elim| and |map|,
 used to implement the |gsize| function in the beginning of the section.
+The |elim| function just drops the constructor index and applies |f|,
+whereas the |map| applies |f| to all elements of a product.
 
 \begin{myhs}
 \begin{code}
@@ -578,16 +582,18 @@ gsize  =  sum
 \end{code}
 \end{myhs}
 
-  The |All2 Size (CodeSOP a)| constraint tells the compiler that
-all of the types serving as atoms for |CodeSOP a| are an instance of |Size|.
-In our case, |All2 Size (CodeSOP (Bin a))| expands to |(Size a , Size (Bin a))|.
-The |Size| constraint also has to be passed around with a |Proxy| for
-the eliminator of the $n$-ary sum. This is a direct consequence of a
-\emph{shallow} encoding: since we only unfold one layer of recursion
-at a time, we have to carry proofs that the recursive arguments can
-also be translated to a generic representation. We can relieve this
-burden by recording, explicitly, which fields of a constructor are
-recursive or not.
+  Where |hcollapse| and |hcmap| are analogous to the |elim| and |map|
+combinators we defined above. The |All2 Size (CodeSOP a)| constraint
+tells the compiler that all of the types serving as atoms for |CodeSOP
+a| are an instance of |Size|.  In our case, |All2 Size (CodeSOP (Bin
+a))| expands to |(Size a , Size (Bin a))|.  The |Size| constraint also
+has to be passed around with a |Proxy| for the eliminator of the
+$n$-ary sum. This is a direct consequence of a \emph{shallow}
+encoding: since we only unfold one layer of recursion at a time, we
+have to carry proofs that the recursive arguments can also be
+translated to a generic representation. We can relieve this burden by
+recording, explicitly, which fields of a constructor are recursive or
+not.
 
 \section{Explicit Fix: Diving Deep and Shallow}
 \label{sec:explicitfix}
@@ -639,7 +645,8 @@ the end of \Cref{sec:explicitsop}.  We can benefit the most from this
 in the simplicity of combinators we are able to write.
 
   Wrapping our |toFix| and |fromFix| isomorphism into a type class and writing the
-instance that witnesses that |Bin Int| has a |CodeFix| is straightforward:
+instance that witnesses that |Bin Int| has a |CodeFix| is straightforward. We ommit
+the |toFix| function as it is the opposite of |fromFix|:
 
 \begin{myhs}
 \begin{code}
@@ -691,9 +698,11 @@ we will come back it in more details in \Cref{sec:family}.
 
 \begin{myhs}
 \begin{code}
+data Nat = Z | S Nat
+
 data View :: [[ Atom ]] -> Star -> Star where
-  Tag  ::  Constr n sop -> NP (NA x) (Lkup sop n)
-       ->  View sop x
+  Tag  ::  Constr n sum -> NP (NA x) (Lkup sum n)
+       ->  View sum x
 \end{code}
 \end{myhs}
 \begin{myhs}
@@ -740,22 +749,27 @@ sop  :: RepFix  sop  x  -> View    sop  x
 \end{code}
 \end{myhs}
 
-  We illustrate the use of |sop| and |inj| by the |mirror| function,
-that behaves as the identity on leaves but swaps the left and right subtree
-of every |Bin| node.
+  The |View| type and the hability to split a value into a choice
+of constructor and its fields is very handy for writing generic functions,
+as we can see in \Cref{sec:alphaequivalence}.
 
-\begin{myhs}
-\begin{code}
-mirror x = case sop of
-             (Pat Bin) l r -> inj $ (Pat Bin) (mirror (from l)) (mirror (from r))
-             (Pat Leaf) x  -> inj $ (Pat Leaf) x
-\end{code}
-\end{myhs}
-
-  As we have seen, patterns for every constructor of a datatype as a |View|
-are very useful for the style of generic programming using sums-of-products.
-The Template Haskell functionality in \texttt{\nameofourlibrary} generates
-them as part of the derivation of generic functionality.
+%%   We illustrate the use of |sop| and |inj| by the |mirror| function,
+%% that behaves as the identity on leaves but swaps the left and right subtree
+%% of every |Bin| node.
+%%
+%% 
+%% \begin{myhs}
+%% \begin{code}
+%% mirror x = case sop x of
+%%              (Pat Bin) l r -> inj $ (Pat Bin) (mirror (from l)) (mirror (from r))
+%%              (Pat Leaf) x  -> inj $ (Pat Leaf) x
+%% \end{code}
+%% \end{myhs}
+%% 
+%%   As we have seen, patterns for every constructor of a datatype as a |View|
+%% are very useful for the style of generic programming using sums-of-products.
+%% The Template Haskell functionality in \texttt{\nameofourlibrary} generates
+%% them as part of the derivation of generic functionality.
 
   Having the core of the \emph{sums-of-products} universe defined,
 we can turn our attention to writing the combinators that the programmer
@@ -786,7 +800,7 @@ example x         = compos example x
 \end{code}
 \end{myhs}
 
-  It is worth nothing the \emph{catch-all} case, allowing one to
+  It is worth noting the \emph{catch-all} case, allowing one to
 focus only on the interesting patterns and using a default implementation
 everywhere else.
   
@@ -906,8 +920,6 @@ the member of the family to recurse into:
 \begin{myhs}
 \begin{code}
 data Atom  = I Nat | KInt | dots
-
-data Nat   = Z | S Nat
 \end{code}
 \end{myhs}
 The code of this recursive family of datatypes can finally be described as:
@@ -1024,7 +1036,17 @@ Since now |fromMRec| and |toMRec| operate on families of datatypes, they have
 to specify how to translate \emph{each} of the members of the family back and
 forth the generic representation. This translation needs to know which is the
 index of the datatype we are converting between in each case,  hence the
-additional |SNat ix| parameter. For example, in the case of
+additional |SNat ix| parameter. Pattern matching on this singleton~\cite{Eisenberg2012} 
+type informs the compiler about the shape of the |Nat| index. Its definition is:
+\begin{myhs}
+\begin{code}
+data SNat (n :: Nat) where
+  SZ  ::          -> SNat (P Z)
+  SS  ::  SNat n  -> SNat ((P S) n)
+\end{code}
+\end{myhs}
+
+For example, in the case of
 or family of rose trees, |fromMRec| has the following shape:
 \begin{myhs}
 \begin{code}
@@ -1037,24 +1059,8 @@ fromMRec (SS SZ)  (El (x : xs))
 \end{code}
 \end{myhs}
 By pattern matching on the index, the compiler knows which family member
-to expect as a second argument. In dependently-typed languages such as Agda or
-Idris, this index would be expressed as a normal |Nat| value,
-\begin{myhs}
-\begin{code}
-fromMRec  :   (ix : Nat)
-          ->  El fam ix -> RepMRec (El fam) (Lkup codes ix)
-\end{code}
-\end{myhs}
-Alas, Haskell is not dependently-typed. The trick is to introduce a
-\emph{singleton type} which reifies a type into its term-level representation.
-In the case of |Nat|, this type is |SNat|,
-\begin{myhs}
-\begin{code}
-data SNat (n :: Nat) where
-  SZ  ::          -> SNat (P Z)
-  SS  ::  SNat n  -> SNat ((P S) n)
-\end{code}
-\end{myhs}
+to expect as a second argument. This then allows the pattern matching on
+the |El| to typecheck.
 
 The limitations of the Haskell type system lead us to introduce |El| as an
 intermediate datatype. Our |fromMRec| function does not take a member of
@@ -1238,6 +1244,19 @@ All the generic operations implemented in \texttt{\nameofourlibrary} use
 parametrized version of |Atom|s and representations described in this section.
 For convenience we also provide a basic set of opaque types which includes the
 most common primitive Haskell datatypes.
+
+   Note that it is also possible to provide an \emph{open} representation
+for atoms with this same approach. One could define the following interpretation
+for opaque types:
+
+\begin{myhs}
+\begin{code}
+data Value :: Star -> Star where
+  Value :: t -> Value t
+\end{code}
+\end{myhs}
+
+  This requires the \texttt{TypeInType} language extension, however.
 
 \subsection{Combinators}
 
