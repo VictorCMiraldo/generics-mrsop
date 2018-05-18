@@ -51,7 +51,7 @@
 
 %% Title information
 \title{Generic Programming of All Kinds}
-\subtitle{A Tribute to the Power of Haskell}
+\subtitle{Type Constructors and GADTs in Sum-of-Products Style}
 
 \author{Alejandro Serrano}
 \orcid{nnnn-nnnn-nnnn-nnnn}             %% \orcid is optional
@@ -1135,36 +1135,36 @@ instance GenericNSOP (* -> *) [] where
 \begin{code}
 gfmap  ::  forall f a b dot
            (GenericNSOP (* -> *) f,
-           All2 FunctorField (Code f))
+           All2 FunctorAtom (Code f))
        =>  (a -> b) -> f a -> f b
 gfmap f  =  unA0 . unArg . to
          .  goS
          .  from  . Arg . A0
   where
-    goS  ::  All2 FunctorField xs
+    goS  ::  All2 FunctorAtom xs
          =>  NS (NP (NA (* -> *) (a :&&: LoT0))) xs
          ->  NS (NP (NA (* -> *) (b :&&: LoT0))) xs
     goS (Here   x) = Here   (goP x)
     goS (There  x) = There  (goS x)
 
-    goP  ::  All FunctorField xs
+    goP  ::  All FunctorAtom xs
          =>  NP (NA (* -> *) (a :&&: LoT0)) xs
          ->  NP (NA (* -> *) (b :&&: LoT0)) xs
     goP Nil          = Nil
     goP (T x :* xs)  = gfmapF f (T x) :* goP xs
 
-class FunctorField (t :: Atom (* -> *) Type) where
+class FunctorAtom (t :: Atom (* -> *) Type) where
   gfmapF  ::  (a -> b)
           ->  NA (* -> *) (a :&&: LoT0) t
           ->  NA (* -> *) (b :&&: LoT0) t
 
-instance  FunctorField V0 where
+instance  FunctorAtom V0 where
   gfmapF f (T x)  =  T (f x)
-instance  (Functor f, FunctorField x)
-          => FunctorField (Kon f :@: x) where
+instance  (Functor f, FunctorAtom x)
+          => FunctorAtom (Kon f :@: x) where
   gfmapF f (T x)
     =  T (fmap (unT . gfmapF f . T atunder @x) x)
-instance  FunctorField (Kon t) where
+instance  FunctorAtom (Kon t) where
   gfmapF f (T x)  =  T x
 \end{code}
 \end{myhs}
@@ -1187,7 +1187,7 @@ atoms. In the case of |Generic1SOP|, we knew how to implement |fmap|
 for every possible shape of field. However, the language of atoms in
 |GenericNSOP| is much broader, and we cannot always write the desired
 implementation. In order to delineate which fields we can handle, we
-introduce a |FunctorField| type class. The instances correspond to
+introduce a |FunctorAtom| type class. The instances correspond to
 three different scenarios:
 \begin{itemize}
   \item If the field mentions the type variable, then we apply the
@@ -1229,7 +1229,7 @@ Going from |ApplyT| to |Apply| is trivial. This is expected, as |ApplyT|
 is a refinement of the type family in which the evidence is explicit.
 \begin{myhs}
 \begin{code}
-unravel :: ApplyT k f ts -> Apply k f ts
+unravel :: ApplyT k f tys -> Apply k f tys
 unravel (A0   x) = x
 unravel (Arg  x) = unravel x
 \end{code}
@@ -1242,12 +1242,12 @@ the value using |A0|, and otherwise we add one layer of |Arg|.
 The solution is asking for a singleton and inspecting that value instead.
 \begin{myhs}
 \begin{code}
-ravel  ::  forall k f ts dot SSLoT k ts 
-       =>  Apply k f ts -> ApplyT k f ts
-ravel = go (sslot atunder @ts)
+ravel  ::  forall k f tys dot SSLoT k tys 
+       =>  Apply k f tys -> ApplyT k f tys
+ravel = go (sslot atunder @tys)
   where
-    go  ::  forall k f ts dot SLoT k ts
-        ->  Apply k f ts -> ApplyT k f ts
+    go  ::  forall k f tys dot SLoT k tys
+        ->  Apply k f tys -> ApplyT k f tys
     go SLoT0       x = A0   x
     go (SLoTA ts)  x = Arg  (go ts x)
 \end{code}
@@ -1509,6 +1509,12 @@ represents equalities at the level of constructors, and a ``mobility
 family'' |X| to fake existentials. Our approach reuses most of the
 machinery for regular types, by taking advantage of the availability
 of |Constraint| as a kind in GHC.
+
+\citet{Weirich2010} describe arity-generic operations, such as the family
+of functions |zipWith|, |zipWith3|, and so on. In their case the
+operations are indexed by a natural number which specifies the amount
+of arguments; in contrast our development is indexed by contexts
+|LoT| which specify the kind of each type variable.
 
 \section{Conclusion and Future Work}
 
@@ -1817,7 +1823,7 @@ class GenericNSOP dtk (f :: dtk) where
 
   to    ::  ApplyT dtk f tys -> SOPn dtk (Code f) f tys
   from  ::  SSLoT dtk tys
-        =>  SOPn dtk (Code f) f ts -> ApplyT dtk f ts
+        =>  SOPn dtk (Code f) f tys -> ApplyT dtk f tys
 \end{code}
 \end{myhs}
 Since the constructors in |NA| do not change depending on whether we
@@ -1846,11 +1852,11 @@ is where we would find problems.
 
 
 \paragraph{Updating |gfmap|.}  In \Cref{fig:gfmap3} we used an
-ancillary |FunctorField| type class to describe which fields we could
+ancillary |FunctorAtom| type class to describe which fields we could
 map over. It is impossible, though, to write an instance of this form:
 \begin{myhs}
 \begin{code}
-instance (FunctorField x) => FunctorField (Rec :@: x)
+instance (FunctorAtom x) => FunctorAtom (Rec :@: x)
 \end{code}
 \end{myhs}
 In fact, |gfmap| defines the operation for the type we are recurring
@@ -1861,7 +1867,7 @@ need to pass the function which works on the recursive position as an
 additional argument.
 \begin{myhs}
 \begin{code}
-class FunctorField r (t :: Atom (* -> *) Type) where
+class FunctorAtom r (t :: Atom (* -> *) Type) where
   gfmapF  ::  (forall x y dot (x -> y) -> r x -> r y)
           ->  (a -> b)
           ->  NA (* -> *) r (a :&&: LoT0) t
@@ -1870,20 +1876,20 @@ class FunctorField r (t :: Atom (* -> *) Type) where
 \end{myhs}
 \begin{myhs}
 \begin{code}
-instance  (FunctorField r x)
-          => FunctorField r (Rec :@: x) where
+instance  (FunctorAtom r x)
+          => FunctorAtom r (Rec :@: x) where
   gfmapF r f (T x)
     = T (r (unT . gfmapF r f . T atunder @x @r) x)
 \end{code}
 \end{myhs}
-The trick now is to make the |FunctorField| constraint used in |All2|
+The trick now is to make the |FunctorAtom| constraint used in |All2|
 refer to the same |f| as in the code. And to close the loop, when we
 call |gfmapF|, we pass |gfmap| itself as the function to execute in
 the when |Rec| is found.
 \begin{myhs}
 \begin{code}
 gfmap  ::  (GenericNSOP (* -> *) f,
-           All2 (FunctorField f) (Code f))
+           All2 (FunctorAtom f) (Code f))
        =>  (a -> b) -> f a -> f b
 gfmap f  =  dots
   where
@@ -1983,10 +1989,6 @@ data Atom (rtk :: Kind) (dtk :: Kind) k where
   (:@:)  :: Atom dtk (k1 -> k2) -> Atom dtk k1 -> Atom dtk k2
   Rec    ::             Atom rtk dtk rtk
 
-type V0  = Var SZ
-type V1  = Var (SS SZ)
-type V2  = Var (SS (SS SZ))
-
 type family Pos (n :: Nat) (dtk :: Kind) :: Kind where
   Pos n      Type       = TypeError (Text "Not found")
   Pos Z      (x -> xs)  = x
@@ -2084,16 +2086,16 @@ type family Apply dtk (f :: dtk) (tys :: LoT dtk) :: Star where
   Apply (Star)     f LoT0         = f
   Apply (k -> ks)  f (t :&&: ts)  = Apply ks (f t) ts
 
-unravel :: ApplyT k f ts -> Apply k f ts
+unravel :: ApplyT k f tys -> Apply k f tys
 unravel (A0   x) = x
 unravel (Arg  x) = unravel x
 
-ravel  ::  forall k f ts dot SSLoT k ts 
-       =>  Apply k f ts -> ApplyT k f ts
-ravel = go (sslot atunder @ts)
+ravel  ::  forall k f tys dot SSLoT k tys 
+       =>  Apply k f tys -> ApplyT k f tys
+ravel = go (sslot atunder @tys)
   where
-    go  ::  forall k f ts dot SLoT k ts
-        ->  Apply k f ts -> ApplyT k f ts
+    go  ::  forall k f tys dot SLoT k tys
+        ->  Apply k f tys -> ApplyT k f tys
     go SLoT0       x = A0   x
     go (SLoTA ts)  x = Arg  (go ts x)
 \end{code}
