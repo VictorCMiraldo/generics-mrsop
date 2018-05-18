@@ -74,3 +74,5 @@
 %format I0 = "I_0"
 %format I1 = "I_1"
 %format I2 = "I_2"
+%format qcolon = "\mathrel{'':}"
+%format tys = "\alpha"

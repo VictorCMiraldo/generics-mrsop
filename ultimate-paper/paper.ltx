@@ -1,5 +1,5 @@
 %% For double-blind review submission, w/ CCS and ACM Reference
-\documentclass[sigplan,10pt,review,anonymous]{acmart}\settopmatter{printfolios=true}
+\documentclass[sigplan,10pt,review]{acmart}\settopmatter{printfolios=true}
 
 \newenvironment{myhs}{\par\vspace{0.15cm}\begin{minipage}{\textwidth}}{\end{minipage}\vspace{0.15cm}}
 
@@ -56,12 +56,12 @@
 \author{Alejandro Serrano}
 \orcid{nnnn-nnnn-nnnn-nnnn}             %% \orcid is optional
 \affiliation{
-  \position{Junior lecturer}
-  \department{Information and Computing Sciences}
+  %\position{Junior lecturer}
+  \department{Dept. of Information and Computing Sciences}
   \institution{Utrecht University}
   \streetaddress{Princetonplein, 5}
-  \city{Utrecht}
-  \state{Utrecht}
+  %\city{Utrecht}
+  %\state{Utrecht}
   \postcode{3584 CC}
   \country{The Netherlands} 
 }
@@ -70,12 +70,12 @@
 \author{Victor Cacciari Miraldo}
 \orcid{nnnn-nnnn-nnnn-nnnn}             %% \orcid is optional
 \affiliation{
-  \position{PhD candidate}
-  \department{Information and Computing Sciences}
+  %\position{PhD candidate}
+  \department{Dept. of Information and Computing Sciences}
   \institution{Utrecht University}
   \streetaddress{Princetonplein, 5}
-  \city{Utrecht}
-  \state{Utrecht}
+  %\city{Utrecht}
+  %\state{Utrecht}
   \postcode{3584 CC}
   \country{The Netherlands} 
 }
@@ -129,7 +129,7 @@ comparison). Ultimately, GHC added special support via the
 In fact, the built-in |Generic| is one of the most widespread libraries. One
 of the reasons for that is th lightweight encoding it employs. One of
 its key design aspects is to \emph{not} represent recursion
-explicitly, and, as we shall see on \Cref{sec:recursion}, this is a
+explicitly; this is a
 major point when designing a generic programming library.
 We try, as much as possible, to maintain a similar design, but
 we extend it to handle much more expressive datatypes.
@@ -163,20 +163,28 @@ data IsInt :: Star -> Star where
 \end{myhs}
 
 Using the approach presented in this paper, this type is encoded
-using a list of lists of atoms:
+using a list of lists of atoms. The outer list represents the choice
+of constructors, and the inner list represents
+the fields of such constructors.
 \begin{myhs}
 \begin{code}
 type CodeIsInt = P [ P  [ Implicit (Kon (~) :@: V0 :@: Kon Int)
                         , Explicit V0 ] ]
 \end{code}
 \end{myhs}
-The outer list represents the choice
-of constructors, in our case there is only one. The inner list represents
-the fields of such constructors. In our case there are two: one constraint
-field, which we label \emph{implicit}, and one explicit field. The |(:@:)|
-operator represents type-level application and |V0| represent the first
-type variable. Our encoding also ensures that everything is
-\emph{well-kinded}.
+In our case there is one one constructor, |Prf|, which translates
+to a single-element inner list. This inner list has two fields:
+the \emph{implicit} one represents the constraint |a ~ Int|, and
+the explicit one the field of type |a|.
+
+The type of each of their fields are represented using the
+applicative fragment of $\lambda$-calculus. Constant types and type
+constructors are brought in via |Kon|, application is represented
+by |(:@:)|, and |V0|, |V1|, \dots represent each of the type variables
+of the datatype. For example, the constraint |a ~ Int| is represented
+as the application of the type constructor |(~)| to the first
+argument |V0| and the constant type |Int|.
+Our encoding ensures that everything is \emph{well-kinded}.
 
 \subsection{Contributions}
 
@@ -344,19 +352,6 @@ information around.
 
 \subsection{Sums of Products}
 
-Algebraic datatypes in Haskell have a very regular shape when
-represented using the building blocks above. There is always a choice
-of constructor, each with of zero or more
-fields. This general structure is called a \emph{sum of
-products}. Unfortunately, the representation using |Generic| is not
-strong enough to guarantee that shape; there is nothing forbidding us
-from writing:
-\begin{myhs}
-\begin{code}
-U1 :*: (K1 R Int :+: Maybe)
-\end{code}
-\end{myhs}
-
 The landscape of type-level programming in GHC changed radically after
 the introduction of \emph{datatype promotion}~\cite{Yorgey2012}, which is
 used by the \texttt{generics-sop} library~\cite{deVries2014}
@@ -378,7 +373,18 @@ validate :: VString False -> VString True
 In \texttt{generics-sop} each datatype is
 described by a list of list of types, where the outer level should be
 thought as the choice between constructors, and each inner list
-represents the fields in that constructor. This description is called
+represents the fields in that constructor. This structure corresponds
+to that of algebraic datatypes in Haskell, and it is called
+\emph{sum of products}. In contrast, the representation using |Generic| is not
+strong enough to guarantee that shape; there is nothing forbidding us
+from writing:
+\begin{myhs}
+\begin{code}
+U1 :*: (K1 R Int :+: Maybe)
+\end{code}
+\end{myhs}
+
+The description of a datatype using a list of lists of types is called
 the \emph{code} of the datatype. For example, here is the code for
 |Tree a| defined above:\footnote{The quote sign serves to
 differentiate type level from term level when there is a risk of
@@ -399,12 +405,12 @@ product.
 \begin{myhs}
 \begin{code}
 data NS :: (k -> Star) -> [k] -> Star where
-  Here   :: f k      -> NS f (k (P (:)) ks)
-  There  :: NS f ks  -> NS f (k (P (:)) ks)
+  Here   :: f k      -> NS f (k qcolon ks)
+  There  :: NS f ks  -> NS f (k qcolon ks)
 
 data NP :: (k -> Star) -> [k] -> Star where
   Nil  ::                    NP f (P [])
-  (:*) :: f x -> NP f xs ->  NP f (x (P (:)) xs)
+  (:*) :: f x -> NP f xs ->  NP f (x qcolon xs)
 \end{code}
 \end{myhs}
 The first parameter in both |NS| and |NP| indicates how to treat
@@ -533,18 +539,18 @@ position.
 \begin{myhs}
 \begin{code}
 class GFunctor f where
-  gmap :: (a -> b) -> f a -> f b
+  gfmap :: (a -> b) -> f a -> f b
 \end{code}
 \end{myhs}
 \begin{myhs}
 \begin{code}
 instance GFunctor Par1 where
-  gmap f (Par1 a)  = Par1 (f a)
+  gfmap f (Par1 a)  = Par1 (f a)
 instance (Functor f) => GFunctor (Rec1 f) where
-  gmap f (Rec1 a)  = Rec1 (fmap f a)
+  gfmap f (Rec1 a)  = Rec1 (fmap f a)
 instance (Functor f, GFunctor g) 
   => GFunctor (f :.: g) where
-  gmap f (Comp x)  = Comp (fmap (gmap f) x)
+  gfmap f (Comp x)  = Comp (fmap (gfmap f) x)
 \end{code}
 \end{myhs}
 
@@ -663,12 +669,12 @@ gfmap f = to . goS . from
 
 type family AllRec2  c xs :: Constraint where
   AllRec2 c (P [])          = ()
-  AllRec2 c (x (P (:)) xs)  = (AllRec c x, AllRec2 c xs)
+  AllRec2 c (x qcolon xs)  = (AllRec c x, AllRec2 c xs)
 
 type family AllRec   c xs :: Constraint where
   AllRec c (P [])               = ()
-  AllRec c (Rec x  (P (:)) xs)  = (c x, AllRec c xs)
-  AllRec c (x      (P (:)) xs)  = AllRec c xs
+  AllRec c (Rec x  qcolon xs)  = (c x, AllRec c xs)
+  AllRec c (x      qcolon xs)  = AllRec c xs
 \end{code} %$
 \end{myhs}
 \caption{Generic |fmap| using |Generic1SOP|}
@@ -702,10 +708,10 @@ this section we follow the same three steps, but this time we go one
 level higher. The resulting generic type-class supports types
 of arbitrary kinds.
 
-Although we are using |TypeInType|, which collapses kinds and types
-into the same level, we shall write |Kind| to distinguish 
-those places where we expect the former. Moreover, we use |dtk| to denote
-the kind of the datatype we are encoding. 
+%Although we are using |TypeInType|, which collapses kinds and types
+%into the same level, we shall write |Kind| to distinguish 
+%those places where we expect the former. Moreover, we use |dtk| to denote
+%the kind of the datatype we are encoding. 
 
 The first step is representing each of the types
 of the fields, that is, estabilishing our new language of atoms. As we saw
@@ -740,22 +746,32 @@ data Atom  = Var Nat | Kon k | Atom :@: Atom
 \end{myhs}
 Alas, this definition of |Atom| is too permissive. It allows us to represent ill-kinded
 types such as |Kon Int :@: Var Z|. The solution is to lift |Atom|
-to a GADT whose index represents the kind.
-The refined
-|Kon| and |(:@:)| constructors ensure applications are well-kinded.
+to a GADT which keeps track of the kind of type.
 \begin{myhs}
 \begin{code}
+type Kind = (*)
+
 data Atom (dtk :: Kind) (k :: Kind) :: Type where
-  Kon    :: k                                   -> Atom dtk k
-  (:@:)  :: Atom dtk (k1 -> k2) -> Atom dtk k1  -> Atom dtk k2
+  Var    :: SNat n  -> Atom dtk (Pos n dtk)
+  Kon    :: k       -> Atom dtk k
+  (:@:)  :: Atom dtk (ell -> k) -> Atom dtk ell  -> Atom dtk k
 \end{code}
 \end{myhs}
-This is enough to reject the previous example |Kon Int :@: Var Z|,
-since the kind of |Int| is not of the form |k1 -> k2|. 
+For the sake of clarity, we define a synonym for |(*)| called |Kind|,
+which we used whenever the instantiation of a type argument represents
+a kind as opposed to a regular type. The |Atom| datatype get two
+|Kind|-indices: the first one |dtk| represents the kind of the datatype
+we are describing, and the second one |k| gives the kind of the type
+represented by the |Atom|.
 
-The |Var| constructor is slightly more complicated. We need 
-find the kind of the $n$-th variable within |dtk|. The |Pos|
-performs this very lookup:
+This refinement is enough to reject the previous example |Kon Int :@: Var Z|,
+since the kind of |Int| is not of the form |k1 -> k2|, as required
+by |(:@:)|. 
+The |Var| constructor is slightly more complicated. 
+As we discussed above, a variable is defined by a natural number
+which represents its de Bruijn index. To find the kind of
+that variable, we need to perform a lookup within |dtk|.
+We introduce a |Pos| type family for this:
 \begin{myhs}
 \begin{code}
 type family Pos (n :: Nat) (dtk :: Kind) :: Kind where
@@ -765,16 +781,9 @@ type family Pos (n :: Nat) (dtk :: Kind) :: Kind where
 \end{code}
 \end{myhs}
 
-Using |Pos|, enabling us to lookup kinds of variables,
-we would like to give |Var| the following type:
-\begin{myhs}
-\begin{code}
-  Var :: (n :: Nat) -> Atom dtk (Pos n dtk)
-\end{code}
-\end{myhs}
 Yet, Haskell is not a dependently-typed language, which means we
-cannot use the value of the argument as part of the rest of the
-type. To work around this restriction we use a
+cannot use the value of the argument of type |Nat|
+as an argument of |Pos|. To work around this restriction we use a
 \emph{singleton}~\cite{Eisenberg2012} for natural numbers. 
 In short, a singleton for |tau| is a datatype indexed by that |tau| which
 accurately reflects the structure of |tau|. Thus, by pattern matching
@@ -787,18 +796,25 @@ data SNat (n :: Nat) where
   SS :: SNat n ->  SNat (S n)
 \end{code}
 \end{myhs}
-By replacing |(n :: Nat)| with |SNat n| in the definition of |Var|, we
+By replacing |Nat| with |SNat n| in the definition of |Var|, we
 are no longer in dependently-typed territory. The first argument and
 the result now just happen to share a reference to the same variable
-of kind |Nat|. The definitive version of |Atom| is:
+of kind |Nat|.
+
+A datatype of kind |dtk| is now encoded as a list of list of the atoms
+defined above, given that they form a type of kind |Star|:
 \begin{myhs}
 \begin{code}
-data Atom (dtk :: Kind) (k :: Kind) :: Type where
-  Var    :: SNat n  -> Atom dtk (Pos n dtk)
-  Kon    :: k       -> Atom dtk k
-  (:@:)  :: Atom dtk (ell -> k) -> Atom dtk ell  -> Atom dtk k
+type DataType dtk = [[Atom dtk (Star)]]
 \end{code}
 \end{myhs}
+At this point we need the |Atom| datatype to be promoted, in order
+to use it in the list defining the code. Since |Atom| is a GADT,
+we are required to enable the |TypeInType| extension to promote it.
+However, we are not using
+the |Star : Star| judgement in our construction, we discuss this matter in
+\Cref{sec:inconsistent1}. 
+
 Let us also introduce some synonyms for the first, second, and third
 variable, in order to make the descriptions of types in the rest of
 the paper a bit more concise:
@@ -807,21 +823,6 @@ the paper a bit more concise:
 type V0  = Var SZ
 type V1  = Var (SS SZ)
 type V2  = Var (SS (SS SZ))
-\end{code}
-\end{myhs}
-
-At this point we are using a GADT, |SNat|, to index yet another GADT,
-|Atom|. This means that the compiler needs to work with a promoted
-version of |SNat|. In order to promote a GADT we require the
-|TypeInType| extension. However, we are not using
-the |Star : Star| judgement in our construction, we discuss this matter in
-\Cref{sec:inconsistent1}.
-
-A datatype of kind |dtk| is now encoded as a list of list of the atoms
-defined above, given that they form a type of kind |Star|:
-\begin{myhs}
-\begin{code}
-type DataType dtk = [[Atom dtk (Star)]]
 \end{code}
 \end{myhs}
 As an example, here are the codes corresponding to |[]|, |Either|, and
@@ -885,7 +886,7 @@ type family Ty dtk (tys :: LoT dtk) (t :: Atom dtk k) :: k where
   Ty dtk tys (f :@: x)  = (Ty dtk tys f) (Ty dtk tys x)
 \end{code}
 \end{myhs}
-The ancillary operation |LookupLoT| should return the $n$-th position
+The auxiliary operation |LookupLoT| should return the $n$-th position
 in the context |tys|. Alas, here we stumble upon a wall: the compiler
 is not able to deduce that such a lookup will produce a type of the
 correct kind. To work around this limitation, we need to manually
@@ -913,7 +914,7 @@ the new shape:
 data NA (dtk :: Kind) :: LoT dtk -> Atom dtk (Star) -> Star where
   T :: forall dtk t tys dot { unT :: Ty dtk tys t } -> NA dtk tys t
 
-type SOPn dtk (c :: DataType dtk) (tys :: LoT dtk)
+type SOPn (dtk :: Kind) (c :: DataType dtk) (tys :: LoT dtk)
   = NS (NP (NA dtk tys)) c
 \end{code}
 \end{myhs}
@@ -921,7 +922,8 @@ In preparation for the upcoming constructions, we introduce the type
 variables for the |T| constructor explicitly. In particular, this is
 required to use visible type application~\cite{EisenbergWA16}. The code
 uses record syntax to generate an eliminator |unT| for the only field
-in |T|.
+in |T|.\footnote{Not to be confused with Agda and Idris' syntax for
+implicit parameters.}
 
 \paragraph{A unified |GenericNSOP|.} The definition of the generic
 representation of a certain datatype is not comprised only of its
@@ -948,9 +950,9 @@ from2  :: Apply f (a :&&: b :&&: LoT0)  -> SOPn dots
 -- and so on
 \end{code}
 \end{myhs}
-The ancillary operation |Apply| is defined as a type family. In order
+|Apply| is defined as a type family. In order
 to help the compiler in forecoming developments, we also include the
-kind of the context as an explicit argument to the family.
+kind of the context as an explicit argument to this family.
 \begin{myhs}
 \begin{code}
 type family Apply dtk (f :: dtk) (tys :: LoT dtk) :: (Star) where
@@ -989,7 +991,7 @@ which provides the \emph{evidence} of which part of the type
 is the constructor |f| and which are the type parameters:
 \begin{myhs}
 \begin{code}
-data ApplyT k (f :: k) (tys :: LoT k) :: Star where
+data ApplyT dtk (f :: k) (tys :: LoT dtk) :: Star where
   A0   :: { unA0   ::  f  }  -> ApplyT (Star)     f  LoT0
   Arg  :: { unArg  ::  ApplyT ks (f t) ts  }
                              -> ApplyT (k -> ks)  f (t :&&: ts)
@@ -998,8 +1000,7 @@ data ApplyT k (f :: k) (tys :: LoT k) :: Star where
 By replacing |Apply| with |ApplyT| in the signature of |from|
 and |to| the original type error is gone.
 
-It seems that all elements are in place. Thus we try to define the
-instance of |GenericNSOP| for lists:
+\begin{figure}
 \begin{myhs}
 \begin{code}
 instance GenericNSOP (* -> *) [] where
@@ -1012,13 +1013,18 @@ instance GenericNSOP (* -> *) [] where
   to (There  (Here (T x :* T xs :* Nil)))  = Arg $ A0 $ x : xs
 \end{code}
 \end{myhs}
+\caption{Non-working |GenericNSOP| instance for lists}
+\label{fig:notworking}
+\end{figure}
 
+It seems that all elements are in place. Thus we try to define the
+instance of |GenericNSOP| for lists as shown in \Cref{fig:notworking}.
 Alas, we get a couple of type errors, one per method in the class.
 First of all, GHC cannot check that the use of |T x| in |from| is
 well-typed:
 \begin{verbatim}
 Could not deduce:
-  Ty (* -> *) (a ':&&: 'Epsilon) x0 ~ a
+  Ty (* -> *) (a ':&: 'Epsilon) x0 ~ a
 \end{verbatim}
 We can fix this problem by being explicit about the type arguments to
 |T|. For that we use visible type application~\cite{EisenbergWA16}.
@@ -1038,7 +1044,7 @@ the safe side.
 The second problem happens in the conversion from the generic
 representation back to the original datatype:
 \begin{verbatim}
-Couldn't match type 'ts' with 't0 ':&&: 'Epsilon'
+Couldn't match type 'ts' with 't0 ':&: 'Epsilon'
 \end{verbatim}
 Although in theory just knowing the kind |dtk| of the datatype we are
 describing is enough to know the shape of the context |LoT dtk|, this
@@ -1051,22 +1057,13 @@ the context. Then we could refine the type information to be in the case
 we want to handle, knowing that any other case is impossible because
 of the way datatypes are represented.
 
-Since Haskell is not dependently-typed we cannot perform this
-match directly. However, we can use a variation of the singleton technique
-we used for |Nat|s. First we define a singleton for contexts.
+\begin{figure}
 \begin{myhs}
 \begin{code}
-data SLoT dtk (tys :: LoT dtk) where
+data SLoT (dtk :: Kind) (tys :: LoT dtk) where
   SLoT0  ::                 SLoT (Star)     LoT0
   SLoTA  ::  SLoT ks as ->  SLoT (k -> ks)  (t :&&: ts)
-\end{code}
-\end{myhs}
-Even though a context and its singleton are in one-to-one correspondence,
-there is no code witnessing that fact yet. There is one feature in Haskell
-to obtain a term from the shape of a type, type classes, which we use
-to define this correspondence:
-\begin{myhs}
-\begin{code}
+
 class SSLoT k (tys :: LoT k) where
   sslot :: SLoT k ts
 instance SSLoT (*) LoT0 where
@@ -1075,7 +1072,21 @@ instance SSLoT ks ts => SSLoT (k -> ks) (t :&&: ts) where
   sslot = SLoTA sslot
 \end{code}
 \end{myhs}
-Finally, we require a |SSLoT| instance for the context in |to|, so we
+\caption{Singleton for contexts}
+\label{fig:singctx}
+\end{figure}
+
+Since Haskell is not dependently-typed we cannot perform this
+match directly. However, we can use a variation of the singleton technique
+we used for |Nat|s. 
+
+First we define a singleton for contexts, |SLoT|, as given
+in \Cref{fig:singctx}. Even though a context and its singleton are
+in one-to-one correspondence, we need to witness this fact explicitly.
+There is one feature in Haskell
+to obtain a term from the shape of a type, type classes, which we use
+to define this correspondence. Finally, we require a |SSLoT| instance
+for the context in the |to| method, so we
 can grip the singleton and pattern match. This is a vacuous constraint,
 since |SSLoT| is defined for every possible shape of the context
 
@@ -1253,7 +1264,7 @@ In fact, we can expose only the combination of (un)raveling with
 |to| and |from|, making the writer of generic operations completely
 unaware of the intermediate |ApplyT| datatype.
 
-\subsection{Are We Inconsistent Yet?}
+\subsection{Are We Really Inconsistent?}
 \label{sec:inconsistent1}
 
 In order to perform the entire construction, we were forced to enable
@@ -1309,7 +1320,7 @@ type DataType dtk = [[Field dtk]]
 The interpretation functor |NA| has to be adapted:
 \begin{myhs}
 \begin{code}
-data NA (dtk :: Kind) :: LoT dtk -> Field dtk -> * where
+data NA (dtk :: Kind) :: LoT dtk -> Field dtk -> Star where
   E ::  forall dtk t tys dot Ty dtk tys t  ->  NA dtk tys (Explicit t)
   I ::  forall dtk t tys dot Ty dtk tys t  =>  NA dtk tys (Implicit t)
 \end{code}
@@ -1345,168 +1356,6 @@ The rather slim layer that we had to add to support constraints serve
 as a witness of how the different type level extensions in GHC behave
 well together.
 
-\section{Explicit Recursion}
-\label{sec:recursion}
-
-  Up until now, we have not distinguished recursive positions from regular
-fields in our datatypes. This is also the case in |Generic| and |GenericSOP|,
-where recursion is \emph{implicit}.
-  
-  Marking recursion \emph{explicitly} is advantageous but introduces a
-more intricate design. It enables one to write combinators exploiting
-recursion schemes, such as fold, but it introduces some extra
-complexity to the atoms of the universe and one extra parameter to the
-interpretation of codes. In fact, some generic operations require this
-explicit recursion information.  Such as the definition of diff and
-patch~\cite{Lempsink2009,CacciariMiraldo2017},
-zippers~\cite{Hinze2003}, and tree regular expressions~\cite{Serrano2016}.
-
-  The technique of marking recursive positions~\cite{Noort2008,Yakushev2009}
-starts with expanding the atoms with a new building block:
-\begin{myhs}
-\begin{code}
-data Rec p = Rec p
-\end{code}
-\end{myhs}
-Although isomorphic to |I|, |Rec| serves quite a different purpose.
-Nevertheless, the second step is to bubble up one extra parameter
-to the interpretation of codes, lifting it to |Star -> Star|. 
-The |from| function would then have a type similar to:
-
-\begin{myhs}
-\begin{code}
-from :: a -> Rep a a
-\end{code}
-\end{myhs}
-
-Passing |a| as this extra parameter closes the recursive knot. 
-
-Let us now apply the same technique to our scenario. We 
-start by extending the |Atom| type with a new constructor:
-\begin{myhs}
-\begin{code}
-data Atom (dtk :: Kind) k where
-  dots
-  Rec :: Atom dtk dtk
-\end{code}
-\end{myhs}
-The kind of a recursive occurence is exactly the kind of whatever
-datatype we are defining. As an example, we can provide a more
-informative code for |[]|, where the recursion is explicit:
-\begin{myhs}
-\begin{code}
-type ListCode = P [ P [ ], P [ V0, Rec :@: V0 ] ]
-\end{code}
-\end{myhs}
-
-The next step is to extend the interpretation of atoms to include this
-new construction. As in the case of \citet{Noort2008}, we only tie the
-recursive knot at the level of the |GenericNSOP| type class. In the
-meantime, |Ty| is extended with a new argument, which declares which
-is the type to be used whenever |Rec| is found.
-\begin{myhs}
-\begin{code}
-type family Ty  (dtk :: Kind) (r :: dtk) (tys :: LoT dtk)
-                (t :: Atom dtk k) :: k where
-  dots
-  Ty dtk r tys Rec = r
-\end{code}
-\end{myhs}
-As a consequence, |NA| and |SOPn| also gain a new type parameter for this recursive position.
-\begin{myhs}
-\begin{code}
-data NA (dtk :: Kind) :: dtk -> LoT dtk -> Field dtk -> Star where dots
-type SOPn dtk (c :: DataType dtk) (r :: dtk) (tys :: LoT dtk)
-  = NS (NP (NA dtk r tys)) c
-\end{code}
-\end{myhs}
-Finally, the updated |GenericNSOP| mandates this recursive position to
-be instantiated with the datatype we are describing, tying the
-knot. This approach is similar to the |GenericRegular| type class.
-\begin{myhs}
-\begin{code}
-class GenericNSOP dtk (f :: dtk) where
-  type Code f :: DataType dtk
-
-  to    ::  ApplyT dtk f tys -> SOPn dtk (Code f) f tys
-  from  ::  SSLoT dtk tys
-        =>  SOPn dtk (Code f) f ts -> ApplyT dtk f ts
-\end{code}
-\end{myhs}
-Since the constructors in |NA| do not change depending on whether we
-have used |Rec| or not to describe the datatype, the instances we
-provided for the previous version of |GenericNSOP| keep working in the
-version with explicit recursion.
-
-  It is important to note that marking recursive positions explicitly
-is still sound, as demonstrated by the Agda model in \Cref{sec:agda}. 
-Unfolding this recursion and taking the least fixed point of a type is 
-not, however. That is, we cannot write a |Fix| type, in the lines of:
-
-\begin{myhs}
-\begin{code}
-data Fix f = Fix (f (Fix f))
-\end{code}
-\end{myhs}
-
-  That is because the interpretation of sums lives in the second
-predicative universe (|Set2|), which forces |Fix| to live in |Set2| aswell. 
-However, the argument we have to pass to the interpretation of must be 
-an inhabitant of |Set1|, hence we cannot feed |Fix f| back into |f|.
-This would require the |Set : Set| axiom, breaking consistency.
-Hence, just marking the positions is fine, unfolding the recursion
-is where we would find problems.
-
-
-\paragraph{Updating |gfmap|.}  In \Cref{fig:gfmap3} we used an
-ancillary |FunctorField| type class to describe which fields we could
-map over. It is impossible, though, to write an instance of this form:
-\begin{myhs}
-\begin{code}
-instance (FunctorField x) => FunctorField (Rec :@: x)
-\end{code}
-\end{myhs}
-In fact, |gfmap| defines the operation for the type we are recurring
-over, so this instance ought to exist! In order to convince the
-compiler, we play the same trick as before: work with |r| as an
-independent entity, and only tie the knot at the level of |gfmap|. We
-need to pass the function which works on the recursive position as an
-additional argument.
-\begin{myhs}
-\begin{code}
-class FunctorField r (t :: Atom (* -> *) Type) where
-  gfmapF  ::  (forall x y dot (x -> y) -> r x -> r y)
-          ->  (a -> b)
-          ->  NA (* -> *) r (a :&&: LoT0) t
-          ->  NA (* -> *) r (b :&&: LoT0) t
-\end{code}
-\end{myhs}
-\begin{myhs}
-\begin{code}
-instance  (FunctorField r x)
-          => FunctorField r (Rec :@: x) where
-  gfmapF r f (T x)
-    = T (r (unT . gfmapF r f . T atunder @x @r) x)
-\end{code}
-\end{myhs}
-The trick now is to make the |FunctorField| constraint used in |All2|
-refer to the same |f| as in the code. And to close the loop, when we
-call |gfmapF|, we pass |gfmap| itself as the function to execute in
-the when |Rec| is found.
-\begin{myhs}
-\begin{code}
-gfmap  ::  (GenericNSOP (* -> *) f,
-           All2 (FunctorField f) (Code f))
-       =>  (a -> b) -> f a -> f b
-gfmap f  =  dots
-  where
-    goP Nil          = Nil
-    goP (T x :* xs)  = gfmapF gfmap f (T x) :* goP xs
-\end{code}
-\end{myhs}
-This approach makes the definition of |gfmap| self-contained, in
-contrast to the definition without explicit recursion, in which a
-|Functor| instance needs to be written to make recursion possible.
 
 \section{Existentials}
 \label{sec:exists}
@@ -1635,17 +1484,6 @@ The |GenericNSOP| type class, on the other hand, is not affected by
 these changes. The instances, on the other hand, need to change their
 codes and isomorphisms to reflect the new intermediate layer between
 outer and inner lists.
-
-\subsection{Existentials and Explicit Recursion}
-
-The changes outlined in \Cref{sec:recursion}
-to introduce explicit recursion in our generic programming library
-cannot be readily applied to updated |SOPn| for existentials.
-The main problem is the dual use of the kind argument |dtk| to record
-the shape of the context |LoT| and as the resulting kind of an
-atom with |Rec|. 
-Due to space limitations, we describe the required changes in
-\Cref{sec:recursionexists}.
 
 \section{Related Work}
 
@@ -1894,10 +1732,173 @@ there is no need for the |Set : Set| axiom.
 
 %option haskell
 
-\section{Explicit Recursion and Existentials}
+\section{Explicit Recursion}
+\label{sec:recursion}
+
+  Up until now, we have not distinguished recursive positions from regular
+fields in our datatypes. This is also the case in |Generic| and |GenericSOP|,
+where recursion is \emph{implicit}.
+  
+  Marking recursion \emph{explicitly} is advantageous but introduces a
+more intricate design. It enables one to write combinators exploiting
+recursion schemes, such as fold, but it introduces some extra
+complexity to the atoms of the universe and one extra parameter to the
+interpretation of codes. In fact, some generic operations require this
+explicit recursion information.  Such as the definition of diff and
+patch~\cite{Lempsink2009,CacciariMiraldo2017},
+zippers~\cite{Hinze2003}, and tree regular expressions~\cite{Serrano2016}.
+
+  The technique of marking recursive positions~\cite{Noort2008,Yakushev2009}
+starts with expanding the atoms with a new building block:
+\begin{myhs}
+\begin{code}
+data Rec p = Rec p
+\end{code}
+\end{myhs}
+Although isomorphic to |I|, |Rec| serves quite a different purpose.
+Nevertheless, the second step is to bubble up one extra parameter
+to the interpretation of codes, lifting it to |Star -> Star|. 
+The |from| function would then have a type similar to:
+
+\begin{myhs}
+\begin{code}
+from :: a -> Rep a a
+\end{code}
+\end{myhs}
+
+Passing |a| as this extra parameter closes the recursive knot. 
+
+Let us now apply the same technique to our scenario. We 
+start by extending the |Atom| type with a new constructor:
+\begin{myhs}
+\begin{code}
+data Atom (dtk :: Kind) k where
+  dots
+  Rec :: Atom dtk dtk
+\end{code}
+\end{myhs}
+The kind of a recursive occurence is exactly the kind of whatever
+datatype we are defining. As an example, we can provide a more
+informative code for |[]|, where the recursion is explicit:
+\begin{myhs}
+\begin{code}
+type ListCode = P [ P [ ], P [ V0, Rec :@: V0 ] ]
+\end{code}
+\end{myhs}
+
+The next step is to extend the interpretation of atoms to include this
+new construction. As in the case of \citet{Noort2008}, we only tie the
+recursive knot at the level of the |GenericNSOP| type class. In the
+meantime, |Ty| is extended with a new argument, which declares which
+is the type to be used whenever |Rec| is found.
+\begin{myhs}
+\begin{code}
+type family Ty  (dtk :: Kind) (r :: dtk) (tys :: LoT dtk)
+                (t :: Atom dtk k) :: k where
+  dots
+  Ty dtk r tys Rec = r
+\end{code}
+\end{myhs}
+As a consequence, |NA| and |SOPn| also gain a new type parameter for this recursive position.
+\begin{myhs}
+\begin{code}
+data NA (dtk :: Kind) :: dtk -> LoT dtk -> Field dtk -> Star where dots
+type SOPn dtk (c :: DataType dtk) (r :: dtk) (tys :: LoT dtk)
+  = NS (NP (NA dtk r tys)) c
+\end{code}
+\end{myhs}
+Finally, the updated |GenericNSOP| mandates this recursive position to
+be instantiated with the datatype we are describing, tying the
+knot. This approach is similar to the |GenericRegular| type class.
+\begin{myhs}
+\begin{code}
+class GenericNSOP dtk (f :: dtk) where
+  type Code f :: DataType dtk
+
+  to    ::  ApplyT dtk f tys -> SOPn dtk (Code f) f tys
+  from  ::  SSLoT dtk tys
+        =>  SOPn dtk (Code f) f ts -> ApplyT dtk f ts
+\end{code}
+\end{myhs}
+Since the constructors in |NA| do not change depending on whether we
+have used |Rec| or not to describe the datatype, the instances we
+provided for the previous version of |GenericNSOP| keep working in the
+version with explicit recursion.
+
+  It is important to note that marking recursive positions explicitly
+is still sound, as demonstrated by the Agda model in \Cref{sec:agda}. 
+Unfolding this recursion and taking the least fixed point of a type is 
+not, however. That is, we cannot write a |Fix| type, in the lines of:
+
+\begin{myhs}
+\begin{code}
+data Fix f = Fix (f (Fix f))
+\end{code}
+\end{myhs}
+
+  That is because the interpretation of sums lives in the second
+predicative universe (|Set2|), which forces |Fix| to live in |Set2| aswell. 
+However, the argument we have to pass to the interpretation of must be 
+an inhabitant of |Set1|, hence we cannot feed |Fix f| back into |f|.
+This would require the |Set : Set| axiom, breaking consistency.
+Hence, just marking the positions is fine, unfolding the recursion
+is where we would find problems.
+
+
+\paragraph{Updating |gfmap|.}  In \Cref{fig:gfmap3} we used an
+ancillary |FunctorField| type class to describe which fields we could
+map over. It is impossible, though, to write an instance of this form:
+\begin{myhs}
+\begin{code}
+instance (FunctorField x) => FunctorField (Rec :@: x)
+\end{code}
+\end{myhs}
+In fact, |gfmap| defines the operation for the type we are recurring
+over, so this instance ought to exist! In order to convince the
+compiler, we play the same trick as before: work with |r| as an
+independent entity, and only tie the knot at the level of |gfmap|. We
+need to pass the function which works on the recursive position as an
+additional argument.
+\begin{myhs}
+\begin{code}
+class FunctorField r (t :: Atom (* -> *) Type) where
+  gfmapF  ::  (forall x y dot (x -> y) -> r x -> r y)
+          ->  (a -> b)
+          ->  NA (* -> *) r (a :&&: LoT0) t
+          ->  NA (* -> *) r (b :&&: LoT0) t
+\end{code}
+\end{myhs}
+\begin{myhs}
+\begin{code}
+instance  (FunctorField r x)
+          => FunctorField r (Rec :@: x) where
+  gfmapF r f (T x)
+    = T (r (unT . gfmapF r f . T atunder @x @r) x)
+\end{code}
+\end{myhs}
+The trick now is to make the |FunctorField| constraint used in |All2|
+refer to the same |f| as in the code. And to close the loop, when we
+call |gfmapF|, we pass |gfmap| itself as the function to execute in
+the when |Rec| is found.
+\begin{myhs}
+\begin{code}
+gfmap  ::  (GenericNSOP (* -> *) f,
+           All2 (FunctorField f) (Code f))
+       =>  (a -> b) -> f a -> f b
+gfmap f  =  dots
+  where
+    goP Nil          = Nil
+    goP (T x :* xs)  = gfmapF gfmap f (T x) :* goP xs
+\end{code}
+\end{myhs}
+This approach makes the definition of |gfmap| self-contained, in
+contrast to the definition without explicit recursion, in which a
+|Functor| instance needs to be written to make recursion possible.
+
+\subsection{Explicit Recursion and Existentials}
 \label{sec:recursionexists}
 
-As we discussed in \Cref{sec:exists}, the combination of existentials
+The combination of existentials
 with explicit recursion is not as straightforward as the combination
 of constraints from \Cref{sec:constraints} with explicit recursion.
 In this section we outline the changes required to bring both
@@ -2023,23 +2024,23 @@ type family Ty (rtk :: Kind) (dtk :: Kind) (r :: rtk) (tys :: LoT dtk) (t :: Ato
   Ty rtk dtk r tys (f :@: x)  = (Ty rtk dtk r tys f) (Ty rtk dtk r tys x)
   Ty rtk dtk r tys Rec        = r
 
-data NA (rtk :: Kind) (dtk :: Kind) :: rtk -> LoT dtk -> Field dtk -> * where
+data NA (rtk :: Kind) (dtk :: Kind) :: rtk -> LoT dtk -> Field dtk -> Star where
   E ::  forall rtk dtk t r tys dot  { unE ::  Ty rtk dtk r tys t }  ->  NA rtk dtk r tys (Explicit t)
   I ::  forall rtk dtk t r tys dot            Ty rtk dtk r tys t    =>  NA rtk dtk r tys (Implicit t)
 
 data NP :: (k -> Star) -> [k] -> Star where
   Nil  ::                    NP f (P [])
-  (:*) :: f x -> NP f xs ->  NP f (x (P (:)) xs)
+  (:*) :: f x -> NP f xs ->  NP f (x qcolon xs)
 
 data NB (rtk :: Kind) (dtk :: Kind) :: rtk -> LoT dtk -> Branch dtk -> Star where
   Ex  ::  forall ell (t :: ell) (p :: SKind ell) rtk dtk r tys c dot  NB rtk (ell -> dtk) r (t :&&: tys) c  -> NB rtk dtk r tys (Exists p c)
   Cr  ::                                                              NP (NA rtk dtk r tys) fs              -> NB rtk dtk r tys (Constr fs)
 
 data NS :: (k -> Star) -> [k] -> Star where
-  Here   :: f k      -> NS f (k (P (:)) ks)
-  There  :: NS f ks  -> NS f (k (P (:)) ks)
+  Here   :: f k      -> NS f (k qcolon ks)
+  There  :: NS f ks  -> NS f (k qcolon ks)
 
-type SOPn dtk (c :: DataType dtk) (r :: dtk) (tys :: LoT dtk) = NS (NB dtk dtk r tys) c
+type SOPn (dtk :: Kind) (c :: DataType dtk) (r :: dtk) (tys :: LoT dtk) = NS (NB dtk dtk r tys) c
 \end{code}
 \end{myhs}
 \caption{Full implementation, part 2: interpretation of codes}
@@ -2079,7 +2080,7 @@ class GenericNSOP dtk (f :: dtk) where
 \begin{figure}
 \begin{myhs}
 \begin{code}
-type family Apply dtk (f :: dtk) (tys :: LoT dtk) :: (Star) where
+type family Apply dtk (f :: dtk) (tys :: LoT dtk) :: Star where
   Apply (Star)     f LoT0         = f
   Apply (k -> ks)  f (t :&&: ts)  = Apply ks (f t) ts
 
