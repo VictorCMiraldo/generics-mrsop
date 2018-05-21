@@ -3,7 +3,7 @@
 \section{The Generic Zipper}
 \label{sec:zipper}
 
-  To conclude our examples section we will conduct a validation
+  To add to our examples section we conduct a validation
 exercise involving a more complex application of generic
 programming. Zippers~\cite{Huet1997} are a well established technique
 for traversing a recursive data structure keeping track of the current
@@ -11,15 +11,15 @@ for traversing a recursive data structure keeping track of the current
 been done by many authors~\cite{Hinze2004,Adams2010,Yakushev2009} for
 many different classes of types in the past. To the best of the
 authors knowledge, this is the first definition in a direct
-\emph{sums-of-products} style.  We will not be explaining what
-\emph{are} zippers in detail, instead, we will give a quick reminder
+\emph{sums-of-products} style.  We will not be explaining 
+\emph{are} zippers are in detail, instead, we will give a quick reminder
 and show how zippers fit within our framework.
 
   Generally speaking, the zipper keeps track of a focus point in a
 data structure and allows for the user to conveniently move this focus
 point and to apply functions to whatever is under focus.  This focus
 point is expressed by the means of a location type, |Loc|, with a
-couple associated functions:
+couple of associated functions:
 
 \begin{myhs}
 \begin{code}
@@ -183,7 +183,7 @@ deriveFamily (tht (Prog String))
 \end{code}
 \end{myhs}
 
-  The |deriveFamily| takes care of unfoldinf the (type level) recursion until it
+  The |deriveFamily| takes care of unfolding the (type level) recursion until it
 reaches a fixpoint.  In this case, the type synonym |FamProgString = P [Prog
 String , dots]| will be generated, together with its |Family|
 instance. Optionally, one can also pass along a custom function to decide
@@ -194,7 +194,7 @@ selection of Haskell built-in types as opaque types.
 \label{sec:underthehood}
 
   The process of deriving a whole mutually recursive family from a single
-member is conceptually divided into two disjoint process. First we unfold all definitions
+member is conceptually divided into two disjoint processes. First we unfold all definitions
 and follow all the recursive paths until we reach a fixpoint. At that moment
 we know that we
 have discovered all the types in the family. Second, we translate the definition
@@ -205,7 +205,7 @@ seen \emph{and} processed and the indices of those within the family.
 
   Let us illustrate this process in a bit more detail using our running example
 of a
-mutually recursive family and consider through what
+mutually recursive family and consider what
 happens within \emph{Template Haskell} when it starts unfolding 
 the |deriveFamily| clause.
 
@@ -291,7 +291,7 @@ instance Family Singl FamRoseInt CodesRoseInt where dots
 \section{Metadata}
 \label{sec:metadata}
 
-  The representations described up to now are enough to write generic equalities
+  The representations described in this paper is enough to write generic equalities
 and zippers. But there is one missing ingredient to derive generic
 pretty-printing or conversion to JSON, for instance. We need to maintain
 the \emph{metadata} information of our datatypes.
