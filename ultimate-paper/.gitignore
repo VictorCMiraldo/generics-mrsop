@@ -1,0 +1,9 @@
+*.pdf
+*.tex
+*.bbl
+*.blg
+*.fdb*
+*.fls
+*.log
+*.out
+*.ptb
