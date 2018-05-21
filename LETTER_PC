@@ -1,3 +1,33 @@
-Dear Chairs of TyDe and Haskell Symposium,
+Dear Niki Vazou, Richard Eisenberg and Nicolas Wu,
+
+We are submitting to apparently similar
+papers to both TyDe and the Haskell Symposium. 
+You can find both drafts attached. 
+
+  i)  Mutually Recursive Sums-of-Products (TyDe)
+  ii) Generic Programming of All Kinds (Haskell Symp.)
+
+These two papers are significantly different, however. In fact, 
+paper (ii) arose from work we have done after submitting paper
+(i) to ICFP, while we tried to address the issues it had. 
+In fact, it is the continuation of paper (i).
+
+The differences can be summarized in:
+
+  a) Paper (i) handles mutually recursive types. Paper (ii) does not.
+  b) Paper (ii) handles GADTs and existentials, paper (i) does not.
+  c) Paper (i) presents a library available for consumption.
+  d) Paper (ii) is more theoretical, and describes a general technique one
+  could use to write another library.
+  e) Paper (ii) carries some Agda proofs of consistency; paper (i) does not require
+  those since it does not need 'TypeInType'.
+
+We hope that this e-mail will clarify any potential doubt that 
+might arise during the PC meetings. 
+
+Sincerely,
+Victor Miraldo and Alejandro Serrano
+
+
 
 
