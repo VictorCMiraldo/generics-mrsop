@@ -179,6 +179,7 @@ convertType (VarT n)    = return (VarST n)
 convertType (ConT n)    = return (ConST n)
 convertType (ParensT t) = convertType t
 convertType ListT       = return (ConST (mkName "[]"))
+convertType (TupleT n)  = return (ConST (mkName $ '(':replicate (n-1) ',' ++ ")"))
 convertType t           = fail ("convertType: Unsupported Type: " ++ show t)
 
 trevnocType :: STy -> Type
@@ -186,7 +187,9 @@ trevnocType (AppST a b) = AppT (trevnocType a) (trevnocType b)
 trevnocType (VarST n)   = VarT n
 trevnocType (ConST n)
   | n == mkName "[]" = ListT
+  | isTupleN n       = TupleT $ length (show n) - 1
   | otherwise        = ConT n
+  where isTupleN n = take 2 (show n) == "(,"
 
 -- |Handy substitution function.
 --
@@ -516,8 +519,9 @@ styToName = mkName . styFold (++) nameBase (fixList . nameBase)
     --      The hack is needed either here or in reify.
     fixList :: String -> String
     fixList n
-      | n == "[]"  = "List"
-      | otherwise  = n
+      | n == "[]"        = "List"
+      | take 2 n == "(," = "Tup" ++ show (length n - 2) 
+      | otherwise        = n
 
 onBaseName :: (String -> String) -> Name -> Name
 onBaseName f = mkName . f . nameBase
