@@ -1,22 +1,22 @@
-{-# language DataKinds #-}
-{-# language ConstraintKinds #-}
 {-# language ExplicitNamespaces #-}
 {-# language TypeOperators #-}
+
+{-# language TypeInType #-}
+{-# language DataKinds #-}
+{-# language ConstraintKinds #-}
 {-# language GADTs #-}
 {-# language TypeFamilies #-}
-{-# language PolyKinds #-}
-{-# language ExistentialQuantification #-}
-{-# language InstanceSigs #-}
-{-# language TypeApplications #-}
-{-# language FlexibleInstances #-}
-{-# language MultiParamTypeClasses #-}
-{-# language FunctionalDependencies #-}
-{-# language PatternSynonyms #-}
-{-# language TypeInType #-}
 {-# language ScopedTypeVariables #-}
+
+{-# language RankNTypes #-}
+
+{-# language MultiParamTypeClasses #-}
+{-# language InstanceSigs #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
-{-# language RankNTypes #-}
+
+{-# language TypeApplications #-}
+
 module CodeFromPaper where
 
 import Data.Kind (type (*), type Type, Constraint)

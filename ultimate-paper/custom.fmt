@@ -76,3 +76,4 @@
 %format I2 = "I_2"
 %format qcolon = "\mathrel{''\!:}"
 %format tys = "\alpha"
+%format Code1 = "\mathit{Code}_1"
