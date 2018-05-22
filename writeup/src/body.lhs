@@ -363,6 +363,7 @@ instance (Size x) => GSize (K1 R x) where
 \end{myhs}
 
 \begin{figure}\centering
+{\small
 $\begin{array}{l}
   |size (Bin (Leaf 1) (Leaf 2))| \\
   \;  = |gsize (fromGen (Bin (Leaf 1) (Leaf 2)))| \\
@@ -372,8 +373,8 @@ $\begin{array}{l}
   \;  = |gsize (fromGen (Leaf 1)) + gsize (fromGen (Leaf 2))|\\
   \;  = |gsize (L1 (K1 1)) + gsize (L1 (K1 2))|\\
   \;  = |size (1 :: Int) + size (2 :: Int)|   
-\end{array}$
-\mycaption{Reduction of |size (Bin (Leaf 1) (Leaf 2))|}
+\end{array}$}
+\caption{Reduction of |size (Bin (Leaf 1) (Leaf 2))|}
 \label{fig:sizederiv}
 \end{figure}
 
@@ -498,10 +499,14 @@ type instance  CodeSOP (Bin a) = P ([ P [a] , P ([Bin a , Bin a]) ])
 |CodeSOP| by the means of generalized $n$-ary sums, |NS|, and $n$-ary products,
 |NP|. With a slight abuse of notation, one can view |NS| and |NP|
 through the lens of the following type isomorphisms:
+
+\vspace{-0.3cm}
+{\small
 \begin{align*}
   | NS f [k_1 , k_2 , dots]| &\equiv |f k_1 :+: (f k_2 :+: dots)| \\
   | NP f [k_1 , k_2 , dots]| &\equiv |f k_1 :*: (f k_2 :*: dots)| 
-\end{align*}
+\end{align*}}
+\vspace{-0.3cm}
 
   We could then define |RepSOP| to be
 |NS (NP (K1 R))|, echoing the isomorphisms above, where |data K1 R a = K1 a| 
@@ -509,12 +514,17 @@ is borrowed from \texttt{GHC.Generics}. Note that we already
 need the parameter |f| to pass |NP| to |NS| here. 
 This is exactly the representation we get
 from \texttt{GHC.Generics}.
+
+\vspace{-0.3cm}
+{\small
 \begin{align*}
   |RepSOP (Bin a)|
   &\equiv | NS (NP (K1 R)) (CodeSOP (Bin a))| \\
   &\equiv |K1 R a :+: (K1 R (Bin a) :*: K1 R (Bin a))| \\
   &\equiv |RepGen (Bin a)|
 \end{align*}
+}
+\vspace{-0.3cm}
 
   It makes no sense to go through all the trouble of adding the
 explicit \emph{sums-of-products} structure to forget this
@@ -1248,23 +1258,24 @@ class Family (kappa :: kon -> Star) (fam :: [Star]) (codes :: [[[Atom kon]]]) wh
 \label{fig:int}
 \end{figure*}
 
-All the generic operations implemented in \texttt{\nameofourlibrary} use
-parametrized version of |Atom|s and representations described in this section.
-For convenience we also provide a basic set of opaque types which includes the
-most common primitive Haskell datatypes.
-
-   Note that it is also possible to provide an \emph{open} representation
-for atoms with this same approach. One could define the following interpretation
-for opaque types:
-
+We stress that the parametrization over opaque types does \emph{not}
+mean that we can use only closed universes of opaque types. It is possible
+to provide an \emph{open} representation by choosing |(Star)| -- the whole
+kind of Haskell's ground types -- as argument to |Atom|. As a consequence,
+the interpretation ought to be of kind |Star -> Star|, as follows:
 \begin{myhs}
 \begin{code}
 data Value :: Star -> Star where
   Value :: t -> Value t
 \end{code}
 \end{myhs}
+In order to use |(*)| as an argument to a type, we are required to enable
+the \texttt{TypeInType} language extension~\cite{Weirich2013,Weirich2017}.
 
-  This requires the \texttt{TypeInType} language extension, however.
+  All the generic operations implemented in \texttt{\nameofourlibrary} use
+parametrized version of |Atom|s and representations described in this section.
+For convenience we also provide a basic set of opaque types which includes the
+most common primitive Haskell datatypes.
 
 \subsection{Combinators}
 \label{sec:combinators}
@@ -1375,14 +1386,15 @@ combinators in \Cref{sec:alphaequivalence}.
 \section{Examples}
 \label{sec:mrecexamples}
 
-In this section we present several applications of our generic programming
-approach. The applications themselves -- equality, $\alpha$-equivalence, and
-zippers -- are commonly introduced with any new generic library. Our goal
+In this section we present two applications of our generic programming
+approach, namely equality and $\alpha$-equivalence. Our goal
 is to show that our approach is at least as powerful as any other comparable
 library, but brings in the union of their advantages. 
-Note also that even though some examples use a single recursive
+Even though some examples use a single recursive
 datatype for the sake of conciseness, those can be readily generalized to
-mutually recursive families.
+mutually recursive families. Another common benchmark for the power of
+a generic library, zippers, is described in \Cref{sec:zipper} due to lack
+of space.
 
 There are many other applications for generic programming which
 greatly benefit from supporting mutual recursion, if not requiring it.
@@ -1600,8 +1612,8 @@ both expressive power and convenience.
   The last point we have to address is that we still have to write
 the |Family| instance for the types we want to use. For instance,
 the |Family| instance for example in \Cref{fig:alphatoy} is not going
-to be fun. Deriving these automatically is possible, but non-trivial,
-as we shall see in \Cref{sec:templatehaskell}   
+to be fun. Deriving these automatically is possible, but non-trivial;
+we give a full account in \Cref{sec:templatehaskell}   
 
 \section{Conclusion and Future Work}
 
@@ -1633,10 +1645,10 @@ constraints that each constructor imposes on the type arguments.
   Our \texttt{\nameofourlibrary} is a powerful library for generic
 programming that combines the advantages of previous approaches to
 generic programming. We have carefully blended the information about
-(mutually) recursive positions, from \texttt{multirec}, with the
-sums-of-products codes, from \texttt{generics-sop}, maintaining the
+(mutually) recursive positions from \texttt{multirec}, with the
+sums-of-products codes introduced by \texttt{generics-sop}, while maintaining the
 advantages of both. The Haskell programmer is now able to use
 simple, combinator-based generic programming for a more expressive
-class of types than \texttt{generics-sop} allows. This is
+class of types than the sums-of-products approach allows. This is
 interesting, especially since mutually recursive types were hard 
 to handle in a generic fashion previous to \texttt{\nameofourlibrary}.

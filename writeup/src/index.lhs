@@ -186,6 +186,7 @@ programming over these types.
 
 
 %% Bibliography
+\newpage
 \bibliography{references}
 
 
@@ -194,6 +195,7 @@ programming over these types.
 %
 % Appendix
 %
+\newpage
 %include src/appendix.lhs
 %
 %%%%%%%%%%%%%%%%%%%%%%%%
