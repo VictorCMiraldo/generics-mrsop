@@ -127,23 +127,28 @@ comparison). Ultimately, GHC added special support via the
 |Generic|~\cite{Magalhaes2010} type classes.
 
 In fact, the built-in |Generic| is one of the most widespread libraries. One
-of the reasons for that is th lightweight encoding it employs. One of
+of the reasons for that is the lightweight encoding it employs. One of
 its key design aspects is to \emph{not} represent recursion
-explicitly; this is a
-major point when designing a generic programming library.
-We try, as much as possible, to maintain a similar design, but
-we extend it to handle much more expressive datatypes.
+explicitly; this is a major point when designing a generic programming library.
+Our approach is inspired by the same lightweight philosophy, but
+we extend it much further, enalbing the programmer to employ
+generic programming techniques to much more expressive datatypes.
 
-One of the downsides of |Generic| is that only ground types,
-that is, types of kind |Star|, can be represented. It
+  For instance, |Generic| only supports representing ground types,
+that is, types of kind |Star|. It
 does provide a second typeclass, |Generic1|, for type constructors of kind |Star -> Star|,
-but that is as far as it goes. We show how to represent types of
-arbitrary kinds using some of the more modern features of the Haskell language. 
+but that is as far as it goes. Our techniques are able to represent types of
+arbitrary kinds by using some of the more modern features of the Haskell language. 
 
-Within recent years, the Haskell language has gained a number of 
-extensions that enable a outstanding degree of type-level programming
-for a non-dependent language. Exploiting these recent additions we
-drastically expand the amount of Haskell datatypes we can represent
+Our work builds upon many recent extensions to the Haskell
+language, which have been implemented in GHC. The list includes
+ datatype promotion, kind polymorphism
+~\cite{Yorgey2012}, the |Constraint| kind~\cite{constraintkinds}, and
+|TypeInType|~\cite{Weirich2013,Weirich2017}.
+Regarding the latter, we show that our construction does \emph{not}
+require the |* : *| axiom by providing a model in Agda~(\Cref{sec:inconsistent1}).
+Nevertheless, using these recent additions we
+drastically expand the amount of Haskell datatypes we can represent generically
 compared to other approaches. For
 example, take the GADT given below.
 \begin{myhs}
@@ -225,18 +230,10 @@ shapes than a mere list of fields:
   \Cref{sec:exists}.
 \end{itemize}
 
-The main part of the paper introduces descriptions of datatypes in which
-recursion is implicit. In \Cref{sec:recursion} we consider a
-variant with explicit recursion.
+In \Cref{sec:recursion} we address how one could encode explicit
+recursion within our approach.
 
 %% VCM: Not sure I like this para
-Our work builds upon many recent extensions to the Haskell
-language, which have been implemented in GHC. The list includes
- datatype promotion, kind polymorphism
-~\cite{Yorgey2012}, the |Constraint| kind~\cite{constraintkinds}, and
-|TypeInType|~\cite{Weirich2013,Weirich2017}.
-Regarding the latter, we show that our construction does \emph{not}
-require the |* : *| axiom by providing a model in Agda~(\Cref{sec:inconsistent1}).
 
 \section{Preliminaries}
 \label{sec:pre}
