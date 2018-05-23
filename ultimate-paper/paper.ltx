@@ -236,7 +236,7 @@ recursion within our approach.
 
 \section{Preliminaries}
 \label{sec:pre}
-Let us take a step back for a second and take a tour of generic
+Let us take a step back and take a tour of generic
 programming techniques. We will build up in complexity gradually, ultimately
 leading to our approach. We focus on the |Generic| line of work,
 whose main characteristic is the use of type-level information
@@ -275,14 +275,14 @@ metadata via the |M1| functor.
 U1 :+: (K1 R (Tree a) :*: K1 R a :*: K1 R (Tree a))
 \end{code}
 \end{myhs}
-We say that the type above is the \emph{representation} of |Tree
+The type above is the \emph{representation} of |Tree
 a|. Note that this representation refers to the type |Tree a| itself.
-We say that recursion is encoded \emph{implicitly}.
-Other approaches to generic programming use a marker for recursive
+Hence, we say that recursion is encoded \emph{implicitly} here.
+Other approaches to generic programming use a specific combinator for marking recursive
 positions instead~\cite{Noort2008,Yakushev2009}.
 
 In order to use generic operations, we must tie each datatype with
-its representation, this is done via the |Generic| type class. In
+its representation. This is done via the |Generic| type class. In
 addition, we ought to witness the isomorphism at the term level via a
 pair of functions |to| and |from|.
 \begin{myhs}
@@ -363,7 +363,7 @@ used by the \texttt{generics-sop} library~\cite{deVries2014}
 to guarantee the sum-of-products invariants.
 
 Briefly, by
-promoting a datatype you can use its constructors as types and type constructors,
+promoting a datatype you can use its constructors as types,
 and the type being defined is promoted to a kind. For example,
 we can use a promoted Boolean value to encode whether a certain string
 has been validated or not.
@@ -403,10 +403,10 @@ P [ P [], P [Tree a, a, Tree a]]
 But now another problem arises: we cannot construct terms of the code
 directly, we first need to turn it into a ground type. The kind of the
 type level list is |[[Star]]| -- where |Star| is the kind of ground
-types in Haskell -- whereas we can only write terms of kind
+types in Haskell -- yet, we can only write terms of kind
 |Star|. The bridge between the two worlds is given by the following
-two GADTs, |NS| interprets a list of elements as a choice, whereas
-|NP| requires a value for each element in the list, and thus encodes a
+two GADTs: |NS|, which interprets a list of elements as a choice, and
+|NP|, which requires a value for each element in the list, and thus encodes a
 product.
 \begin{myhs}
 \begin{code}
@@ -444,7 +444,7 @@ As a result, we require for each field one value of exactly the type
 declared in the inner list. As we shall see, the ability to manipulate
 the inner lists is paramount to our approach.
 
-As in the case of the built-in |Generic|, each datatype is tied to its
+Just like the built-in |Generic|, each datatype is tied to its
 code by a type class. In the \texttt{generics-sop} this class is also known
 as |Generic|, but we shall use a superscript to distinguish it.
 \begin{myhs}
@@ -498,7 +498,7 @@ class Generic1 f where
 \end{code}
 \end{myhs}
 
-We need to extend our set of building blocks, since in the case of
+We now need to extend our set of building blocks, since in the case of
 type constructors we have an additional possibility for the fields,
 namely referring to the type variable |a| in |f|.
 |Par1| is used to represent the case in which the type variable
