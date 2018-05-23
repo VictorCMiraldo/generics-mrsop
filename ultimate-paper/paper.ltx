@@ -146,7 +146,7 @@ language, which have been implemented in GHC. The list includes
 ~\cite{Yorgey2012}, the |Constraint| kind~\cite{constraintkinds}, and
 |TypeInType|~\cite{Weirich2013,Weirich2017}.
 Regarding the latter, we show that our construction does \emph{not}
-require the |* : *| axiom by providing a model in Agda~(\Cref{sec:inconsistent1}).
+require the |* : *| axiom by attaching a model in Agda~(\Cref{sec:agda}).
 Nevertheless, using these recent additions we
 drastically expand the amount of Haskell datatypes we can represent generically
 compared to other approaches. For
@@ -232,8 +232,6 @@ shapes than a mere list of fields:
 
 In \Cref{sec:recursion} we address how one could encode explicit
 recursion within our approach.
-
-%% VCM: Not sure I like this para
 
 \section{Preliminaries}
 \label{sec:pre}
