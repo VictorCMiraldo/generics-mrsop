@@ -20,7 +20,7 @@ category:            Generics
 build-type:          Simple
 
 extra-source-files:  ChangeLog.md, README.md
-cabal-version:       2.0
+cabal-version:       1.24
 tested-with:         GHC == 8.0.2, GHC == 8.2.2, GHC == 8.4.2
 
 

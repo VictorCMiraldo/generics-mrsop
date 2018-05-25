@@ -17,7 +17,7 @@ matrix:
       compiler: ": #GHC 8.0.2"
       addons: {apt: {packages: [cabal-install-1.24,ghc-8.0.2], sources: [hvr-ghc]}}
     - env: CABALVER=2.0 GHCVER=8.2.2
-      compiler: ": #GHC 8.0.2"
+      compiler: ": #GHC 8.2.2"
       addons: {apt: {packages: [cabal-install-2.0,ghc-8.2.2], sources: [hvr-ghc]}}
     - env: CABALVER=2.2 GHCVER=8.4.2
       compiler: ": #GHC 8.4.2"
@@ -57,7 +57,7 @@ install:
      cabal install --only-dependencies --enable-tests --enable-benchmarks;
    fi
 
-# snapshot package-db on cache miss 
+# snapshot package-db on cache miss
  - if [ ! -d $HOME/.cabsnap ];
    then
       echo "snapshotting package-db to build-cache";
@@ -74,7 +74,6 @@ script:
  - cabal build   # this builds all libraries and executables (including tests/benchmarks)
  - cabal test
  - cabal check
- - cabal haddock # tests that documentation can be generated
  - cabal sdist   # tests that a source-distribution can be generated
 
 # Check that the resulting source distribution can be built & installed.
