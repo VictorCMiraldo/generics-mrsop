@@ -712,9 +712,9 @@ type family AllRec   c xs :: Constraint where
 
 Armed with our new |Generic1SOP|, we can implement a generic version
 of |fmap|, given in \Cref{fig:gfmap2}. The code is a bit more complex
-than |gsize|, though. First of all, the types involved in the ancillary
-definitions |goS|, |goP|, and |goA| are too complex to be inferred. We
-need to help the compiler by annotating the local declarations.
+than |gsize|, though. The types involved in 
+|goS|, |goP|, and |goA| are too complex to be inferred, hence, we
+must help the compiler by annotating the local declarations.
 
 We cannot use the same type family |All2| that we were using, because
 we need to treat |Rec| positions differently from the rest. The
@@ -725,26 +725,18 @@ only applies the a constraint |c| only over those positions.
 \label{sec:allkinds}
 
 The extension of |GenericSOP| to |Generic1SOP| was done in three
-steps. First, we changed the language of the codes from lists of lists
-of types, to lists of lists of atoms. By doing so, we were able to
-refer to type parameters via |Var|, and
-encode recursion via |Rec|. This required the introduction of
+steps. First, we changed the language of codes from lists of lists
+of \emph{types}, to lists of lists of \emph{atoms}. By doing so, we were able to
+refer to type parameters via |Var| and
+encode recursion via |Rec|. Next, we introduced
 an interpretation functor |NA| for atoms. Finally, we defined
-the |Generic1SOP| type class to tie each datatype with its code. In
-this section we follow the same three steps, but this time we go one
-level higher. The resulting generic type-class supports types
-of arbitrary kinds.
-
-%Although we are using |TypeInType|, which collapses kinds and types
-%into the same level, we shall write |Kind| to distinguish 
-%those places where we expect the former. Moreover, we use |dtk| to denote
-%the kind of the datatype we are encoding. 
+the |Generic1SOP| type class to tie each datatype to its code. In
+this section we follow the same three steps, but this time we go further.
+The resulting generic type-class supports types of arbitrary kinds.
 
 The first step is representing each of the types
-of the fields, that is, estabilishing our new language of atoms. As we saw
-in \Cref{sec:generic1}, which datatypes we are able to describe
-is a consequence of the choice of these primitive building blocks. In
-that case, we had to add an additional composition combinator |(:.:)| to
+of the fields, that is, estabilishing our new language of atoms. 
+In \Cref{sec:generic1} we had to introduce an additional composition combinator |(:.:)| to
 support nested recursion. Here this problem is magnified; for example,
 in the following datatype of kind |Star -> (Star -> Star) -> Star ->
 Star|:
@@ -761,7 +753,7 @@ is a dead end.
 Looking at the Haskell Report~\cite[section 4.1.2]{haskell2010}, we see
 that a type follows closely the applicative fragment of the $\lambda$-calculus:
 it is either a type variable, a type constructor or an application.
-With the help of de Bruijn indices, this is straight forward to encode
+Using de Bruijn indices, this is straight forward to encode
 in Haskell:
 \begin{myhs}
 \begin{code}
@@ -786,7 +778,7 @@ data Atom (dtk :: Kind) (k :: Kind) :: (Star) where
 \end{myhs}
 For the sake of clarity, we define a synonym |Kind| for |(*)|,
 which we used whenever the instantiation of a type argument represents
-a kind as opposed to a regular type. The |Atom| datatype get two
+a kind as opposed to a regular type. The |Atom| datatype receives two
 |Kind|-indices: the first one |dtk| represents the kind of the datatype
 we are describing, and the second one |k| gives the kind of the type
 represented by the |Atom| itself.
@@ -808,7 +800,7 @@ type family Pos (n :: Nat) (dtk :: Kind) :: Kind where
 \end{code}
 \end{myhs}
 
-Yet, Haskell is not a dependently-typed language, which means we
+Alas Haskell is not a dependently-typed language, which means we
 cannot use the value of the argument of type |Nat|
 as an argument of |Pos|. To work around this restriction we use a
 \emph{singleton}~\cite{Eisenberg2012} for natural numbers. 
@@ -842,7 +834,7 @@ However, we are not using
 the |Star : Star| judgement in our construction, we discuss this matter in
 \Cref{sec:inconsistent1}. 
 
-Let us also introduce some synonyms for the first, second, and third
+For simplicity, we also introduce some synonyms for the first, second, and third
 variable, in order to make the descriptions of types in the rest of
 the paper a bit more concise:
 \begin{myhs}
@@ -865,9 +857,9 @@ type RoseCode    = P [ P [ V0, Kon [] :@: (Kon Rose :@: V0) ] ]
 \end{code}
 \end{myhs}
 
-\paragraph{Interpreting Atoms.} This new language of Atoms did not
-touch the sum-of-products structure, hence, the |NS| and |NP| types do
-not need any modifications. On the other hand, the interpretation of
+\paragraph{Interpreting Atoms.} This new language of Atoms reused
+the sum-of-products structure, hence, the |NS| and |NP| types do
+need no modifications. On the other hand, the interpretation of
 atoms requires some type engineering. Recall the definition of |NA|
 given in \Cref{sec:generic1}:
 \begin{myhs}
@@ -877,12 +869,12 @@ data NA :: Star -> Atom -> Star where
   dots
 \end{code}
 \end{myhs}
-That first argument of kind |Star| represents the type of the argument
+The first argument of kind |Star| represents the type of the argument
 of the functor we are interpreting. In the current setting, we might have an
 arbitray number of arguments, and these might be of arbitrary kinds
 other than |Star|.
 This notion is
-not new, to interpret a term possibly containing variables we need a
+not new: to interpret a term possibly containing variables we need a
 \emph{context} --- commonly represented by the Greek letter $\Gamma$
 -- which assigns a type to each of the variables. Other than the
 special shape of the index, the datatype for contexts looks very much
@@ -902,7 +894,7 @@ In contrast to the previous iteration, we do not have a different constructor
 for each possible value of |Atom|. It is not possible to build interpretations
 for |Atom| in a compositional way: for example, it is not possible to define the
 interpretation |Kon [] :@: Kon Int| by composing interpretations of
-|Kon []| and |Kon Int|, if only because the notion of a value of
+|Kon []| and |Kon Int| because the notion of a value of
 something of a kind different from |Star|, like |[]|, does not make sense
 in Haskell. Instead, we define a type family |Ty| which computes the type
 of a field given a context.
@@ -919,7 +911,7 @@ type family Ty dtk (tys :: LoT dtk) (t :: Atom dtk k) :: k where
 \end{myhs}
 
 The auxiliary operation |LookupLoT| should return the $n$-th position
-in the context |tys|. Alas, here we stumble upon a wall: the compiler
+in the context |tys|. Unfortunately the compiler
 is not able to deduce that such a lookup will produce a type of the
 correct kind. To work around this limitation, we need to manually
 inline the lookup for each shape of |dtk|:
@@ -931,9 +923,9 @@ type family Ty dtk (tys :: LoT dtk) (t :: Atom dtk k) :: k where
   -- and so on
 \end{code}
 \end{myhs}
-Although not very elegant, we think that this is a simple compromise
-solution. Haskell datatypes commonly do not have a huge number of
-type parameters, so we can get our way with a limited number of these
+Although not very elegant, this is a reasonable compromise and
+solves the problema at hand. Haskell datatypes commonly do not have a very large number of
+type parameters, so one can get around way with a limited number of these
 expanded lookups.
 
 In preparation for the upcoming constructions, we introduce the type
@@ -952,14 +944,12 @@ type SOPn (dtk :: Kind) (c :: DataType dtk) (tys :: LoT dtk)
   = NS (NP (NA dtk tys)) c
 \end{code}
 \end{myhs}
-We can reuse the same |NS| and |NP| functors from previous sections,
-we only need to update the interpretation of |Atom|s.
 
 \paragraph{A unified |GenericNSOP|.} The definition of the generic
 representation of a certain datatype is not comprised only of its
-code, the two isomorphisms |from| and |to| are also required. We come
-to a problem here, because we need to be able to express on a single
-type signature the whole family of conversion functions:
+code, the two isomorphisms |from| and |to| are also required. 
+In our case, however, it seems like there is a family of such conversion
+functions:
 \begin{myhs}
 \begin{code}
 from   :: f      -> SOPn (Star)              (Code f) LoT0
@@ -968,10 +958,10 @@ from2  :: f a b  -> SOPn (k1 -> k2 -> Star)  (Code f) (a :&&: b :&&: LoT0)
 -- and so on
 \end{code}
 \end{myhs}
-The problem is in the shape of the first argument, because |f| is
-applied to a different number of variables in each case. Following the
-same idea as we do for |SOPn|, we can describe the situation as |f|
-applied to a context whose length varies.
+The problem is in the shape of the first argument, since |f| is
+applied to a different number of variables in each case. 
+Nevertheless, we can always describe this situation as |f|
+being applied to a \emph{context} whose length varies.
 \begin{myhs}
 \begin{code}
 from   :: Apply f LoT0                  -> SOPn dots
@@ -1001,11 +991,11 @@ class GenericNSOP dtk (f :: dtk) where
 \end{code}
 \end{myhs}
 Unfortunately, GHC rejects the signatures of the methods. The reason
-is that |f| appears only as an argument of type families, |Apply| and
+is that |f| appears only as an argument of type families: |Apply| and
 |Code|. None of the type families are injective, which means that the
 instantiation of |f| cannot be inferred in its usage sites. In fact,
-it we have |Either a b| as a result, there are three different calls
-to |Apply| which give the same result:\footnote{Although one could
+if we have |Either a b| as a result, there are three different calls
+to |Apply| which would give the same result:\footnote{Although one could
 argue that the combination of the result of |Apply| and the sequence
 of types |tys| is enough to fix the parameter |f|.}
 \begin{myhs}
@@ -1047,17 +1037,14 @@ instance GenericNSOP (* -> *) [] where
 \label{fig:notworking}
 \end{figure}
 
-It seems that all elements are in place. Thus we try to define the
-instance of |GenericNSOP| for lists as shown in \Cref{fig:notworking}.
-Alas, we get a couple of type errors, one per method in the class.
-First of all, GHC cannot check that the use of |T x| in |from| is
-well-typed:
+If we try to define the instance of |GenericNSOP| for lists as shown
+in \Cref{fig:notworking} we still run into some type errors.  First of
+all, GHC cannot check that the use of |T x| in |from| is well-typed:
 \begin{verbatim}
 Could not deduce:
   Ty (* -> *) (a ':&: 'Epsilon) x0 ~ a
 \end{verbatim}
-We can fix this problem by being explicit about the type arguments to
-|T|. For that we use visible type application~\cite{EisenbergWA16}.
+The fix is simple, we just need visible type application~\cite{EisenbergWA16}.
 \begin{myhs}
 \begin{code}
 from (Arg (A0 (x : xs)))
@@ -1067,9 +1054,8 @@ from (Arg (A0 (x : xs)))
 In this case, we only need the annotation for that argument, and not
 for |xs|. We have not been able to find a common pattern about when
 these annotations are required, although it seems that references to
-variables almost always need them. If instances for |GenericNSOP| were
-automatically generated, one can just annotate every field to fail in
-the safe side.
+variables almost always need them. One can simply generate these instances
+in a potential production version of the library.
 
 The second problem happens in the conversion from the generic
 representation back to the original datatype:
@@ -1078,14 +1064,7 @@ Couldn't match type 'ts' with 't0 ':&: 'Epsilon'
 \end{verbatim}
 Although in theory just knowing the kind |dtk| of the datatype we are
 describing is enough to know the shape of the context |LoT dtk|, 
-the compiler does not know that invariant. In fact, you could
-add another constructor to the definition of |LoT| and make this
-invariant not hold anymore.
-
-The problem would be gone if we could pattern match in the shape of
-the context. Then we could refine the type information to be in the case
-we want to handle, knowing that any other case is impossible because
-of the way datatypes are represented.
+the compiler does not know that invariant. 
 
 \begin{figure}
 \begin{myhs}
@@ -1106,18 +1085,13 @@ instance SSLoT ks ts => SSLoT (k -> ks) (t :&&: ts) where
 \label{fig:singctx}
 \end{figure}
 
-Since Haskell is not dependently-typed we cannot perform this
-match directly. However, we can use a variation of the singleton technique
-we used for |Nat|s. 
-
+We need to pattern match on the shape of the context to resolve this problem.
 First we define a singleton for contexts, |SLoT|, as given
 in \Cref{fig:singctx}. Even though a context and its singleton are
 in one-to-one correspondence, we need to witness this fact explicitly.
-There is one feature in Haskell
-to obtain a term from the shape of a type, type classes, which we use
-to define this correspondence. Finally, we require a |SSLoT| instance
+Finally, we require a |SSLoT| instance
 for the context in the |to| method, so we
-can grip the singleton and pattern match. This is a vacuous constraint,
+can retrieve the singleton and pattern match. This is a vacuous constraint,
 since |SSLoT| is defined for every possible shape of the context
 
 The definitive version of |GenericNSOP| and its instance for lists is given
@@ -1294,7 +1268,7 @@ In fact, we can expose only the combination of (un)raveling with
 |to| and |from|, making the writer of generic operations completely
 unaware of the intermediate |ApplyT| datatype.
 
-\subsection{Are We Really Inconsistent?}
+\subsection{Are We Inconsistent?}
 \label{sec:inconsistent1}
 
 In order to perform the entire construction, we were forced to enable
@@ -1382,10 +1356,10 @@ instance GenericNSOP (k -> k -> *) Eql where
 \label{fig:eqlgeneric}
 \end{figure}
 
-The rather slim layer that we had to add to support constraints serve
-as a witness of how the different type level extensions in GHC behave
-well together.
-
+This is a rather slim layer that has to be added on top of
+the previous constructions. Our Agda model in
+\Cref{sec:agda} has constraints in it. Hence, this layer
+introduces no inconsistency.
 
 \section{Existentials}
 \label{sec:exists}
@@ -1413,19 +1387,18 @@ data Tm t where
   APair  ::  forall a b dot  t ~ (a, b)  => Tm a -> Tm b -> Tm t
 \end{code}
 \end{myhs}
-The language of codes described up is enough to describe |AnInt|, but
-cannot handle the introduction of new variables in |APair|. In this
-section we fix that problem.
+Our language of codes is enough to describe |AnInt|, but
+cannot handle the introduction of new variables in |APair|. 
+Let us look at what would it take to extend our technique to
+handle existential types.
 
-In this case, the change does not affect atoms nor
-fields. Existentials are introduced at the level of
-constructors. Before, each constructor was merely a |[Field dtk]|, but
-now we are going to refine it with the possibility of introducing new
-type variables; for each new variable we need to record its kind. In a
-dependently-typed language we can encode this construction using a
-recursive |Branch| datatype: we introduce new variables by repeated
-applications of |Exists|, and then move to describe the fields with
-|Constr|.
+Existentials are introduced at the level of constructors. Before, each
+constructor was merely a |[Field dtk]|, but now we are going to refine
+it with the possibility of introducing new type variables; for each
+new variable we need to record its kind. In a dependently-typed
+language we can encode this construction using a recursive |Branch|
+datatype: we introduce new variables by repeated applications of
+|Exists|, and then move to describe the fields with |Constr|.
 \begin{myhs}
 \begin{code}
 data Branch (dtk :: Kind) where
@@ -1480,11 +1453,11 @@ declaration.
 
 \
 
-The next step is updated the interpretation of the
-codes. Unfortunately, since now a datatype is not described by a list
-of lists, we cannot defined its interpretation as a simple composition
-of |NS|, |NP|, and |NA|. The type |NB| which interprets |Branch|es has
-this form:
+The next step is to update the interpretation of the
+codes. Unfortunately, our datatypes are not described by a list
+of lists anymore. This means we cannot define its interpretation as a simple composition
+of |NS|, |NP|, and |NA|. We then introduce |NB|, which interprets |Branch|es and has
+the form:
 \begin{myhs}
 \begin{code}
 data NB (dtk :: Kind) :: LoT dtk -> Branch dtk -> Star where
@@ -1503,7 +1476,7 @@ change in the structure that |Exists| performs in the kind. Once we do
 not need more existential variables, |Cr| just continues as usual, by
 requiring |NP (NA dtk tys)| for the fields |fs|.
 
-Since now the call to |NP| is baked into |NB|, we need to update the
+Since now the call to |NP| is inside |NB|, we need to update the
 top-level |SOPn| type too.
 \begin{myhs}
 \begin{code}
@@ -1511,7 +1484,7 @@ type SOPn dtk (c :: DataType dtk) (tys :: LoT dtk) = NS (NB dtk tys) c
 \end{code}
 \end{myhs}
 The |GenericNSOP| type class, on the other hand, is not affected by
-these changes. The instances, on the other hand, need to change their
+these changes. The instances, however, need to change their
 codes and isomorphisms to reflect the new intermediate layer between
 outer and inner lists.
 
@@ -1521,7 +1494,7 @@ Our approach to generic programming is heavily inspired by the
 original list-of-list-of-types construction by
 \citet{deVries2014}. Each of the extensions we present: support for
 multiple kinds, constraints, explicit recursion, and existentials,
-could be applied independently to the original framework. Conversely,
+could be applied independently of the original framework. Conversely,
 \texttt{generics-sop} supports metadata about types and constructors,
 and the same techniques are readily applicable to our case.
 
@@ -1551,16 +1524,9 @@ of arguments; in contrast our development is indexed by contexts
 
 \section{Conclusion and Future Work}
 
-Through several refinements, starting with the original
-sum-of-products construction, we have been able to build a generic
-programming library supporting a wide range of Haskell datatypes. Our
-main novelties are the uniform treatment of types of different kinds,
-and the support for the most important features in GADTs. To do so, we
-have leveraged many of the Haskell extensions proposed in the
-literature and implemented in GHC.
-
-We cannot represent \emph{every} datatype, though. With the
-introduction of the |TypeInType| extension, quantification in types
+Although we greatly exapended the set of types that the (generic)
+programmer has access to, this is still not exhaustive.
+With the introduction of the |TypeInType| extension, quantification in types
 works as a telescope. That is, the kind of a variable might depend on
 the variables introduced before it. For example, here |a| depends on
 the kind |dtk|:
@@ -1570,16 +1536,25 @@ data KTProxy dtk t where
   KTProxy :: forall dtk (t :: dtk) dot KTProxy dtk t
 \end{code}
 \end{myhs}
-The |Exists| combinator in our library, on the other hand, only allows
+The |Exists| combinator in our library only allows
 \emph{constant} kinds to quantify over.
 
 Another shortcoming of our library is that only \emph{single}
 recursion can be represented. The
 \texttt{multirec}~\cite{Yakushev2009} library adds support families of
 mutually recursive datatypes, but with the caveat that all members
-have to be of kind |*|. It might be possible to use their construction
---- adding an index to the |Rec| atom -- in a similar way for families
-in which all types share the same kind.
+have to be of kind |*|. It might be possible to use a similar technique
+--- adding an index to the |Rec| atom -- to try tackling this. 
+The difficulty is in the possbility of different members of the family
+having potentially different kinds.
+
+Through several refinements, starting with the original
+sum-of-products construction, we have built a generic
+programming library supporting a wide range of Haskell datatypes. Our
+main novelties are the uniform treatment of types of different kinds,
+and the support for the most important features in GADTs. To do so, we
+have leveraged many of the Haskell extensions proposed in the
+literature and implemented in GHC. 
 
 %% Acknowledgments
 %\begin{acks}
