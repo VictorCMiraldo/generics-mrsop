@@ -1,33 +1,26 @@
-Dear Niki Vazou, Richard Eisenberg, and Nicolas Wu,
+Dear Niki, Richard, and Nicolas,
 
-We are submitting two apparently similar
-papers to both TyDe and Haskell Symposium. 
-You can find both drafts attached. 
+We wanted to let you know that we intend to submit two related papers to 
+TyDe and the Haskell Symposium. In accordance with the SIGPLAN Republication 
+Policy, we're writing you now to clarify the relationship between these two papers:
 
-  i)  Sums of Products for Mutually Recursive Datatypes (TyDe)
+  i) Sums of Products for Mutually Recursive Datatypes (TyDe)
   ii) Generic Programming of All Kinds (Haskell Symp.)
 
-In addition, (i) has been previously submitted to ICFP,
-and improved with many suggestions from reviewers.
-
-These two papers are significantly different, however.
-% Alejandro: I don't really lke this
-% In fact, 
-% paper (ii) arose from work we have done after submitting paper
-% (i) to ICFP, while we tried to address the issues it had. 
-% In fact, it is the continuation of paper (i).
-The differences can be summarized as:
+We've attached a preliminary draft of both papers to this email. 
+The first paper i), was unfortunately rejected from ICFP. Although both papers 
+explore generic programming in Haskell, there are substantial differences:
 
   a) Paper (i) handles mutually recursive types, paper (ii) does not.
   b) Paper (ii) handles GADTs and existentials, paper (i) does not.
-  c) Paper (i) presents a library available for consumption.
-     In contrast, paper (ii) is more theoretical, and describes a general
+  c) Paper (i) presents a library available for consumption. 
+     In contrast, paper (ii) is more theoretical, and describes a general 
      technique one could use to write another library.
-  e) Paper (ii) carries some Agda proofs of consistency; paper (i) does not
-     require those since it does not need 'TypeInType'.
+  d) Paper (ii) carries some Agda proofs of consistency; paper (i) does 
+     not require those since it does not need 'TypeInType'.
 
-We hope that this e-mail will clarify any potential doubt that 
-might arise during the PC meetings. 
+We hope that you will not object to these simultaneous submissions. 
+If you have any further questions, feel free to get in touch,
 
 Sincerely,
 Victor Miraldo and Alejandro Serrano
