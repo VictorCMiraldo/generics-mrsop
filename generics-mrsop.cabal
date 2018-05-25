@@ -60,7 +60,7 @@ library
     FunctionalDependencies,
     ScopedTypeVariables
 
-  build-depends:       base >= 4.9 && <= 4.12,
+  build-depends:       base >= 4.9 && <= 5,
                        containers,
                        template-haskell,
                        mtl
