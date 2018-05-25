@@ -658,7 +658,7 @@ class Generic1SOP (f :: * -> *) where
 Up to this point we have omitted the implementation of the functions
 which witness the isomorphism between a regular datatype and its
 generic representation. It is instructive to consider how it looks for
-the case of |Tree| takes as a type constructor:
+the case of |Tree| seen as a type constructor:
 \begin{myhs}
 \begin{code}
 instance Generic1SOP Tree where
@@ -668,7 +668,7 @@ instance Generic1SOP Tree where
     = There $  Here $  R l :* V x :* R r :* Nil
 \end{code}
 \end{myhs}
-After a sequence of |There| and |Here| which indicate which
+After a sequence of |There| and |Here| indicating which
 constructor we are working with, we find a |(:*)|-separated list of
 fields, finished by |Nil|. In each case we need to mark whether that
 field arises from an application of a type constructor to the
