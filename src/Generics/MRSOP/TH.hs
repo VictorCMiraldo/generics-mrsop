@@ -12,7 +12,7 @@
 --   We are borrowing a some code from generic-sop
 --   ( https://hackage.haskell.org/package/generics-sop-0.3.2.0/docs/src/Generics-SOP-TH.html )
 --
-module Generics.MRSOP.TH (deriveFamily, genFamilyDebug) where
+module Generics.MRSOP.TH (deriveFamilyWith , deriveFamily, genFamilyDebug) where
 
 import Data.Function (on)
 import Data.Char (ord , isAlphaNum)
@@ -36,23 +36,34 @@ import qualified Generics.MRSOP.Base.Metadata as Meta
 
 import qualified Data.Map as M
 
+data OpaqueData = OpaqueData
+  { opaqueName   :: Name
+  -- | Map assigning a Haskell type to its corresponding promoted
+  --   Kon
+  , opaqueTable  :: M.Map Name Name
+  -- | Map assigning a promoted Kon to the constructor it uses
+  , opaqueCons   :: M.Map Name Name
+  } deriving (Eq , Show)
+
 -- |Given the name of the first element in the family,
 --  derives:
 --
 --    1. The other types in the family and Konstant types one needs.
 --    2. the SOP code for each of the datatypes involved
 --    3. One 'Element' instance per datatype
---    TODO: 4. Metadada information for each of the datatypes involved
-deriveFamily :: Q Type -> Q [Dec]
-deriveFamily t
+--    4. Metadada information for each of the datatypes involved
+--    5. Uses the opaque-type universe provided.
+deriveFamilyWith :: Name -> Q Type -> Q [Dec]
+deriveFamilyWith opqName t
   = do sty              <- t >>= convertType 
-       (_ , (Idxs _ m)) <- runIdxsM (reifySTy sty)
+       opqData          <- reifyOpaqueType opqName
+       (_ , (Idxs _ m)) <- runIdxsM (reifySTy opqData sty)
        -- Now we make sure we have processed all
        -- types
        m' <- mapM extractDTI (M.toList m)
        let final = sortBy (compare `on` second) m' 
        dbg <- genFamilyDebug sty final
-       res <- genFamily sty final 
+       res <- genFamily opqData sty final 
        return (dbg ++ res)
   where
     second (_ , x , _) = x
@@ -61,6 +72,10 @@ deriveFamily t
       = fail $ "Type " ++ show sty ++ " has no datatype information."
     extractDTI (sty , (ix , Just dti))
       = return (sty , ix , dti)
+
+deriveFamily :: Q Type -> Q [Dec]
+deriveFamily = deriveFamilyWith (mkName "Singl")
+
 
 -- Sketch;
 --
@@ -326,9 +341,51 @@ hasData ty = maybe False (const True) <$> lkupData ty
 -- * Preprocessing Data * --
 ----------------------------
 
+-- |Given an opaque type name, return the name of the constructors
+--  that wrap which Haskell types.
+--
+--  This provides a way to customize what the generation engine
+--  sees as opaque types.
+--
+--  For instance, suppose,
+--
+--  > data MySingl :: * -> * where
+--  >   MyInt  :: Int  -> MySingl KInt
+--  >   MyBool :: Bool -> MySingl KBool
+--
+--  Then,
+--
+--  > reifyOpaqueType ''MySingl
+--  >  = M.fromList [(''Int , "KInt") , (''Bool, "KBool")]
+--  >  , M.fromList [("KInt" , "MyInt") , ("KBool" , "MyBool")]
+--
+reifyOpaqueType :: Name -> Q OpaqueData
+reifyOpaqueType opq
+  = do triples <- (extract <.> reifyDec) opq
+       let (hsTyMap , consMap) = genMaps triples
+       return $ OpaqueData opq hsTyMap consMap
+  where
+    genMaps :: [(Name , Name , Name)] -> (M.Map Name Name , M.Map Name Name)
+    genMaps xys = (M.fromList (map (\(x , y , _) -> (x , y)) xys)
+                 ,M.fromList (map (\(_ , x , y) -> (x , y)) xys))
+    
+    extract :: Dec -> Q [(Name , Name , Name)]
+    extract (DataD _ _ _ _ cs _) = mapM extractCon cs
+    extract _
+      = failMsg
+
+    extractCon :: Con -> Q (Name , Name , Name)
+    extractCon (GadtC [opqC] [(_ , ConT hsTy)] (AppT _ (PromotedT ty)))
+      = return (hsTy , ty , opqC)
+    extractCon _
+      = failMsg
+
+    failMsg = fail $ "The opaque-type universe you provided is of the wrong form;"
+                  ++ "Check documentation for Generics.MRSOP.TH.reifyOpaqueType"
+
 -- |Performs step 2 of the sketch;
-reifySTy :: STy -> M ()
-reifySTy sty
+reifySTy :: OpaqueData -> STy -> M ()
+reifySTy opq sty
   = do ix <- indexOf sty
        uncurry go (styFlatten sty)
   where
@@ -337,19 +394,19 @@ reifySTy sty
       = do dec <- lift (reifyDec name >>= decInfo)
            -- TODO: Check that the precondition holds.
            let res = dtiReduce dec args
-           (final , todo) <- runWriterT $ dtiMapM convertSTy res
+           (final , todo) <- runWriterT $ dtiMapM (convertSTy (opaqueTable opq)) res
            register sty final
-           mapM_ reifySTy todo
+           mapM_ (reifySTy opq) todo
     
     -- Convert the STy's in the fields of the constructors;
     -- tells a list of STy's we still need to process.
-    convertSTy :: STy -> WriterT [STy] M IK
-    convertSTy ty
+    convertSTy :: M.Map Name Name -> STy -> WriterT [STy] M IK
+    convertSTy opqTable ty
       -- We remove sty from the list of todos
       -- otherwise we get an infinite loop
       | ty == sty = AtomI <$> lift (indexOf ty)
       | isClosed ty
-      = case makeCons ty of
+      = case makeCons opqTable ty of
           Just k  -> return (AtomK k)
           Nothing -> do ix     <- lift (indexOf ty)
                         hasDti <- lift (hasData ty)
@@ -359,19 +416,9 @@ reifySTy sty
       = fail $ "I can't convert type variable " ++ show ty
               ++ " when converting " ++ show sty
 
-    makeCons :: STy -> Maybe Name
-    makeCons (ConST n) = M.lookup n consTable
-    makeCons _         = Nothing
-
-    consTable = M.fromList . map (id *** mkName)
-      $ [ ( ''Int     , "KInt")
-        , ( ''Char    , "KChar")
-        , ( ''Integer , "KInteger")
-        , ( ''Float   , "KFloat")
-        , ( ''Bool    , "KBool")
-        , ( ''String  , "KString")
-        , ( ''Double  , "KDouble")
-        ]
+    makeCons :: M.Map Name Name -> STy -> Maybe Name
+    makeCons opqTable (ConST n) = M.lookup n opqTable
+    makeCons opqTable _         = Nothing
 
 -----------------------------
 -- * Generating the Code * --
@@ -569,8 +616,8 @@ genIdxPatSyn :: STy -> Int -> Q Dec
 genIdxPatSyn sty ix
   = return (PatSynD (idxPatSynName sty) (PrefixPatSyn []) ImplBidir (int2SNatPat ix))
 
-genHereTherePatSyn :: STy -> Input -> Q [Dec]
-genHereTherePatSyn first ls
+genHereTherePatSyn :: OpaqueData -> STy -> Input -> Q [Dec]
+genHereTherePatSyn opq first ls
   = flat . concat <$> mapM (\(_ , ix , dti) -> genHereThereFor ix dti) ls
   where
     flat             = foldl' (\ac (x , y) -> x:y:ac) []
@@ -592,10 +639,12 @@ genHereTherePatSyn first ls
              -> (,) <$> genHT_decl dtiCode dtiIx ix ci
                     <*> genHT_def          dtiIx ix ci
 
+    opqName = return (ConT $ opaqueName opq)
+
     genHT_decl dtiCode dtiIx ix ci
       = PatSynSigD (htPatSynName dtiIx ci)
-          <$> [t| PoA Singl (El $famName) $(return $ ci2Codes ci)
-                -> NS (PoA Singl (El $famName)) $(return dtiCode) |]
+          <$> [t| PoA $opqName (El $famName) $(return $ ci2Codes ci)
+                -> NS (PoA $opqName (El $famName)) $(return dtiCode) |]
 
     genHT_def dtiIx ix ci
       = do var <- newName "d"
@@ -609,30 +658,30 @@ genHereTherePatSyn first ls
 --  > pattern IdxRInt = SZ
 --  > pattern IdxListRInt = SS SZ
 --
-genPiece2 :: STy -> Input -> Q [Dec]
-genPiece2 first ls
+genPiece2 :: OpaqueData -> STy -> Input -> Q [Dec]
+genPiece2 opq first ls
   = do p21  <- mapM (\(sty , ix , dti) -> genIdxPatSyn sty ix) ls
-       p211 <- genHereTherePatSyn first ls
+       p211 <- genHereTherePatSyn opq first ls
        return $ p21 ++ p211
 
-genPiece3 :: STy -> Input -> Q Dec
-genPiece3 first ls
-  = head <$> [d| instance Family Singl
+genPiece3 :: OpaqueData -> STy -> Input -> Q Dec
+genPiece3 opq first ls
+  = head <$> [d| instance Family $(return $ ConT $ opaqueName opq)
                                  $(ConT <$> familyName first)
                                  $(ConT <$> codesName first)
-                   where sfrom' = $(genPiece3_1 ls)
-                         sto'   = $(genPiece3_2 ls) |]
+                   where sfrom' = $(genPiece3_1 opq ls)
+                         sto'   = $(genPiece3_2 opq ls) |]
 
 -- |Given a datatype information, generates a pattern
 --  and an expression from it. The int here
 --  indicates the number of the constructor.
 --
---  > ci2PatExp IdxBinTree (Normal "Bin" [VarT a , VarT a])
+--  > ci2PatExp opq IdxBinTree (Normal "Bin" [VarT a , VarT a])
 --  >   = ( El (Bin x_1 x_2)
 --  >     , Rep (PatBin_IdxBinTree (NA_I (El x_1) :* NA_I (El x_2) :* NP0))
 --  >     )
-ci2PatExp :: Int -> CI IK -> Q (Pat , Exp)
-ci2PatExp dtiIx ci
+ci2PatExp :: OpaqueData -> Int -> CI IK -> Q (Pat , Exp)
+ci2PatExp opq dtiIx ci
   = do (vars , pat) <- ci2Pat ci
        bdy          <- [e| Rep $(inj $ genBdy (zip vars (ci2ty ci))) |]
        return (ConP (mkName "El") [pat] , bdy)
@@ -648,18 +697,17 @@ ci2PatExp dtiIx ci
 
 
     mkHead (x , AtomI _) = [e| NA_I (El $(return (VarE x))) |]
-    mkHead (x , AtomK k) = [e| NA_K $(return (AppE (ConE (mkK k)) (VarE x))) |]
-
-    mkK k = mkName $ 'S':tail (nameBase k)
+    mkHead (x , AtomK k) = [e| NA_K $(makeK opq k (\r -> AppE (ConE r) (VarE x))) |]
+    -- mkHead (x , AtomK k) = [e| NA_K $(return (AppE (ConE (mkK k)) (VarE x))) |]
 
 -- | Just like 'ci2PatExp', but the other way around.
 --
---  > ci2ExpPat IdxBinTree (Normal "Bin" [VarT a , VarT a])
+--  > ci2ExpPat opq IdxBinTree (Normal "Bin" [VarT a , VarT a])
 --  >   = ( Rep (PatBin_IdxBinTree (NA_I (El x_1) :* NA_I (El x_2) :* NP0))
 --        , El (Bin x_1 x_2)
 --  >     )
-ci2ExpPat :: Int -> CI IK -> Q (Pat , Exp)
-ci2ExpPat dtiIx ci
+ci2ExpPat :: OpaqueData -> Int -> CI IK -> Q (Pat , Exp)
+ci2ExpPat opq dtiIx ci
   = do (vars , exp) <- ci2Exp ci
        pat          <- [p| Rep $(inj $ genBdy (zip vars (ci2ty ci))) |]
        return (pat , AppE (ConE $ mkName "El") exp)
@@ -675,9 +723,15 @@ ci2ExpPat dtiIx ci
 
 
     mkHead (x , AtomI _) = [p| NA_I (El $(return (VarP x))) |]
-    mkHead (x , AtomK k) = [p| NA_K $(return (ConP (mkK k) [VarP x])) |]
+    mkHead (x , AtomK k) = [p| NA_K $(makeK opq k (flip ConP [VarP x])) |]
+    -- mkHead (x , AtomK k) = [p| NA_K $(return (ConP (mkK k) [VarP x])) |]
 
-    mkK k = mkName $ 'S':tail (nameBase k)
+
+makeK :: OpaqueData -> Name -> (Name -> a) -> Q a
+makeK opq n cont
+  = case M.lookup n (opaqueCons opq) of
+      Nothing -> fail $  "makeK: Can't find constructor for " ++ show n ++ " in opaque def"
+      Just c  -> return $ cont c
 
 
 match :: Pat -> Exp -> Match
@@ -692,8 +746,8 @@ matchAll = (++ [match WildP err])
   where
     err = AppE (VarE (mkName "error")) (LitE (StringL "matchAll"))
 
-genPiece3_1 :: Input -> Q Exp
-genPiece3_1 input
+genPiece3_1 :: OpaqueData -> Input -> Q Exp
+genPiece3_1 opq input
   = LamCaseE <$> mapM (\(sty , ix , dti) -> clauseForIx sty ix dti) input
   where
     clauseForIx :: STy -> Int -> DTI IK -> Q Match
@@ -701,10 +755,10 @@ genPiece3_1 input
                        <$> (LamCaseE <$> genMatchFor ix dti)
     
     genMatchFor :: Int -> DTI IK -> Q [Match]
-    genMatchFor ix dti = map (uncurry match) <$> mapM (ci2PatExp ix) (dti2ci dti)
+    genMatchFor ix dti = map (uncurry match) <$> mapM (ci2PatExp opq ix) (dti2ci dti)
       
-genPiece3_2 :: Input -> Q Exp
-genPiece3_2 input
+genPiece3_2 :: OpaqueData -> Input -> Q Exp
+genPiece3_2 opq input
   = LamCaseE . matchAll <$> mapM (\(sty , ix , dti) -> clauseForIx sty ix dti) input
   where    
     clauseForIx :: STy -> Int -> DTI IK -> Q Match
@@ -712,16 +766,19 @@ genPiece3_2 input
                        <$> (LamCaseE . matchAll <$> genMatchFor ix dti)
       
     genMatchFor :: Int -> DTI IK -> Q [Match]
-    genMatchFor ix dti = map (uncurry match) <$> mapM (ci2ExpPat ix) (dti2ci dti)
+    genMatchFor ix dti = map (uncurry match) <$> mapM (ci2ExpPat opq ix) (dti2ci dti)
 
-genPiece4 :: STy -> Input -> Q [Dec]
-genPiece4 first ls = concat <$> mapM genDatatypeInfoInstance ls
+genPiece4 :: OpaqueData -> STy -> Input -> Q [Dec]
+genPiece4 opq first ls = concat <$> mapM genDatatypeInfoInstance ls
   where
+    opqName = return (ConT $ opaqueName opq)
+    
     genDatatypeInfoInstance :: (STy , Int , DTI IK) -> Q [Dec]
     genDatatypeInfoInstance (sty , idx , dti)
-      = [d| instance Meta.HasDatatypeInfo Singl $(ConT <$> familyName first)
-                                                $(ConT <$> codesName first)
-                                                $(return (int2Type idx))
+      = [d| instance Meta.HasDatatypeInfo $opqName
+                                          $(ConT <$> familyName first)
+                                          $(ConT <$> codesName first)
+                                          $(return (int2Type idx))
               where datatypeInfo _ _ = $(genInfo sty dti) |]
 
     genMod :: Name -> Q Exp
@@ -763,18 +820,17 @@ genPiece4 first ls = concat <$> mapM genDatatypeInfoInstance ls
     genConInfoNP []       = [e| NP0 |]
     genConInfoNP (ci:cis) = [e| $(genConInfo ci) :* ( $(genConInfoNP cis) ) |]
 
--- |@genFamily init fam@ generates a type-level list
+-- |@genFamily opq init fam@ generates a type-level list
 --  of the codes for the family. It also generates
 --  the necessary 'Element' instances.
---  TODO: generate the 'HasDatatypeInfo' instances too!
 --
 --  Precondition, input is sorted on second component.
-genFamily :: STy -> Input -> Q [Dec]
-genFamily first ls
+genFamily :: OpaqueData -> STy -> Input -> Q [Dec]
+genFamily opq first ls
   = do p1 <- genPiece1 first ls
-       p2 <- genPiece2 first ls
-       p3 <- genPiece3 first ls
-       p4 <- genPiece4 first ls
+       p2 <- genPiece2 opq first ls
+       p3 <- genPiece3 opq first ls
+       p4 <- genPiece4 opq first ls
        return $ p1 ++ p2 ++ [p3] ++ p4
 
 -- |Generates a bunch of strings for debug purposes.
