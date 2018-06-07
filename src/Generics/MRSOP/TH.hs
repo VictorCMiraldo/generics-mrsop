@@ -481,9 +481,9 @@ reifySTy opq sty
 -- >     = El (Leaf a)
 --
 -- 4. Metadata for each type in (1)
--- > instance HasDatatypeInfo Singl FamRose CodesRose Z where ...
--- > instance HasDatatypeInfo Singl FamRose codesRose (S Z) where ...
--- 
+-- > instance HasDatatypeInfo Singl FamRose CodesRose where
+-- >   datatypeInfo Proxy CZ = ...
+-- >   datatypeInfo Proxy (CS CZ) = ... 
 
 -- |The input data for the generation is an ordered list
 --  (on the second component of the tuple) of STy's and
@@ -769,17 +769,21 @@ genPiece3_2 opq input
     genMatchFor ix dti = map (uncurry match) <$> mapM (ci2ExpPat opq ix) (dti2ci dti)
 
 genPiece4 :: OpaqueData -> STy -> Input -> Q [Dec]
-genPiece4 opq first ls = concat <$> mapM genDatatypeInfoInstance ls
+genPiece4 opq first ls
+  = [d| instance Meta.HasDatatypeInfo $opqName
+                                      $(ConT <$> familyName first)
+                                      $(ConT <$> codesName first)
+          where datatypeInfo _ = $(genDatatypeInfoClauses ls) |]
   where
     opqName = return (ConT $ opaqueName opq)
+
+    genDatatypeInfoClauses :: Input -> Q Exp
+    genDatatypeInfoClauses input
+      = LamCaseE <$> mapM genDatatypeInfoMatch input
     
-    genDatatypeInfoInstance :: (STy , Int , DTI IK) -> Q [Dec]
-    genDatatypeInfoInstance (sty , idx , dti)
-      = [d| instance Meta.HasDatatypeInfo $opqName
-                                          $(ConT <$> familyName first)
-                                          $(ConT <$> codesName first)
-                                          $(return (int2Type idx))
-              where datatypeInfo _ _ = $(genInfo sty dti) |]
+    genDatatypeInfoMatch :: (STy , Int , DTI IK) -> Q Match
+    genDatatypeInfoMatch (sty , idx , dti)
+      = match (int2SNatPat idx) <$> genInfo sty dti 
 
     genMod :: Name -> Q Exp
     genMod = strlit . maybe "" id . nameModule
