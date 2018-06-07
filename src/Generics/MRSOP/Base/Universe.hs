@@ -156,8 +156,8 @@ elimRepM fk fi cat
   = cat <.> elimNS (elimNPM (elimNA fk fi)) . unRep
 
 -- |Pure eliminator.
-elimRep :: (forall k . ki k -> a)
-        -> (forall k . f  k -> a)
+elimRep :: (forall k .            ki k -> a)
+        -> (forall k . IsNat k => f  k -> a)
         -> ([a] -> b)
         -> Rep ki f c -> b
 elimRep kp fp cat
