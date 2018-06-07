@@ -481,9 +481,9 @@ reifySTy opq sty
 -- >     = El (Leaf a)
 --
 -- 4. Metadata for each type in (1)
--- > instance HasDatatypeInfo Singl FamRose CodesRose Z where ...
--- > instance HasDatatypeInfo Singl FamRose codesRose (S Z) where ...
--- 
+-- > instance HasDatatypeInfo Singl FamRose CodesRose where
+-- >   datatypeInfo Proxy CZ = ...
+-- >   datatypeInfo Proxy (CS CZ) = ... 
 
 -- |The input data for the generation is an ordered list
 --  (on the second component of the tuple) of STy's and
@@ -768,6 +768,8 @@ genPiece3_2 opq input
     genMatchFor :: Int -> DTI IK -> Q [Match]
     genMatchFor ix dti = map (uncurry match) <$> mapM (ci2ExpPat opq ix) (dti2ci dti)
 
+{-
+
 genPiece4 :: OpaqueData -> STy -> Input -> Q [Dec]
 genPiece4 opq first ls = concat <$> mapM genDatatypeInfoInstance ls
   where
@@ -780,6 +782,75 @@ genPiece4 opq first ls = concat <$> mapM genDatatypeInfoInstance ls
                                           $(ConT <$> codesName first)
                                           $(return (int2Type idx))
               where datatypeInfo _ _ = $(genInfo sty dti) |]
+
+    genMod :: Name -> Q Exp
+    genMod = strlit . maybe "" id . nameModule
+
+    strlit :: String -> Q Exp
+    strlit = return . LitE . StringL
+
+    genDatatypeName :: STy -> Q Exp
+    genDatatypeName = styFold (\e1 e2 -> [e| ( $e1 Meta.:@: $e2 ) |])
+                              (\n -> [e| Meta.Name $(strlit (nameBase n)) |] )
+                              (\n -> [e| Meta.Name $(strlit (nameBase n)) |] )
+
+    genInfo :: STy -> DTI IK -> Q Exp
+    genInfo sty (ADT name _ cis)
+      = [e| Meta.ADT $(genMod name) $(genDatatypeName sty) $(genConInfoNP cis) |]
+    genInfo sty (New name _ ci)
+      = [e| Meta.New $(genMod name) $(genDatatypeName sty) $(genConInfo ci) |]
+
+    genConInfo :: CI IK -> Q Exp
+    genConInfo (Record conname fields)
+      = [e| Meta.Record $(strlit $ nameBase conname) $(genFieldInfo $ map fst fields) |]
+    genConInfo (Normal conname _)
+      = [e| Meta.Constructor $(strlit $ nameBase conname) |]
+    genConInfo (Infix conname fix _ _)
+      = [e| Meta.Infix $(strlit $ nameBase conname) $(genAssoc fix) $(genFix fix) |]
+      where
+        genAssoc (Fixity _ InfixL) = [e| Meta.LeftAssociative  |]
+        genAssoc (Fixity _ InfixR) = [e| Meta.RightAssociative |]
+        genAssoc (Fixity _ InfixN) = [e| Meta.NotAssociative   |]
+
+        genFix (Fixity i _) = return . LitE . IntegerL . fromIntegral $ i
+
+    genFieldInfo :: [ FieldName ] -> Q Exp
+    genFieldInfo []     = [e| NP0 |]
+    genFieldInfo (f:fs) = [e| Meta.FieldInfo $(strlit . nameBase $ f) :* ( $(genFieldInfo fs) ) |]
+
+    genConInfoNP :: [ CI IK ] -> Q Exp
+    genConInfoNP []       = [e| NP0 |]
+    genConInfoNP (ci:cis) = [e| $(genConInfo ci) :* ( $(genConInfoNP cis) ) |]
+
+genPiece3_1 :: OpaqueData -> Input -> Q Exp
+genPiece3_1 opq input
+  = LamCaseE <$> mapM (\(sty , ix , dti) -> clauseForIx sty ix dti) input
+  where
+    clauseForIx :: STy -> Int -> DTI IK -> Q Match
+    clauseForIx sty ix dti = match (idxPatSyn sty)
+                       <$> (LamCaseE <$> genMatchFor ix dti)
+    
+    genMatchFor :: Int -> DTI IK -> Q [Match]
+    genMatchFor ix dti = map (uncurry match) <$> mapM (ci2PatExp opq ix) (dti2ci dti)
+      
+-}
+
+genPiece4 :: OpaqueData -> STy -> Input -> Q [Dec]
+genPiece4 opq first ls
+  = [d| instance Meta.HasDatatypeInfo $opqName
+                                      $(ConT <$> familyName first)
+                                      $(ConT <$> codesName first)
+          where datatypeInfo _ = $(genDatatypeInfoClauses ls) |]
+  where
+    opqName = return (ConT $ opaqueName opq)
+
+    genDatatypeInfoClauses :: Input -> Q Exp
+    genDatatypeInfoClauses input
+      = LamCaseE <$> mapM genDatatypeInfoMatch input
+    
+    genDatatypeInfoMatch :: (STy , Int , DTI IK) -> Q Match
+    genDatatypeInfoMatch (sty , idx , dti)
+      = match (int2SNatPat idx) <$> genInfo sty dti 
 
     genMod :: Name -> Q Exp
     genMod = strlit . maybe "" id . nameModule

@@ -85,18 +85,18 @@ deriving instance Show (FieldInfo atom)
 
 -- |Given a 'Family', provides the 'DatatypeInfo' for the type
 --  with index @ix@ in family 'fam'.
-class (Family ki fam codes) => HasDatatypeInfo ki fam codes ix
+class (Family ki fam codes) => HasDatatypeInfo ki fam codes
     | fam -> codes ki where
   datatypeInfo :: (IsNat ix)
-               => Proxy fam -> Proxy ix -> DatatypeInfo (Lkup ix codes)
+               => Proxy fam -> SNat ix -> DatatypeInfo (Lkup ix codes)
 
 -- |Sometimes it is more convenient to use a proxy of the type
 --  in the family instead of indexes.
 datatypeInfoFor :: forall ki fam codes ix ty
-                 . ( HasDatatypeInfo ki fam codes ix
+                 . ( HasDatatypeInfo ki fam codes
                    , ix ~ Idx ty fam , Lkup ix fam ~ ty , IsNat ix)
                 => Proxy fam -> Proxy ty -> DatatypeInfo (Lkup ix codes)
-datatypeInfoFor pf pty = datatypeInfo pf (proxyIdx pf pty)
+datatypeInfoFor pf pty = datatypeInfo pf (getSNat $ proxyIdx pf pty)
   where
     proxyIdx :: Proxy fam -> Proxy ty -> Proxy (Idx ty fam)
     proxyIdx _ _ = Proxy
@@ -112,5 +112,6 @@ constrInfoLkup c = go c . constructorInfo
     go :: Constr sum c -> NP ConstructorInfo sum -> ConstructorInfo (Lkup c sum)
     go CZ     (ci :* _)   = ci
     go (CS c) (_  :* cis) = go c cis
+
 
 
