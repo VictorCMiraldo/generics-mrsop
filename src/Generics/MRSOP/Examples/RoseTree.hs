@@ -56,15 +56,13 @@ instance Family Singl FamRose CodesRose where
   sto' (SS SZ) (Rep (There (Here (NA_K (SInt a) :* NP0))))
     = El (Leaf a)
 
-instance HasDatatypeInfo Singl FamRose CodesRose Z where
-  datatypeInfo _ _
+instance HasDatatypeInfo Singl FamRose CodesRose where
+  datatypeInfo _ SZ
     = ADT "module" (Name "[]" :@: (Name "R" :@: Name "Int"))
       $  (Constructor "[]")
       :* (Infix ":" RightAssociative 5)
       :* NP0
-
-instance HasDatatypeInfo Singl FamRose CodesRose (S Z) where
-  datatypeInfo _ _
+  datatypeInfo _ (SS SZ)
     = ADT "module" (Name "R" :@: Name "Int")
       $  (Infix ":>:" NotAssociative 0)
       :* (Constructor "Leaf")
