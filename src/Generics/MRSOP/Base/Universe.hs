@@ -216,7 +216,7 @@ match c (Rep x) = matchNS c x
 -- |Finally, we can view a sum-of-products as a constructor
 --  and a product-of-atoms.
 data View :: (kon -> *) -> (Nat -> *) -> [[ Atom kon ]] -> * where
-  Tag :: Constr sum n -> PoA ki fam (Lkup n sum) -> View ki fam sum
+  Tag :: IsNat n => Constr sum n -> PoA ki fam (Lkup n sum) -> View ki fam sum
 
 -- |Unwraps a 'Rep' into a 'View'
 sop :: Rep ki fam sum -> View ki fam sum
