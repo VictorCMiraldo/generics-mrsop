@@ -17,38 +17,48 @@ import Data.Type.Equality
 import Generics.MRSOP.Util hiding (Cons , Nil)
 import Generics.MRSOP.Base
 
+{-
 -- |In a @Zipper@, a Location is a a pair of a one hole context
 --  and whatever was supposed to be there. In a sums of products
 --  fashion, it consists of a choice of constructor and
 --  a position in the type of that constructor.
 data Loc :: (kon -> *) -> [*] -> [[[Atom kon]]] -> Nat -> * where
-  Loc :: IsNat ix => El fam ix -> Ctxs ki fam cs iy ix -> Loc ki fam cs iy
+  Loc :: All IsNat ixs => NP (El fam) ixs -> Ctxs ki fam cs iy ixs -> Loc ki fam cs iy
+-}
 
 -- |A @Ctxs ki fam codes ix iy@ represents a value of type @El fam ix@
 --  with a @El fam iy@-typed hole in it.
 data Ctxs :: (kon -> *) -> [*] -> [[[Atom kon]]] -> Nat -> Nat -> * where
   Nil  :: Ctxs ki fam cs ix ix
-  Cons :: (IsNat ix , IsNat a , IsNat b)
-       => Ctx ki fam (Lkup ix cs) b -> Ctxs ki fam cs a ix
-       -> Ctxs ki fam cs a b
+  Cons :: (IsNat ixs , All IsNat bs , IsNat a)
+       => Ctx ki fam (Lkup ix cs) bs -> Ctxs ki fam cs a ixs
+       -> Ctxs ki fam cs a bs
 
 -- |A @Ctx ki fam c ix@ is a choice of constructor for @c@
 --  with a hole of type @ix@ inside.
-data Ctx :: (kon -> *) -> [*] -> [[Atom kon]] -> Nat -> * where
+data Ctx :: (kon -> *) -> [*] -> [[Atom kon]] -> [Nat] -> * where
   Ctx :: Constr c n
-      -> NPHole ki fam ix (Lkup n c)
-      -> Ctx ki fam c ix
+      -> NPHole ki fam ixs (Lkup n c)
+      -> Ctx ki fam c ixs
 
 -- |A @NPHole ki fam ix prod@ is a recursive position
 --  of type @ix@ in @prod@.
-data NPHole :: (kon -> *) -> [*] -> Nat -> [Atom kon] -> * where
-  H :: PoA ki (El fam) xs -> NPHole ki fam ix (I ix : xs)
-  T :: NA ki (El fam) x -> NPHole ki fam ix xs -> NPHole ki fam ix (x : xs)
+data NPHole :: (kon -> *) -> [*] -> [Nat] -> [Atom kon] -> * where
+  -- |Last hole
+  H0 :: PoA ki (El fam) xs    -> NPHole ki fam (ix : '[]) (I ix : xs)
+  -- |Not-the-last hole
+  H1 :: NPHole ki fam ixs xs  -> NPHole ki fam (ix : ixs) (I ix : xs)
+  -- |Not a hole
+  T  :: NA ki (El fam) x      -> NPHole ki fam ixs xs -> NPHole ki fam ixs (x : xs)
 
+{-
 -- |Existential abstraction; needed for walking the possible
 --  holes in a product. We must be able to hide the type.
 data NPHoleE :: (kon -> *) -> [*] -> [Atom kon] -> * where
   ExistsIX :: IsNat ix => El fam ix -> NPHole ki fam ix xs -> NPHoleE ki fam xs
+-}
+
+{-
 
 -- |Given a 'PoA' (product of atoms), returns a one with a hole
 --  in the first seen 'NA_I'. Note that we need the 'NPHoleE'
@@ -137,3 +147,5 @@ update :: (Family ki fam codes , IsNat ix)
        => (forall ix . SNat ix -> El fam ix -> El fam ix)
        -> Loc ki fam codes ix -> Loc ki fam codes ix
 update f (Loc el ctxs) = Loc (f (getElSNat el) el) ctxs
+
+-}

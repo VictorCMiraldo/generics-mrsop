@@ -22,7 +22,7 @@ module Generics.MRSOP.Util
   , IsNat(..) , getNat , getSNat'
 
     -- * Type-level Lists
-  , ListPrf(..) , IsList(..)
+  , ListPrf(..) , IsList(..), All
   , L1 , L2 , L3 , L4
   , (:++:) , appendIsListLemma
 
@@ -34,6 +34,7 @@ module Generics.MRSOP.Util
   ) where
 
 import Data.Proxy
+import Data.Kind
 import Data.Type.Equality
 import GHC.TypeLits (TypeError , ErrorMessage(..))
 import Control.Arrow ((***) , (&&&))
@@ -149,6 +150,11 @@ appendIsListLemma (Cons isxs) isys = Cons (appendIsListLemma isxs isys)
 type family (:++:) (txs :: [k]) (tys :: [k]) :: [k] where
   (:++:) '[] tys = tys
   (:++:) (tx ': txs) tys = tx ': (txs :++: tys)
+
+-- |Constraining over type-level lists
+type family All (pred :: k -> Constraint) (l :: [k]) :: Constraint where
+  All pred '[]       = ()
+  All pred (x ': xs) = (pred x , All pred xs)
 
 -- |Convenient constraint synonyms
 type L1 xs          = (IsList xs) 
