@@ -1,5 +1,5 @@
-\documentclass[sigplan,review,anonymous]{acmart}%
-\settopmatter{printfolios=true,printccs=false,printacmref=false}
+\documentclass[sigplan]{acmart}%
+\settopmatter{printfolios=true,printccs=true,printacmref=true}
 
 %%%%%%%%%%%%%%
 %%%%%%%%%%%%%%
@@ -79,12 +79,12 @@
 \author{Victor Cacciari Miraldo}
 \orcid{nnnn-nnnn-nnnn-nnnn}             %% \orcid is optional
 \affiliation{
-  \position{PhD candidate}
+  %\position{PhD candidate}
   \department{Information and Computing Sciences}
   \institution{Utrecht University}
   \streetaddress{Princetonplein, 5}
   \city{Utrecht}
-  \state{Utrecht}
+  %\state{Utrecht}
   \postcode{3584 CC}
   \country{The Netherlands} 
 }
@@ -93,12 +93,12 @@
 \author{Alejandro Serrano}
 \orcid{nnnn-nnnn-nnnn-nnnn}             %% \orcid is optional
 \affiliation{
-  \position{Junior lecturer}
+  %\position{Junior lecturer}
   \department{Information and Computing Sciences}
   \institution{Utrecht University}
   \streetaddress{Princetonplein, 5}
   \city{Utrecht}
-  \state{Utrecht}
+  %\state{Utrecht}
   \postcode{3584 CC}
   \country{The Netherlands} 
 }

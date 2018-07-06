@@ -202,7 +202,7 @@ The shape of this description follows more closely the shape of Haskell datatype
 make it easier to implement generic functionality.
 
   Note how the \emph{codes} are different than the \emph{representation}.
-The later being defined by induction on the former.
+The latter being defined by induction on the former.
 This is quite a subtle point and it is common to see both
 terms being used interchangeably.  Here, the \emph{representation} is
 mapping the \emph{codes}, of kind |P [ P [ Star ] ]|, into |Star|. The
@@ -350,7 +350,7 @@ instance (GSize f , GSize g) => GSize (f :+: g) where
 \end{code}
 \end{myhs}
 
-  We still have to handle the cases were 
+  We still have to handle the cases where 
 we might have an arbitrary type in a position, modeled by the
 constant functor |K1|. We require an instance of |Size|
 so we can successfully tie the recursive knot.
@@ -591,7 +591,7 @@ reads as follows.
 
 \begin{myhs}
 \begin{code}
-gsize :: (Generic a , All2 Size (CodeSOP a)) => a -> Int
+gsize :: (GenericSOP a , All2 Size (CodeSOP a)) => a -> Int
 gsize  =  sum
        .  hcollapse
        .  hcmap (Proxy :: Proxy Size) (mapIK size)
@@ -625,7 +625,7 @@ In other words, we need an explicit description of which fields of
 a constructor are recursive and which are not.
 
   Introducing information about the recursive positions in a type
-requires more expressive codes then in \Cref{sec:explicitsop}, where
+requires more expressive codes than in \Cref{sec:explicitsop}, where
 our \emph{codes} were a list of lists of types, which could be
 anything. Instead, we will now have a list of lists of |Atom| to be
 our codes:
@@ -712,7 +712,7 @@ representation is composed by a choice of constructor and its
 respective product of fields by the |View| type.  A value of |Constr n
 sum| is a proof that |n| is a valid constructor for |sum|, essentially
 saying |n < length sum|. The |Lkup| is just a type level list lookup,
-we will come back it in more details in \Cref{sec:family}.
+we will come back to it in more detail in \Cref{sec:family}.
 
 \begin{myhs}
 \begin{code}
@@ -854,8 +854,8 @@ fold f = f . fmap (fold f) . unFix
 \begin{figure}
 \begin{myhs}
 \begin{code}
-crush  ::  (Generic a)
-       =>  (forall x dot Atom KInt x -> b) -> ([b] -> b)
+crush  ::  (GenericFix a)
+       =>  (forall x dot Int -> b) -> ([b] -> b)
        ->  a -> b
 crush k cat = crushFix . deepFrom
   where
@@ -874,15 +874,18 @@ crush k cat = crushFix . deepFrom
 a single value, but do not need the full expressivity of |fold|. 
 Instead, if we know how to consume the opaque types and combine
 those results, we can consume any |GenericFix| type using |crush|,
-which is defined in \cref{fig:crush}.
-
-  Finally, we come full circle to our running |gsize| example
+which is defined in \cref{fig:crush}. The behavior of |crush|
+is defined by (1) how to turn atoms into the output
+type |b| -- in this case we only have integer atoms, and thus
+we require an |Int -> b| function -- and (2) how to combine
+the values bubbling up from each member of a product.   
+Finally, we come full circle to our running |gsize| example
 as it was promised in the introduction. This is noticeably the smallest
 implementation so far, and very straight to the point.
 
 \begin{myhs}
 \begin{code}
-gsize :: (Generic a) => a -> Int
+gsize :: (GenericFix a) => a -> Int
 gsize = crush (const 1) sum
 \end{code}
 \end{myhs}
@@ -978,7 +981,7 @@ The only piece missing here is tying the recursive knot. If we want our
 representation to describe a family of datatypes, the obvious choice
 for |phi n| is to look up the type at index |n| in |FamRose|. In fact,
 we are simply performing a type level lookup in the family in question,
-so we can reuse the |Lkup| from \Cref{sec:explicitfix}: 
+so we can reuse the |Lkup| from \Cref{sec:explicitfix}.
 
 In principle, this is enough to provide a ground representation for the family
 of types. Let |fam| be a family of types, like
@@ -1019,15 +1022,14 @@ data El :: [Star] -> Nat -> Star where
 The representation of the family |fam| at index |ix| is thus given by
 |RepMRec (El fam) (Lkup codes ix)|. We only need to use |El| in the first
 argument, because that is the position in which we require partial application.
-The second position has |Lkup| already fully-applied, and can stay as is. Moreover,
-in the declaration of |Family|, using |El| spares us from using
-a proxy for |fam| in |fromMRec| and |toMRec|.
+The second position has |Lkup| already fully-applied, and can stay as is.
 
   We still have to relate a family of types to their respective codes.
 As in other generic programming approaches, we want to make their
 relation explicit. The |Family| type class below realizes this
 relation, and introduces functions to perform the conversion between
-our representation and the actual types:
+our representation and the actual types. Using |El| here spares us from using
+a proxy for |fam| in |fromMRec| and |toMRec|:
 
 \begin{myhs}
 \begin{code}
@@ -1050,7 +1052,7 @@ relation instead of a function. In any case, we can choose the other point of
 the design space by moving |codes| into an associated type or introduce a
 functional dependency |fam -> codes|.
 
-Since now |fromMRec| and |toMRec| operate on families of datatypes, they have
+Since now |fromMRec| and |toMRec| operate on families, we have
 to specify how to translate \emph{each} of the members of the family back and
 forth the generic representation. This translation needs to know which is the
 index of the datatype we are converting between in each case,  hence the
@@ -1065,7 +1067,7 @@ data SNat (n :: Nat) where
 \end{myhs}
 
 For example, in the case of
-or family of rose trees, |fromMRec| has the following shape:
+our family of rose trees, |fromMRec| has the following shape:
 \begin{myhs}
 \begin{code}
 fromMRec SZ       (El (Fork x ch))
@@ -1142,8 +1144,8 @@ This follows from |phi1| having kind |Nat -> Star|.
 \begin{myhs}
 \begin{code}
 deepFrom  ::  Family fam codes
-          =>  El fam ix -> Fix (RepFix codes ix)
-deepFrom = Fix . mapRec deepFrom . from
+          =>  El fam ix -> Fix (RepMRec codes ix)
+deepFrom = Fix . mapRec deepFrom . fromMRec
 \end{code}
 \end{myhs}
 
@@ -1216,11 +1218,11 @@ final implementation provides two constructors, one per constructor in |Atom|.
 The |NS| and |NP| datatypes do not require any change.
 \begin{myhs}
 \begin{code}
-data NA :: (kon -> Star) -> (Nat -> Star) -> Atom -> Star where
+data NA :: (kon -> Star) -> (Nat -> Star) -> Atom kon -> Star where
   NA_I  :: phi    n  -> NA kappa phi (I  n)
   NA_K  :: kappa  k  -> NA kappa phi (K  k)
 
-type  RepMRec (kappa :: kon -> Star) (phi :: Nat -> Star) (c :: [[Atom]])
+type  RepMRec (kappa :: kon -> Star) (phi :: Nat -> Star) (c :: [[Atom kon]])
       = NS (NP (NA kappa phi)) c
 \end{code}
 \end{myhs}
@@ -1377,7 +1379,7 @@ but involves a much bigger effort. Everything has to be implemented
 by the means of type classes and each supported combinator must
 have one instance. 
 
-  It is worth nothing that although we presented pure versions
+  It is worth noting that although we presented pure versions
 of these combinators, \texttt{\nameofourlibrary} defines monadic
 variants of these and suffixes them with a \texttt{M}, following the
 standard Haskell naming convention. We will need these monadic
@@ -1504,10 +1506,11 @@ alphaEq x y =  flip runState [[]]
                       (return . and)      -- combine
 
     go (Pat LambdaTerm) x = case sop x of
-      (Pat Var) (v_1 :*: v_2)  -> v_1 =~= v_2
+      (Pat Var) (v_1 :*: v_2)
+         -> v_1 =~= v_2
       (Pat Abs) (v_1 :*: v_2) (t_1 :*: t_2) 
-        -> scoped (addRule v_1 v_2 >> galphaEq t_1 t_2)
-      _                        -> step x
+         -> scoped (addRule v_1 v_2 >> galphaEq t_1 t_2)
+      _  -> step x
 \end{code}
 \end{myhs}
 \mycaption{$\alpha$-equivalence for a $\lambda$-calculus}
@@ -1569,7 +1572,7 @@ go _      x = step x
 \end{code}
 \end{myhs}
 \end{minipage}
-\mycaption{$\alpha$-quivalence for a toy imperative language}
+\mycaption{$\alpha$-equivalence for a toy imperative language}
 \label{fig:alphatoy}
 \end{figure*}
 
