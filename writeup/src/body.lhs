@@ -482,7 +482,7 @@ create a value of type |a|. This eliminator then applies |map size| to
 the fields of the constructor, returning something akin to a
 |[Int]|. We then |sum| them up to obtain the final size.
 
-  The generic codes consist of a type level list of lists. The outer
+  Codes consist of a type level list of lists. The outer
 list represents the constructors of a type, and will be interpreted as
 a sum, whereas the inner lists are interpreted as the fields of the
 respective constructors, interpreted as products.
@@ -592,10 +592,8 @@ reads as follows.
 \begin{myhs}
 \begin{code}
 gsize :: (GenericSOP a , All2 Size (CodeSOP a)) => a -> Int
-gsize  =  sum
-       .  hcollapse
-       .  hcmap (Proxy :: Proxy Size) (mapIK size)
-       .  fromSOP
+gsize  =  sum  .  hcollapse
+       .  hcmap (Proxy :: Proxy Size) (mapIK size) .  fromSOP
 \end{code}
 \end{myhs}
 
@@ -710,21 +708,16 @@ on values of the original type, contrasting with
 \texttt{GHC.Generics}. One can precisely state that a value of a
 representation is composed by a choice of constructor and its
 respective product of fields by the |View| type.  A value of |Constr n
-sum| is a proof that |n| is a valid constructor for |sum|, essentially
-saying |n < length sum|. The |Lkup| is just a type level list lookup,
-we will come back to it in more detail in \Cref{sec:family}.
+sum| is a proof that |n| is a valid constructor for |sum|,
+stating that |n < length sum|. |Lkup| performs list lookup at the type level.
 
 \begin{myhs}
 \begin{code}
 data Nat = Z | S Nat
 
 data View :: [[ Atom ]] -> Star -> Star where
-  Tag  ::  Constr n sum -> NP (NA x) (Lkup sum n)
-       ->  View sum x
-\end{code}
-\end{myhs}
-\begin{myhs}
-\begin{code}
+  Tag  ::  Constr n t -> NP (NA x) (Lkup t n) ->  View t x
+
 data Constr :: Nat -> [k] -> Star where
   CZ  ::                  Constr Z      (x : xs)
   CS  :: Constr n xs  ->  Constr (S n)  (x : xs)
@@ -1191,7 +1184,7 @@ of our library may decide to use |ByteString| in their datatypes. Since that
 type is not covered by |Atom|, nor by our generic approach, this implies that
 \texttt{\nameofourlibrary} becomes useless to them.
 \item The choice of opaque types might be too wide. If we try to encompass any
-possible situation, we might end up with a huge |Atom| type. But for a
+possible situation, we end up with a huge |Atom| type. But for a
 specific use case, we might be interested only in |Int|s and |Float|s, so why
 bother ourselves with possibly ill-formed representations and pattern matches
 which should never be reached?
@@ -1274,10 +1267,10 @@ data Value :: Star -> Star where
 In order to use |(*)| as an argument to a type, we are required to enable
 the \texttt{TypeInType} language extension~\cite{Weirich2013,Weirich2017}.
 
-  All the generic operations implemented in \texttt{\nameofourlibrary} use
+  All the generic operations implemented use
 parametrized version of |Atom|s and representations described in this section.
 For convenience we also provide a basic set of opaque types which includes the
-most common primitive Haskell datatypes.
+most common primitive datatypes.
 
 \subsection{Combinators}
 \label{sec:combinators}
@@ -1290,7 +1283,7 @@ code. In \texttt{GHC.Generics} these are even impossible to write due to the
 absence of recursion information.
 
 For the sake of fostering intuition instead of worrying about
-notational overhead, we shall write values of |RepMRec kappa phi c| just like
+notational overhead, we write values of |RepMRec kappa phi c| just like
 we would write normal Haskell values. They have the same \emph{sums-of-products} 
 structure anyway. Whenever a function is defined
 using the |^=| symbol, |C x_1 dots x_n| will stand for a value of the corresponding
@@ -1321,8 +1314,7 @@ opaque types and another for mapping over |I| positions.
 
 \begin{myhs}
 \begin{code}
-bimapRep  ::  (forall k   dot kappa1  k   -> kappa2  k) 
-          ->  (forall ix  dot phi1    ix  -> phi2    ix) 
+bimapRep  ::  (forall k   dot kappa1  k   -> kappa2  k)  ->  (forall ix  dot phi1    ix  -> phi2    ix) 
           ->  RepMRec kappa1 phi1 c -> RepMRec kappa2 phi2 c
 bimapRep f_K f_I (C x_1 dots x_n) ^= C (fSq x_1) dots (fSq x_n)
 \end{code}
@@ -1334,9 +1326,7 @@ or opaque type inside the representation and a way of combining these results.
 
 \begin{myhs}
 \begin{code}
-elimRep  ::  (forall k   dot kappa  k   -> a) 
-         ->  (forall ix  dot phi    ix  -> a) 
-         ->  ([a] -> b) 
+elimRep  ::  (forall k   dot kappa  k   -> a)  ->  (forall ix  dot phi    ix  -> a)  ->  ([a] -> b) 
          ->  RepMRec kappa phi c -> b
 elimRep f_K f_I cat (C x_1 dots x_n) ^= cat [ fSq x_1 , dots , fSq x_n ]
 \end{code}
@@ -1368,8 +1358,8 @@ recursive family in question.
 
 \begin{myhs}
 \begin{code}
-compos  :: (forall iy dot El fam iy -> El fam iy)
-        -> El fam ix -> El fam ix
+compos  ::  (forall iy dot El fam iy -> El fam iy)
+        ->  El fam ix -> El fam ix
 compos f = toMRec . bimapRep id f . fromMRec
 \end{code}
 \end{myhs}
@@ -1438,8 +1428,7 @@ opaque types |eq_K| or recursing.
 \label{sec:alphaequivalence}
 
 A more involved exercise is the definition of
-\emph{$\alpha$-equivalence} for a language
-defined as a Haskell datatype.
+\emph{$\alpha$-equivalence} for a language.
 In this section we start by
 showing a straightforward version for the $\lambda$-calculus and then move
 on to a more elaborate language. Although such problem has already been treated
@@ -1450,15 +1439,13 @@ example to illustrate our library.
 $\alpha$-equivalent requires one to focus on the constructors that
 introduce scoping, declare variables or reference variables. All the
 other constructors of the language should just
-combine the recursive results. Let us warm up with the
-$\lambda$-calculus and their generic pattern synonyms:
+combine the recursive results. Let us warm up with untyped
+$\lambda$-calculus:
 
 %format LambdaTerm = "\HT{Term_{\lambda}}"
 \begin{myhs}
 \begin{code}
-data LambdaTerm  =  Var  String
-                 |  Abs  String      LambdaTerm
-                 |  App  LambdaTerm  LambdaTerm
+data LambdaTerm  =  Var  String |  Abs  String LambdaTerm |  App  LambdaTerm  LambdaTerm
 \end{code}
 \end{myhs}
 
@@ -1506,8 +1493,7 @@ alphaEq x y =  flip runState [[]]
                       (return . and)      -- combine
 
     go (Pat LambdaTerm) x = case sop x of
-      (Pat Var) (v_1 :*: v_2)
-         -> v_1 =~= v_2
+      (Pat Var) (v_1 :*: v_2) -> v_1 =~= v_2
       (Pat Abs) (v_1 :*: v_2) (t_1 :*: t_2) 
          -> scoped (addRule v_1 v_2 >> galphaEq t_1 t_2)
       _  -> step x
