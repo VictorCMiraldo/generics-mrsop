@@ -20,7 +20,9 @@ import Data.Function (on)
 import Generics.MRSOP.Base
 import Generics.MRSOP.Opaque
 import Generics.MRSOP.Util
+import Generics.MRSOP.Base.Show
 import Generics.MRSOP.Zipper
+import Generics.MRSOP.Treefix
 
 import Generics.MRSOP.Examples.LambdaAlphaEqTH hiding (FIX, alphaEq)
 
@@ -38,12 +40,12 @@ data Stmt var
   | SReturn (Exp var)
   | SDecl (Decl var)
   | SSkip
-  deriving Show
+  deriving (Show , Eq)
 
 data Decl var
   = DVar var
   | DFun var var (Stmt var)
-  deriving Show
+  deriving (Show , Eq)
 
 data Exp var
   = EVar  var
@@ -51,9 +53,24 @@ data Exp var
   | EAdd (Exp var) (Exp var)
   | ESub (Exp var) (Exp var)
   | ELit Int
-  deriving Show
+  deriving (Show , Eq)
 
 deriveFamily [t| Stmt String |]
+
+instance Eq1 (El FamStmtString) where
+  eq1 x y = case getElSNat x of
+    SZ -> unEl x == unEl y
+    SS SZ -> unEl x == unEl y
+    SS (SS SZ) -> unEl x == unEl y
+
+instance Show (El FamStmtString 'Z) where
+  show = show . unEl
+instance Show (El FamStmtString ('S 'Z)) where
+  show = show . unEl
+instance Show (El FamStmtString ('S ('S 'Z))) where
+  show = show . unEl
+  
+
 
 pattern Decl_ = SS (SS SZ)
 pattern Exp_  = SS SZ
@@ -204,3 +221,45 @@ test5 = enter
     mk42 Exp_ _ = El $ ELit 42
     mk42 _    x = x
 
+-- * Treefix test
+
+{-
+  Here is a 'treefix' that matches:
+
+decl fib(n):
+  aux = __X__ + __Z__;
+  return aux;
+
+and returns the metavariables X, Y, and Z.
+-}
+
+txTest :: Tx Singl FamStmtString CodesStmtString (S (S Z)) '[S Z , S Z]
+txTest = TxPeel (CS CZ)
+       ( TxNPSolid (NA_K $ SString "fib")
+       ( TxNPSolid (NA_K $ SString "n")
+       ( TxNPPath
+           (TxPeel (CS (CS CZ))
+              ( TxNPPath
+                ( TxPeel CZ
+                  ( TxNPSolid (NA_K $ SString "aux")
+                  ( TxNPPath 
+                     ( TxPeel (CS (CS CZ))
+                       (TxNPPath TxHere
+                       (TxNPPath TxHere
+                        TxNPNil
+                       ))
+                     )
+                    TxNPNil
+                  ))
+                )
+              ( TxNPSolid (NA_I $ (El $ SReturn (EVar "aux")))
+                TxNPNil
+              )))
+         TxNPNil
+       )))
+
+runTxTestPass
+  = select txTest (into (test1 "fib" "n" "aux"))
+
+runTxTestFail
+  = select txTest (into (test1 "lala" "n" "aux"))
