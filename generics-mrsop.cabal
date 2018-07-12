@@ -1,5 +1,5 @@
 name:                generics-mrsop
-version:             1.1.0
+version:             1.1.1
 
 synopsis:            Generic Programming with Mutually Recursive Sums of Products.
 
@@ -39,6 +39,7 @@ library
     Generics.MRSOP.Util,
     Generics.MRSOP.TH,
     Generics.MRSOP.Zipper,
+    Generics.MRSOP.Treefix,
     Generics.MRSOP.Examples.RoseTree,
     Generics.MRSOP.Examples.RoseTreeTH,
     Generics.MRSOP.Examples.LambdaAlphaEqTH,
