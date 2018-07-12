@@ -86,9 +86,19 @@ first f el | Tag c p <- sop el
   = do (ExistsIX el nphole) <- mkNPHole p
        return (f el (Ctx c nphole))
 
+
 -- |Fills up a hole.
 fill :: (IsNat ix) => El fam ix -> Ctx ki fam c ix -> Rep ki (El fam) c
 fill el (Ctx c nphole) = inj c (fillNPHole el nphole)
+
+-- |Recursively fills a stack of holes
+-- however, the Family constraint ain't so nice. so we perhaps want to
+-- take zippers over a deep representation
+fillCtxs :: forall ix fam iy ki c. (IsNat ix, Family ki fam c) => El fam iy -> Ctxs ki fam c ix iy -> El fam ix
+-- not sure if this should be h or Nothing
+fillCtxs h Nil = h
+fillCtxs h (Cons ctx ctxs) =
+  fillCtxs (sto @fam @ki @c $ fill h ctx) ctxs
 
 -- |Walks to the next hole and execute an action.
 next :: (IsNat ix)
