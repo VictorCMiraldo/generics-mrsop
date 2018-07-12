@@ -18,6 +18,71 @@ import Data.Type.Equality
 import Generics.MRSOP.Util hiding (Cons , Nil)
 import Generics.MRSOP.Base
 
+-- |Kind of paths on a mutually recursive family
+data Paths
+  = Hole
+  | End
+  | Under [Paths]
+
+type family Merge (px :: Paths) (py :: Paths) :: Paths where
+
+data Way :: [[[Atom kon]]] -> Nat -> Paths -> * where
+  WayHere  :: Way codes ix Hole
+  WayThere :: Constr (Lkup i codes) n 
+           -> WayNP codes (Lkup n (Lkup i codes)) paths
+           -> Way codes i (Under paths)
+
+type family Replicate (x :: k) (l :: [j]) :: [k] where
+  Replicate x '[]         = '[]
+  Replicate x (_ ': rest) = x ': Replicate x rest
+
+data WayNP :: [[[Atom kon]]] -> [Atom kon] -> [Paths] -> * where
+  WayNPHere  :: Way codes i path
+             -> WayNP codes (I i ': prod) (path ': Replicate End prod)
+  WayNPThere :: WayNP codes prod paths
+             -> WayNP codes (p ': prod) (End ': paths)
+
+--type family ExtractTypes (paths :: Paths) :: [Nat]
+--  where
+--    ExtractTypes (Hole ix)      = ix ': '[]
+--    ExtractTypes End            = '[]
+--    -- ExtractTypes (Under ix ps) = concatMap ExtractTypes ps
+--    ExtractTypes (Under ix '[]) 
+
+-- |A Tree-prefix @Tx ki fam codes i js@ specifies a path that ultimately
+--  leats to @length js@ trees of the respective types inside an element
+--  of type @El fam i@. In a dependently typed language, one would use
+--  a notion of /subsequence/ and write a slightly more elegant version.
+data Tx :: (kon -> *) -> [*] -> [[[Atom kon]]] -> Nat -> Paths -> * where
+  -- |Marks the end of a path. As soon as a path ends, there is only
+  --  one possible subtree it can mark.
+  TxHere :: Tx ki fam codes i Hole
+  -- |Marks the forking of a path by specifying a constructor
+  --  and a selection of the elements of this constructor's fields
+  --  to continue.
+  TxPeel :: Constr (Lkup i codes) n
+         -> TxNP ki fam codes (Lkup n (Lkup i codes)) paths
+         -> Tx ki fam codes i (Under paths)
+
+-- |A Tree-prefix over a product; a value pf type @TxNP ki fam codes prod js@
+--  marks @length js@ subtrees of the corresponding type within a
+--  product-of-atoms ('PoA') @PoA ki (El fam) prod@.
+--
+--  We employ several Haskell hacks here. Most notably, this datatype is
+--  'fused' with a proof that 'map I js' is a subsequence of 'prod'
+--
+data TxNP :: (kon -> *) -> [*] -> [[[Atom kon]]] -> [Atom kon] -> [Paths] -> *
+    where
+  TxNPNil   :: TxNP ki fam codes '[] '[]
+  TxNPPath  :: Tx ki fam codes i ys
+            -> TxNP ki fam codes prod yss
+            -> TxNP ki fam codes (I i ': prod) (ys ': yss)
+  TxNPSolid :: NA ki (El fam) at
+            -> TxNP ki fam codes prod yss
+            -> TxNP ki fam codes (at ': prod) (End ': yss)
+
+{-
+
 -- |A Tree-prefix @Tx ki fam codes i js@ specifies a path that ultimately
 --  leats to @length js@ trees of the respective types inside an element
 --  of type @El fam i@. In a dependently typed language, one would use
@@ -87,3 +152,4 @@ finalTx x | Tag cx px <- sop (sfrom x) = TxPeel cx (finalTxNP px)
     finalTxNP (NA_I a :* as) = TxNPPath  (finalTx a) (finalTxNP as)
     finalTxNP (NA_K a :* as) = TxNPSolid (NA_K a)    (finalTxNP as)
   
+-}
