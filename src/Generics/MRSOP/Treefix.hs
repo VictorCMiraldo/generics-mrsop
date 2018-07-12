@@ -24,7 +24,6 @@ data Paths
   | End
   | Under [Paths]
 
-type family Merge (px :: Paths) (py :: Paths) :: Paths where
 
 data Way :: [[[Atom kon]]] -> Nat -> Paths -> * where
   WayHere  :: Way codes ix Hole
@@ -80,6 +79,14 @@ data TxNP :: (kon -> *) -> [*] -> [[[Atom kon]]] -> [Atom kon] -> [Paths] -> *
   TxNPSolid :: NA ki (El fam) at
             -> TxNP ki fam codes prod yss
             -> TxNP ki fam codes (at ': prod) (End ': yss)
+
+type family (px :: Paths) :&: (py :: Paths) :: Paths where
+
+walkTo :: Way codes i path'
+       -> Tx ki fam codes i path
+       -> Maybe (Tx ki fam codes i (path :&: path'))
+walkTo WayHere tx            = _
+walkTo (WayThere c wayNP) tx = _
 
 {-
 
