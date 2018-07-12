@@ -68,3 +68,22 @@ selectNP (TxNPSolid el txnp) (a :* poa)
   | otherwise         = Nothing
 selectNP (TxNPPath  tx txnp) (NA_I a :* poa)
   = appendNP <$> select tx a <*> selectNP txnp poa
+
+-- |Creates the final tree-fix; that is: the one with zero holes that
+--  matches the whole element.
+--
+-- TODO: think about TxNPSolid; should it force the atom
+--       to be an opaque type?
+--       If so, then @Tx ki dam codes ix '[]@ is just like a deep representation
+--       We'd then have operations to extract subtrees from there.
+finalTx :: (Family ki fam codes)
+        => El fam ix -> Tx ki fam codes ix '[]
+finalTx x | Tag cx px <- sop (sfrom x) = TxPeel cx (finalTxNP px)
+  where
+    finalTxNP :: (Family ki fam codes)
+              => PoA ki (El fam) prod
+              -> TxNP ki fam codes prod '[]
+    finalTxNP NP0            = TxNPNil
+    finalTxNP (NA_I a :* as) = TxNPPath  (finalTx a) (finalTxNP as)
+    finalTxNP (NA_K a :* as) = TxNPSolid (NA_K a)    (finalTxNP as)
+  
