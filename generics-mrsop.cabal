@@ -39,6 +39,7 @@ library
     Generics.MRSOP.Util,
     Generics.MRSOP.TH,
     Generics.MRSOP.Zipper,
+    Generics.MRSOP.Zipper.Deep,
     Generics.MRSOP.Examples.RoseTree,
     Generics.MRSOP.Examples.RoseTreeTH,
     Generics.MRSOP.Examples.LambdaAlphaEqTH,

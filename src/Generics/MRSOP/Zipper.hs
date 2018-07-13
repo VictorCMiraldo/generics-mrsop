@@ -19,7 +19,7 @@ import Generics.MRSOP.Base
 
 -- |In a @Zipper@, a Location is a a pair of a one hole context
 --  and whatever was supposed to be there. In a sums of products
---  fashion, it consists of a choice of constructor and
+--  fashion, it consists of a choice of constructor and 
 --  a position in the type of that constructor.
 data Loc :: (kon -> *) -> [*] -> [[[Atom kon]]] -> Nat -> * where
   Loc :: IsNat ix => El fam ix -> Ctxs ki fam cs iy ix -> Loc ki fam cs iy
