@@ -45,6 +45,9 @@ data NA  :: (kon -> *) -> (Nat -> *) -> Atom kon -> * where
   NA_I :: (IsNat k) => phi k -> NA ki phi (I k) 
   NA_K ::              ki  k -> NA ki phi (K k)
 
+instance (Eq1 phi, Eq1 ki) => Eq1 (NA ki phi) where
+  eq1 = eqNA eq1 eq1
+
 -- ** Map, Elim and Zip
 
 -- |Maps a natural transformation over an atom interpretation
@@ -239,6 +242,9 @@ sop = go . unRep
 -- |Indexed least fixpoints
 newtype Fix (ki :: kon -> *) (codes :: [[[ Atom kon ]]]) (n :: Nat)
   = Fix { unFix :: Rep ki (Fix ki codes) (Lkup n codes) }
+
+instance Eq1 ki => Eq1 (Fix ki codes) where
+  eq1 = eqFix eq1
 
 -- |Retrieves the index of a 'Fix'
 proxyFixIdx :: Fix ki fam ix -> Proxy ix
