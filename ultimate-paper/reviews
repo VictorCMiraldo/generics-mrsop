@@ -1,0 +1,536 @@
+> > ----------------------- REVIEW 1 ---------------------
+> > PAPER: 6
+> > TITLE: Generic Programming of All Kinds
+> > AUTHORS: Victor Cacciari Miraldo and Alejandro Serrano
+> > 
+> > Overall evaluation: 0 (borderline paper)
+> > 
+> > ----------- Overall evaluation ----------- 
+> >
+> > This paper develops a new
+> > generic programming library for GHC, which in contrast to other such
+> > libraries handles data types of all kinds, not just kind * or *->*. It
+> > also handles some GADTs and some existential type variables in data
+> > types.
+> > 
+> > I'm not an expert in generic programming and hence cannot judge how
+> > novel the library is compared to existing ones. However, it clearly
+> > widens the applicability substantially compared to the existing
+> > Generics and generics-sop library.
+> > 
+> > My main problem is that I find it hard to follow the paper and I
+> > believe many attendees of the Haskell Workshop will have the same
+> > problem. One reason for this difficulty is that the paper uses many
+> > recent Haskell language extensions implemented in GHC. Because readers
+> > may be familiar with many but not all of these, a few words of
+> > explanation for each when they are used for the first time would be
+> > very helpful.
+> 
+> That makes sense. Space is a concern though.
+> 
+> > I believe the readability could be improved substantially if the
+> > authors started with the problem that generic programming is supposed
+> > to solve. Maybe the first sections could just focus on how a
+> > programmer might use the library, 
+> 
+> You see, but there is no library! Maybe we should make it clear that
+> we are just engineering GADTs into the generic umbrella. That is,
+> we are illustrating the building blocks for a potential library to be
+> developped in the future.
+> 
+> > without caring how it actually
+> > works. At this point it would also be useful to clearly state the
+> > limitations of the approach, for which GADTs and existentials it
+> > doesn't work. I find the encoding outlined in the second column of the
+> > first page not helpful. At this point many readers may wonder why data
+> > types need to be encoded at all (if they do not know the generics or
+> > generics-sop libraries). 
+> 
+> Arguably, these libraries are very widespread. But I understand the appeal
+> of going slower. On the other hand, I'm not sure we want to do YAGP (yet another
+> generics paper) with the "hey, here is the size function".
+> 
+> > Furthermore, many constructs such as '[,
+> > Implicit and Explicit are only properly explained later. This doesn't
+> > belong into the introduction; instead the introduction should state
+> > clearly what problem is being solved, e.g. give examples of functions
+> > that can now be defined generically.
+> 
+> This is a more sensible solution. We can ommit the encoding of our 'IsInt'
+> datatype but mention that now we can encode GADTs with existentials.
+> I believe this is a good compromise with not showing too much technicalities
+> but not being too cliche either.
+> 
+> > I'm also not convinced that Section 2 is that useful. On the one hand
+> > it describes existing libraries generic and generic-sob, on the other
+> > hand it does consider how to extend them. Often I was not sure what
+> > the libraries provide and what the authors contributions were. I do,
+> > however, agree that the idea of encoding all data types in a fixed set
+> > of data types, such as sum-of-product, needs to be introduced here.
+> > 
+> > At a few points where the authors say that they need to help the
+> > compiler through some explicit encoding to be able to compile (type
+> > check) successfully, I do wonder how far this approach depends
+> > specifically on the named version of ghc, and with a different version
+> > using slightly different type inference the problem might go away or
+> > type inference might fail elsewhere.
+> 
+> Ultimately, one could be conservative and add annotations everywhere,
+> making typecheck always succeed.
+> 
+> > The authors do provide a full library in the appendix. However, in
+> > several places in the paper they do mention that automatic derivation
+> > of certain class instances would be desirable to make their library
+> > easy to use. I wonder why they did not add appropriate Template
+> > Haskell code, which would come close to directly supporting derivation
+> > in the compiler.
+> 
+> It is very hard to write and time consuming to maintain. Moreover, we
+> do not provide a library, we explain the techniques about how to
+> implement said functionality with Haskell as it stands in 2018.
+> 
+> > 
+> > Details:
+> > 
+> > Page 1, line 43: "most widespread library"; the English formulation is
+> > strange, but more importantly I would like to see some evidence for
+> > this assertion.
+> 
+> It's built-in the compiler. That's enough evidence.
+> 
+> > "amount of ... datatypes" -> "number of ... datatypes"; in many places
+> > the paper uses "amount" where "number" should be used. "amount" is for
+> > something uncountable, "number" for something countable.
+> 
+> Did not know that. Thanks!
+> 
+> > Line 128: "indices": the word is used but not explained here.
+> > 
+> > Lines 147-151: K1 does not use i and M1 does not use i and c. An
+> > explanation should say what these parameters are for.
+> 
+> They are not used in the Term level, but are required on the type level.
+> Makes sense to add these.
+> 
+> > Line 164: what is R?
+> 
+> Will explain!
+> 
+> > Line 252: "code": the word has a very generic meaning. Clarify what
+> > you mean in this paper.
+> 
+> We can cite the TyDe paper here. We use the same nomenclature.
+> 
+> > Line 543: When reading this line I was wondering whether S was
+> > something applied to Nat or what. Only on the next page I
+> > understood. I fear the typography can easily mislead.
+> 
+> Will fix!
+> 
+> > Line 585: You define "DataType" here but do not use it anywhere
+> > near. Thus the text here doesn't flow.
+> 
+> I don't see the problem as being that severe, but understadn the remark.
+> Will try to work around. Maybe that's a good opportunity for
+> space saving here.
+> 
+> > Line 666: "problema" -> "problem"
+> 
+> Will fix.
+> 
+> > Lines 1007-9: The connection between constraints and fields being
+> > explicit or implicit is not clear.
+> 
+> Fair. We could use some naming changes. Instead of 'implicit'
+> and 'explicit' I propose 'constr' and 'value'.
+> 
+> > Line 1183: "a"; do you mean "t"?
+> 
+> Yes!
+> 
+> > 
+> > 
+> > ----------------------- REVIEW 2 ---------------------
+> > PAPER: 6
+> > TITLE: Generic Programming of All Kinds
+> > AUTHORS: Victor Cacciari Miraldo and Alejandro Serrano
+> > 
+> > Overall evaluation: 0 (borderline paper)
+> > 
+> > ----------- Overall evaluation -----------
+> > Summary
+> > 
+> > This paper proposes a generalization of GHC's Generic that works for
+> > any kinds and can even deal with some GADTs. While in the past many
+> > generic programming approaches have been proposed for Haskell, they
+> > were most likely limited to a given kind (usually *) and did not deal
+> > with more advanced datatypes such as GADTs. This work proposes to deal
+> > with this situation using the some of the latest GHC extensions,
+> > including TypeInType. However the authors also show that in languages
+> > like Agda TypeInType isn't necessary and a startified universe would
+> > be sufficient.
+> > 
+> > Evaluation
+> > 
+> > Pros:
+> > 
+> > + GHC keeps evolving and adding new and useful features for GP.
+> > It makes perfect sense to see how those new features help in removing
+> > limitations of previous GP approaches.
+> > 
+> > + The authors show that, despite using TypeInType in Haskell, it is
+> > possile to build a similar model (in languages like Agda) without
+> > TypeInType. In essence this shows that the approach is also applicable
+> > in setting where logical consistency is important.
+> > 
+> > + Practical: If adopted this approach could remove serious limitations
+> > of current GP libraries in Haskell
+> 
+> Thanks. That's exactly our assessment too.
+> 
+> > 
+> > Cons:
+> > 
+> > - One complain about the writing is that there are many diversions
+> > goint through failed attempts.
+> 
+> That's fair.
+> 
+> > 
+> > - Poor coverage of related work, especially with respect to Universes
+> > in Dependently Typed Programming, which use many techniques
+> > similar to the ones used here and thus should be credited.
+> 
+> That's also fair. We were not aware of the suggested related work.
+> Will fix that.
+> 
+> > 
+> > - As many other type-heavy libraries, complexity for end-users
+> > is a concern.
+> 
+> This is a concern indeed. We'd argue that this is not really meant
+> for regular end-users though. If someone requires generic functionality
+> over code that already uses GADTs and existentials, this user is
+> a fairly advanced Haskeller already.
+> 
+> > 
+> > Overall I think there is a valid contribution in this paper that is
+> > worthwhile publishing. However I wasn't too happy with the
+> > presentation for two reasons: the writing is distracting at times
+> > with too many failed attempts; the related work is poorly discussed.
+> 
+> We will be happy to address these issues for the final version!
+> 
+> > Detailed comments:
+> > 
+> > * Related Work:
+> > 
+> > With respect to related work, I think it is important
+> > that the authors discuss the work on Universes for Generic
+> > Programming. Many techniques that are used in those works are
+> > used here without credit. Furthermore, I think the work on Universes
+> > already covers some of the contributions of this work.
+> > Here is a starting point:
+> > 
+> > Generic Programming with Dependent Types
+> > Thorsten Altenkirch, Conor McBride and Peter Morris
+> 
+> Thanks for pointing us here!
+> 
+> > In particular covering multiple kinds and more expressive types are
+> > some of the things that have been investigated in the general
+> > area of universes for GP. Also, the idea of using de Bruijn Indices
+> > and contexts is also employed in the work on universes.
+> 
+> Agreed, will do
+> 
+> > I would have also liked to see a comparison between the proposed
+> > library and those universes in terms of expressiveness.
+> 
+> Makes sense. I will study and compare.
+> 
+> > Section 3:
+> > 
+> > * A large part of this section is about having an encoding
+> > of environments with de Bruijn indices.
+> > 
+> > It should first be pointed out that such techniques are
+> > farily standard and have been used widely in dependently
+> > typed versions of GP universes.
+> > In Haskell, one of the first encodings was done by Baars and Swiestra:
+> > 
+> > Typed transformations of Typed Abstract Syntax The Left-Corner Transform
+> 
+> Thanks for the pointer. Will add.
+> 
+> > * Writing & Failed attempts:
+> > 
+> > The paper has quite a few discussions about failed attempts.
+> > I think this is distracting to the key points of the paper and
+> > affects readability. One concrete example appears in page 7,
+> > in the first attempt for the Generic*SOP class.
+> 
+> That makes sense, we could remove that and use the space to address
+> the other issues.
+> 
+> > I would go straight to the correct solution.
+> > 
+> > Typos/Small comments
+> > 
+> > page 11: exapended --> expanded
+> > 
+> > 
+> > ----------------------- REVIEW 3 ---------------------
+> > PAPER: 6
+> > TITLE: Generic Programming of All Kinds
+> > AUTHORS: Victor Cacciari Miraldo and Alejandro Serrano
+> > 
+> > Overall evaluation: 1 (weak accept)
+> > 
+> > ----------- Overall evaluation ----------- 
+> > This paper introduces a
+> > variant of datatype-generic programming that is based in the
+> > generics-sop library, but lifts several significant restrictions.
+> > 
+> > In particular, it allows datatypes of all kinds to be represented,
+> > including, to some extent, GADTs and existentials.
+> > 
+> > This paper has many nice aspects. The restrictions of generics-sop
+> > (and to a somewhat lesser extent GHC.Generics) are real, and lifting
+> > them is quite desirable. The paper does an excellent job of providing
+> > a relatively gentle introduction to first GHC.Generics, then
+> > generics-sop, and then gradually exposing the extensions as additional
+> > steps. It is clear to see what's old and what's new, and why certain
+> > complexity is being added.
+> > 
+> > However, there are also some concerns:
+> > 
+> > - A lot of the simplicity and uniformity that is the basis of the
+> > generics-sop approach is destroyed and replaced by subtle
+> > complexity. In particular the introduction of the Atom language and
+> > the way its interpretations are handled makes it necessary to switch
+> > back to a hybrid style of defining generic functions where a
+> > class-based dispatch is being used for the Atom language. (Atom, by
+> > the way is a bad name in my opinion, because the whole point of
+> > introducing atoms is that you want to decompose them, not treat them
+> > as a unit.) 
+> 
+> The subtle complexity remark is correct and the concern is real.
+> The nomenclature remark is not sensible. Atom is widely used in
+> the field for this very function: the base case for the language of codes.
+> 
+> > One of the big strengths of generics-sop is not just the
+> > representation being simple, but that it implies that one can use a
+> > high-level style of combining reusable generic functions. In the
+> > system described in the paper, this becomes harder if not
+> > impossible. You acknowledge this problem, but provocatively asked: are
+> > you even benefiting very much from basing this on generics-sop then?
+> > Could you not do the same development, perhaps even in a slightly
+> > simpler style, based on GHC.Generics?
+> 
+> No. Using the GHC.Generics approach to generic functions will be very cumbersome
+> here, as one needs use typeclasses to define everything and the introduction
+> of existentials and constraints can happen anywhere. We need the sop-style
+> to enforce that constraints and existentials appear on the expected places only.
+> 
+> This is yet another point where we need to argue that we are NOT providing
+> a library, but just illustrating a technique. Besides a lot of work,
+> there is no technical reason for why generics-mrsop could not be extended
+> to use this more expressive 'generics-of-all-kinds' technique.
+> 
+> > - The number of examples shown is extremely limited. I appreciate that
+> > there's not a lot of space. But older approaches on generic
+> > programming that aren't cited here, in particular Hinze's "A new
+> > approach to generic functional programming" and also Hinze's
+> > "Polytypic values possess polykinded types" have made a good case that
+> > you run into trouble if you want to define generic functions for
+> > arbitrary kinds in a "classic" style, and that in order to do it
+> > properly, you have to define several differently kinded variants at
+> > once. This is not being discussed here, and only a (* -> *)-based fmap
+> > is given as an example, so I'm left wondering whether defining
+> > functions on higher kinds is really easy or whether it needs yet more
+> > machinery. Note that I'm not claiming that this is impossible, but I'm
+> > saying that the paper does not convince me here, and I find it
+> > problematic that this past work is not being discussed. This is the
+> > primary reason that I'm not more enthusiastic about this paper.
+> 
+> Very valid point here. Again, we were not aware of said related work.
+> I will do my homework here and come back with a better discussion.
+> I suspect that different kinds will support different types of
+> combinators. A (* -> * -> *)-based bifmap is very possible, for instance.
+> But as the reviewers suggest, it is cumbersome to write. 
+> 
+> The arbitrary kinds might not be very usefull in practice, though. The
+> great majority of the time one wants to use generic programming functionality
+> is for types of kind * or * -> * at most. The handling of GADTs on the other
+> hand is very useful. I've seen myself having to write 'Serializable' instances
+> for simple GADTs by hand where these could be easily inferred, for example.
+> 
+> > All in all, it's difficult to solve all problems at once though, and I
+> > hope that this can serve as an important intermediate step that shows
+> > how to solve some problems while at the same time posing some new
+> > questions. So I'm in favour of accepting this paper.
+> > 
+> > Additional remarks:
+> > 
+> > - I don't like that in your treatment of implicit vs explicit
+> > arguments, you are moving away from trying to give a precise mapping
+> > of Haskell datatypes to codes, which is one of the greatest strengths
+> > of generics-sop. You allow to arbitrarily combine implicit and
+> > explicit arguments, but in Haskell/GHC, all implicit arguments would
+> > come at the beginning. So there are codes that have no possible
+> > correspondence as datatypes.
+> 
+> Datatypes give rise to equivalence classes of codes. That is, codes modulo
+> reordering of arguments. It is very cumbersome to enforce this
+> ordering on the type level. We would need yet another datatype to
+> do that.
+> 
+> > - It's strange that you give room to handling composition in Section
+> > 2.3, but are not discussing it again in Section 2.4, even though you
+> > otherwise mirror the development. You do bring it up again at the
+> > beginning of Section 3, but I think it'd be better if you added
+> > composition to 2.4 or removed it from 2.3 (you could still mention the
+> > combinator exists, without going into details).
+> 
+> Agreed. I'm GO for removing it from 2.3 and mentioning its existence. 
+> This helps space to address some of the other issues raised.
+> 
+> > - I think your handling of Atoms / NA / Ty could be significantly
+> >   simplified:
+> > 
+> > First, define a function that actually computes the list of argument
+> > from a type:
+> > 
+> > > type family Args (x :: Kind) :: [Kind] where
+> > >   Args Type     = '[]
+> > >   Args (x -> y) = x : Args y
+> > 
+> > Then, rather than separating singleton natural numbers out, you actually inline them
+> > into the Atom type:
+> > 
+> > > data Atom (zeta :: [Kind]) (k :: Kind) :: Kind where
+> > >   Var   :: Atom (z : zs) z
+> > >   Wk    :: Atom zs z -> Atom (z : zs) z
+> > >   Kon   :: k -> Atom zs k
+> > >   (:@:) :: Atom zs (a -> b) -> Atom zs a -> Atom zs b
+> > 
+> > So Var 0 becomes Var, and Wk (weakening) is replacing the successor
+> > function.  (I guess strictly speaking you could also make an argument
+> > that this isn't entirely faithful, because it gives you flexibility as
+> > to where to place Wk applications, but I think it's worth it.)
+> 
+> This makes sense, and is inline with Altenkirch's 'Generic Programming with
+> Dep Types'. The difficulty is that now the kind of a datatype is represented
+> as 'zeta :: [Kind]'. So, whenever we refer to the datype being represented
+> we have something like:
+> 
+> SomePred (f :: dtk) (zeta :: Args dtk) ...
+> 
+> Adding this type family to the definitions of the Generics*SOP class
+> and the ApplyT GADT is tricky; Haskell often needs the inverse
+> of 'Args' and to carry around the constraint that 'KindOf (Args dtk) ~ dtk'
+> and 'Args (KindOf zeta) ~ zeta'.
+> 
+> > 
+> > You save the definitions of SNat, of Pos, and of Gamma. Because Gamma
+> > now becomes just another NP!
+> 
+> This is a good point. Having less definitions is definetely good.
+> 
+> > You can then define Ty as follows:
+> > 
+> > > type family Ty (zeta :: [Kind]) (env :: NP I zeta) (t :: Atom zeta k) :: k where
+> > >   Ty (z : _ ) ('I a :* vs) Var       = a
+> > >   Ty (_ : zs) (_    :* vs) (Wk t)    = Ty zs vs t
+> > >   Ty zs       vs           (Kon k)   = k
+> > >   Ty zs       vs           (f :@: x) = (Ty zs vs f) (Ty zs vs x)
+> > 
+> > This definition has the advantage that it inlines lookup "properly",
+> > so that it works for all cases, rather than your limited approach on
+> > line 661.
+> 
+> This feels like the main selling point for adding the 'Wk' to our construction.
+> One does not need this (ugly) hack. Thanks for the suggestions. We will
+> experiment with this and report back.
+> 
+> > - I am not fully convinced that you cannot make GHC believe that Apply
+> > has the inverse you need and get rid of the wrapper type, but I
+> > haven't tried it yet.
+> 
+> The problem is that the definition goes by induction on the third variable
+> of 'Apply', namely the 'NP I ts'. This lives on the type level, however.
+> We need the wrapper to bring this to the term level and pattern match
+> on it.
+> 
+> > 
+> > - The fact that you are saying "We have not been able to find a common
+> > pattern about when these annotations are required" is believable and
+> > honest, but nevertheless unsatisfactory for a research paper. It would
+> > be nice if you could pose this question and obtain an answer and
+> > document the answer in the paper.
+> 
+> We will think this through a bit further.
+> 
+> > - I've already said it, but Related Work falls short in the "kind
+> > restriction" area.  This is your paper title, and your main selling
+> > point. So you should compare to other work that has tried to be more
+> > flexible when it comes to the kinds of represented datatypes.
+> 
+> We reiterate that we also thing this is a very valid comment. We will
+> expand those discussion points.
+> 
+> > 
+> > Smaller remarks:
+> > 
+> > - line 46 "major point" Say why it is.
+> > 
+> > - line 49 "enalbing" -> "enabling"
+> > 
+> > - line 68 "kind * -> *" I believe it now supports kind k -> * types.
+> > 
+> > - line 97 "one one" -> "one"
+> > 
+> > - line 164 the occurrences of "R" in the example are unexplained and
+> > also not self-explanatory.
+> > 
+> > - line 184 You could mention "Generic Generic Programming" as another
+> > possible technique of providing generic representations for a new
+> > approach, which is for example offered by generics-sop.
+> > 
+> > - line 204 "L1" subscript
+> > 
+> > - line 221 "only an empty instance declaration" This is even better
+> > with "DerivingAnyClass". And with "DerivingVia", I'd argue there is a
+> > better option than using default signatures.
+> > 
+> > - line 236 "data -> newtype" This applies to several places. You're
+> > submitting to the Haskell Symposium. You can use newtypes where
+> > appropriate. People will know what they are.
+> > 
+> > - line 247 be more explicit and say that it e.g. allows you to write a
+> > "product of sums"
+> > 
+> > - line 267, definition of NP, alignment of "::"
+> > 
+> > - line 273, footnote, be more explicit and say that [] denotes the
+> > list type constructor whereas '[] denotes the empty type-level list.
+> > 
+> > - line 313, state explicitly that you're omitting further discussion
+> >   of All2?
+> > 
+> > - line 458, can't AllRec / AllRec2 be defined in terms of All / All2?
+> 
+> Not really. We'd need another type-family to be passed to All / All2 and
+> type family have to be fully saturated, hence can't be partially applied
+> as arguments to All / All2.
+> 
+> > 
+> > - line 522, ReaderT is missing a constructor (and should be a
+> >   newtype).
+> > 
+> > - line 599, "two type parameter" -> "parameters"
+> > 
+> > - line 613 "is reused by"?
+> > 
+> > - line 666 "problema" -> "problem"
