@@ -179,7 +179,7 @@ instance GenericNSOP (* -> *) [] where
   type Code [] = '[ Constr '[ ], Constr '[ Explicit V0, Explicit (Rec :@: V0) ] ]
 
   from (Arg (A0 [])) = Here $ Cr $ Nil
-  from (Arg (A0 (x : xs))) = There $ Here $ Cr $ E @_ @_ @V0 x :* E xs :* Nil
+  from (Arg (A0 (x : xs))) = There $ Here $ Cr $ E x :* E xs :* Nil
   
   to :: forall tys. SSLoT (* -> *) tys
      => SOPn (* -> *) (Code []) [] tys -> ApplyT (* -> *) [] tys

@@ -63,6 +63,7 @@ data NA (dtk :: Kind) :: LoT dtk -> Field dtk -> * where
   E ::  forall dtk t tys .  Ty dtk tys t  ->  NA dtk tys (Explicit t)
   I ::  forall dtk t tys .  Ty dtk tys t  =>  NA dtk tys (Implicit t)
 
+infixr 5 :*
 data NP :: (k -> *) -> [k] -> * where
   Nil  ::                    NP f '[]
   (:*) :: f x -> NP f xs ->  NP f (x ': xs)
@@ -116,3 +117,16 @@ ravel = go (sslot @_ @ts)
         ->  Apply k f ts -> ApplyT k f ts
     go SLoT0       x = A0   x
     go (SLoTA ts)  x = Arg  (go ts x)
+
+instance GenericNSOP (* -> *) [] where
+  type Code [] = '[ Constr '[ ], Constr '[ Explicit V0, Explicit (Kon [] :@: V0) ] ]
+
+  from (Arg (A0 [])) = Here $ Cr $ Nil
+  from (Arg (A0 (x : xs))) = There $ Here $ Cr $ E x :* E xs :* Nil
+  
+  to :: forall tys. SSLoT (* -> *) tys
+     => SOPn (* -> *) (Code []) tys -> ApplyT (* -> *) [] tys
+  to sop = case sslot @(* -> *) @tys of
+    SLoTA SLoT0 -> case sop of
+      Here (Cr Nil) -> Arg $ A0 []
+      There (Here (Cr (E x :* E xs :* Nil))) -> Arg $ A0 $ x : xs

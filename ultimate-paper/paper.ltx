@@ -948,8 +948,8 @@ class GenericNSOP dtk (f :: dtk) where
 \end{myhs}
 Unfortunately, GHC rejects this declaration altogether.
 The actual definition of
-|GenericNSOP|, along with some auxiliary datatypes, is given in
-\Cref{fig:genericnsopclass}. The corresponding instance for lists
+|GenericNSOP|, along with some auxiliary datatypes,
+and the corresponding instance for lists
 is given in \Cref{fig:genericnsoplist}.
 \begin{figure}
 \begin{myhs}
@@ -977,19 +977,13 @@ instance SSLoT ks ts => SSLoT (k -> ks) (t :&&: ts) where
   sslot = SLoTA sslot
 \end{code}
 \end{myhs}
-\caption{The |GenericNSOP| type class}
-\label{fig:genericnsopclass}
-
-\end{figure}
-\begin{figure}
 \begin{myhs}
 \begin{code}
 instance GenericNSOP (* -> *) [] where
   type Code [] = P [ P [ ], P [ V0, Kon [] :@: V0 ] ]
 
   from (Arg (A0 []))        =          Here $ Nil
-  from (Arg (A0 (x : xs)))
-    = There $ Here $ T @(Star -> Star) @V0 x :* T xs :* Nil
+  from (Arg (A0 (x : xs)))  = There $  Here $ T x :* T xs :* Nil
   
   to   ::  forall tys dot SSLoT (* -> *) tys
        =>  SOPn (* -> *) (Code []) tys -> ApplyT (* -> *) [] tys
@@ -999,7 +993,7 @@ instance GenericNSOP (* -> *) [] where
       There (  Here (T x :* T xs :* Nil))  -> Arg $ A0 $ x : xs
 \end{code}
 \end{myhs}
-\caption{|GenericNSOP| instance for lists}
+\caption{The |GenericNSOP| class and its instance for lists}
 \label{fig:genericnsoplist}
 \end{figure}
 
@@ -1041,16 +1035,8 @@ singleton term and its indexed context.
 In short, a singleton for |tau| is a datatype indexed by that |tau| which
 accurately reflects the structure of |tau|~\cite{Eisenberg2012}.
 Thus, by pattern matching
-on the singleton, we gain information about |tau| itself.
-
-The instance for lists uses visible type application not only in its
-implementation of |to|, but also in the second branch of |from|.
-In this case, GHC is not able to infer the right type applications, and we
-need to give them explicitly. This is quite annoying for hand-written
-instances, but we do not see it as a big problem, as an automated generator
-could just write all the annotations defensively. Unfortunately, we could
-not find a complete description of when the annotations are required, but
-they seems to be needed always for variables.
+on the singleton, we gain information about |tau| itself. In this case,
+the information about the shape of the context is reified.
 
 \subsection{Generic Functor}
 
