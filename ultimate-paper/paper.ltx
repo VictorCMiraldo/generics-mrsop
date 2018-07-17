@@ -1909,7 +1909,8 @@ data TyVar (dtk :: Kind) k where
 data Atom (rtk :: Kind) (dtk :: Kind) k where
   Var    :: TyVar dtk k  ->  Atom rtk dtk k
   Kon    :: k            ->  Atom rtk dtk k
-  (:@:)  :: Atom dtk (k1 -> k2) -> Atom dtk k1 -> Atom dtk k2
+  (:@:)  :: Atom dtk (k1 -> k2) -> Atom dtk k1
+                         ->  Atom dtk k2
   Rec    ::                  Atom rtk dtk rtk
 
 data Field (rtk :: Kind) (dtk :: Kind) where
