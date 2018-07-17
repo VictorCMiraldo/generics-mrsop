@@ -796,7 +796,7 @@ we are describing, and the second one |k| gives the kind of the type
 represented by the |Atom| itself. The latter index is the one preventing
 ill-kinded expressions such as |Kon Int :@: Var Z|.
 
-The |Var| constructor is slightly more complicated. 
+Most of the magic happens in the |Var| constructor. 
 As we discussed above, a variable is defined by a natural number
 which represents its de Bruijn index. To find the kind of
 that variable, we need to perform a lookup within |dtk|, the kind
@@ -805,14 +805,16 @@ looking for the corresponding kind, and raises a type error if the
 de Bruijn index is out of bounds.
 
 Alas Haskell is not a dependently-typed language, which means we
-cannot use the value of the argument of type |Nat|
-as an argument of |Pos|. To work around this restriction we use a
+cannot use the value of an argument of type |Nat| directly
+as an argument to |Pos|. To work around this restriction we use a
 \emph{singleton}~\cite{Eisenberg2012} called |SNat| for natural numbers. 
 In short, a singleton for |tau| is a datatype indexed by that |tau| which
 accurately reflects the structure of |tau|. Thus, by pattern matching
 on the singleton, we gain information about |tau| itself.
 By using |SNat n| instead of |Nat| in the definition of |Var|, we
 are no longer in dependently-typed territory.
+
+\
 
 A datatype of kind |dtk| is now encoded as a list of list of the atoms
 defined above, given that they form a type of kind |Star|.
