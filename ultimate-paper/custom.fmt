@@ -79,3 +79,6 @@
 %format tys = "\alpha"
 %format Code1 = "\mathit{Code}_1"
 %format via = "\mathbf{via}"
+%format TyVar = "\mathit{TyVar}"
+%format VZ = "\mathit{VZ}"
+%format VS = "\mathit{VS}"

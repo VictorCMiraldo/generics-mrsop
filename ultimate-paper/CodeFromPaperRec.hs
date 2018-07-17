@@ -23,26 +23,19 @@ import Data.Kind (type (*), type Type, Constraint)
 
 type Kind = (*)
 
-data Nat = Z | S Nat
-
-data SNat (n :: Nat) where
-  SZ :: SNat Z
-  SS :: SNat n -> SNat (S n)
+data TyVar (dtk :: Kind) k where
+  VZ :: TyVar (x -> xs) x
+  VS :: TyVar xs k -> TyVar (x -> xs) k
 
 data Atom (rtk :: Kind) (dtk :: Kind) k where
-  Var    :: SNat n  -> Atom rtk dtk (Pos n dtk)
-  Kon    :: k       -> Atom rtk dtk k
+  Var    :: TyVar dtk k -> Atom rtk dtk k
+  Kon    :: k           -> Atom rtk dtk k
   (:@:)  :: Atom rtk dtk (k1 -> k2) -> Atom rtk dtk k1 -> Atom rtk dtk k2
   Rec    :: Atom rtk dtk rtk
 
-type V0  = Var SZ
-type V1  = Var (SS SZ)
-type V2  = Var (SS (SS SZ))
-
-type family Pos (n :: Nat) (dtk :: Kind) :: Kind where
-  -- Pos n      Type       = TypeError (Text "Not found")
-  Pos Z      (x -> xs)  = x
-  Pos (S n)  (x -> xs)  = Pos n xs
+type V0  = Var VZ
+type V1  = Var (VS VZ)
+type V2  = Var (VS (VS VZ))
 
 infixr 5 :&&:
 data LoT (dtk :: Kind) where
@@ -50,8 +43,8 @@ data LoT (dtk :: Kind) where
   (:&&:)  :: k -> LoT ks -> LoT (k -> ks)
 
 type family Ty (rtk :: Kind) (dtk :: Kind) (r :: rtk) (tys :: LoT dtk) (t :: Atom rtk dtk k) :: k where
-  Ty rtk (k1       -> ks) r (t1         :&&: ts) V0  = t1
-  Ty rtk (k1 -> k2 -> ks) r (t1 :&&: t2 :&&: ts) V1  = t2
+  Ty rtk (k -> ks) r (t :&&: tys) (Var VZ)     = t
+  Ty rtk (k -> ks) r (t :&&: tys) (Var (VS v)) = Ty rtk ks r tys (Var v)
   Ty rtk dtk r tys (Kon t)   = t
   Ty rtk dtk r tys (f :@: x) = (Ty rtk dtk r tys f) (Ty rtk dtk r tys x)
   Ty rtk dtk r tys Rec       = r

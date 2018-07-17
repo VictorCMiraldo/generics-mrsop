@@ -758,63 +758,48 @@ as terms:
 \item We prevent ill-kinded types such as |Kon Int :@: Var Z| by keeping
 track of the kind of the type being described as an index~\cite{BAARS201051}.
 \end{enumerate}
-The result is the |Atom| GADT given in \Cref{fig:atomdefn}.
-For the sake of clarity, we define a
+In \Cref{fig:atomdefn} we define two GADTs, |TyVar| and |Atom|, to represent
+types. For the sake of clarity, we also define a
 synonym |Kind| for |(*)|,
 which we used whenever the instantiation of a type argument represents
-a kind as opposed to a regular type.
+a kind as opposed to a regular type. Both |TyVar| and |Atom| receive two
+|Kind|-indices: the first one |dtk| represents the kind of the datatype
+we are describing, and the second one |k| gives the kind of the type
+represented by the |Atom| itself. The latter index is the one preventing
+ill-kinded expressions such as |Kon Int :@: Var Z|.
 
 \begin{figure}
 \begin{myhs}
 \begin{code}
 type Kind = (*)
 
-data Atom (dtk :: Kind) (k :: Kind) :: (Star) where
-  Var    :: SNat n  -> Atom dtk (Pos n dtk)
-  Kon    :: k       -> Atom dtk k
+data TyVar  (dtk :: Kind) (k :: Kind) :: (Star) where
+  VZ  ::                TyVar (x -> xs) x
+  VS  :: TyVar xs k ->  TyVar (x -> xs) k
+
+data Atom   (dtk :: Kind) (k :: Kind) :: (Star) where
+  Var    :: TyVar dtk k  -> Atom dtk k
+  Kon    :: k            -> Atom dtk k
   (:@:)  :: Atom dtk (ell -> k) -> Atom dtk ell  -> Atom dtk k
-
-type family Pos (n :: Nat) (dtk :: Kind) :: Kind where
-  Pos n      (Star)     = TypeError (Text "Not found")
-  Pos Z      (x -> xs)  = x
-  Pos (S n)  (x -> xs)  = Pos n xs
-
-data Nat = Z | S Nat
-
-data SNat (n :: Nat) where
-  SZ ::            SNat Z
-  SS :: SNat n ->  SNat (S n)
 \end{code}
 \end{myhs}
 \caption{Definition of |Atom|}
 \label{fig:atomdefn}
 \end{figure}
 
-The |Atom| datatype receives two
-|Kind|-indices: the first one |dtk| represents the kind of the datatype
-we are describing, and the second one |k| gives the kind of the type
-represented by the |Atom| itself. The latter index is the one preventing
-ill-kinded expressions such as |Kon Int :@: Var Z|.
-
-Most of the magic happens in the |Var| constructor. 
-As we discussed above, a variable is defined by a natural number
-which represents its de Bruijn index. To find the kind of
-that variable, we need to perform a lookup within |dtk|, the kind
-of the datatype being defined. The |Pos| type family traverses |dtk|
-looking for the corresponding kind, and raises a type error if the
-de Bruijn index is out of bounds.
-
-Alas Haskell is not a dependently-typed language, which means we
-cannot use the value of an argument of type |Nat| directly
-as an argument to |Pos|. To work around this restriction we use a
-\emph{singleton}~\cite{Eisenberg2012} called |SNat| for natural numbers. 
-In short, a singleton for |tau| is a datatype indexed by that |tau| which
-accurately reflects the structure of |tau|. Thus, by pattern matching
-on the singleton, we gain information about |tau| itself.
-By using |SNat n| instead of |Nat| in the definition of |Var|, we
-are no longer in dependently-typed territory.
-
-\
+The |TyVar| represents a de Bruijn index into the datatype |dtk|.
+We represent this index as a Peano numeral using |VZ| and |VS|, and ensure
+that references are never out of bounds.
+For simplicity, we also introduce some synonyms for the first, second, and third
+variable, in order to make the descriptions of types in the rest of
+the paper a bit more concise:
+\begin{myhs}
+\begin{code}
+type V0  = Var VZ
+type V1  = Var (VS VZ)
+type V2  = Var (VS (VS VZ))
+\end{code}
+\end{myhs}
 
 A datatype of kind |dtk| is now encoded as a list of list of the atoms
 defined above, given that they form a type of kind |Star|.
@@ -832,16 +817,6 @@ However, we are not using
 the |Star : Star| judgement in our construction, we discuss this matter in
 \Cref{sec:inconsistent1}. 
 
-For simplicity, we also introduce some synonyms for the first, second, and third
-variable, in order to make the descriptions of types in the rest of
-the paper a bit more concise:
-\begin{myhs}
-\begin{code}
-type V0  = Var SZ
-type V1  = Var (SS SZ)
-type V2  = Var (SS (SS SZ))
-\end{code}
-\end{myhs}
 As an example, here are the codes corresponding to |[]|, |Either|, and
 |Rose|. The fact that |Either| has two type parameter can be observed
 by the usage of both |V0| and |V1|. The
@@ -902,29 +877,12 @@ data NA (dtk :: Kind) :: LoT dtk -> Atom dtk (Star) -> Star where
   T :: forall dtk t tys dot { unT :: Ty dtk tys t } -> NA dtk tys t
 
 type family Ty dtk (tys :: LoT dtk) (t :: Atom dtk k) :: k where
-  Ty dtk tys (Var n)    = LookupLoT n tys
+  Ty (k -> ks) (t :&&: tys) (Var VZ)      = t
+  Ty (k -> ks) (t :&&: tys) (Var (VS v))  = Ty ks tys (Var v)
   Ty dtk tys (Kon t)    = t
   Ty dtk tys (f :@: x)  = (Ty dtk tys f) (Ty dtk tys x)
 \end{code}
 \end{myhs}
-
-The auxiliary operation |LookupLoT| should return the $n$-th position
-in the context |tys|. Unfortunately the compiler
-is not able to deduce that such a lookup will produce a type of the
-correct kind. To work around this limitation, we need to manually
-inline the lookup for each shape of |dtk|:
-\begin{myhs}
-\begin{code}
-type family Ty dtk (tys :: LoT dtk) (t :: Atom dtk k) :: k where
-  Ty (k1        -> ks) (t1          :&&: ts) V0  = t1
-  Ty (k1 -> k2  -> ks) (t1 :&&: t2  :&&: ts) V1  = t2
-  -- and so on
-\end{code}
-\end{myhs}
-Although not very elegant, this is a reasonable compromise and
-solves the problem at hand. Haskell datatypes commonly do not have a very large number of
-type parameters, so one can get around way with a limited number of these
-inlinings.
 
 In preparation for the upcoming constructions, we introduce the type
 variables for the |T| constructor explicitly. In particular, this is
@@ -1007,7 +965,6 @@ data ApplyT dtk (f :: k) (tys :: LoT dtk) :: Star where
   Arg  :: { unArg  ::  ApplyT ks (f t) ts  }
                              -> ApplyT (k -> ks)  f (t :&&: ts)
 
--- Singletons for contexts
 data SLoT (dtk :: Kind) (tys :: LoT dtk) where
   SLoT0  ::                 SLoT (Star)     LoT0
   SLoTA  ::  SLoT ks as ->  SLoT (k -> ks)  (t :&&: ts)
@@ -1081,6 +1038,10 @@ the compiler does not know that invariant. For that reason we introduce
 a singleton for contexts |SLoT|, and an accompanying type class
 |SSLoT| which witnesses the one-to-one correspondence between the
 singleton term and its indexed context.
+In short, a singleton for |tau| is a datatype indexed by that |tau| which
+accurately reflects the structure of |tau|~\cite{Eisenberg2012}.
+Thus, by pattern matching
+on the singleton, we gain information about |tau| itself.
 
 The instance for lists uses visible type application not only in its
 implementation of |to|, but also in the second branch of |from|.
