@@ -922,7 +922,7 @@ type family Ty dtk (tys :: LoT dtk) (t :: Atom dtk k) :: k where
 Although not very elegant, this is a reasonable compromise and
 solves the problem at hand. Haskell datatypes commonly do not have a very large number of
 type parameters, so one can get around way with a limited number of these
-expanded lookups.
+inlinings.
 
 In preparation for the upcoming constructions, we introduce the type
 variables for the |T| constructor explicitly. In particular, this is
@@ -986,85 +986,26 @@ class GenericNSOP dtk (f :: dtk) where
   to    :: SOPn dtk (Code f) tys -> Apply dtk f tys
 \end{code}
 \end{myhs}
-Unfortunately, GHC rejects the signatures of the methods. The reason
-is that |f| appears only as an argument of type families: |Apply| and
-|Code|. None of the type families are injective, which means that the
-instantiation of |f| cannot be inferred in its usage sites. In fact,
-if we have |Either a b| as a result, there are three different calls
-to |Apply| which would give the same result:\footnote{Although one could
-argue that the combination of the result of |Apply| and the sequence
-of types |tys| is enough to fix the parameter |f|.}
+Unfortunately, GHC rejects this declaration altogether.
+The actual definition of
+|GenericNSOP|, along with some auxiliary datatypes, is given in
+\Cref{fig:genericnsopclass}. The corresponding instance for lists
+is given in \Cref{fig:genericnsoplist}.
+\begin{figure}
 \begin{myhs}
 \begin{code}
-Apply (Star -> Star -> Star)  Either        (a :&&:   b   :&&:  LoT0)
-Apply (Star -> Star)          (Either a)              (b  :&&:  LoT0)
-Apply (Star)                  (Either a b)                      LoT0
-\end{code}
-\end{myhs}
+class GenericNSOP dtk (f :: dtk) where
+  type Code f :: DataType dtk
+  from  ::  ApplyT dtk f tys -> SOPn dtk (Code f) tys
+  to    ::  SSLoT dtk tys
+        =>  SOPn dtk (Code f) tys -> ApplyT dtk f tys
 
-Instead of using a type family, we are going to use a GADT
-which provides the \emph{evidence} of which part of the type
-is the constructor |f| and which are the type parameters:
-\begin{myhs}
-\begin{code}
 data ApplyT dtk (f :: k) (tys :: LoT dtk) :: Star where
   A0   :: { unA0   ::  f  }  -> ApplyT (Star)     f  LoT0
   Arg  :: { unArg  ::  ApplyT ks (f t) ts  }
                              -> ApplyT (k -> ks)  f (t :&&: ts)
-\end{code}
-\end{myhs}
-By replacing |Apply| with |ApplyT| in the signature of |from|
-and |to| the original type error is gone.
 
-\begin{figure}
-\begin{myhs}
-\begin{code}
-instance GenericNSOP (* -> *) [] where
-  type Code [] = P [ P [ ], P [ V0, Kon [] :@: V0 ] ]
-
-  from (Arg (A0 [])        =          Here $ Nil
-  from (Arg (A0 (x : xs))  = There $  Here $ T x :* T xs :* Nil
-
-  to         (Here Nil)                    = Arg $ A0 []
-  to (There  (Here (T x :* T xs :* Nil)))  = Arg $ A0 $ x : xs
-\end{code}
-\end{myhs}
-\caption{Non-working |GenericNSOP| instance for lists}
-\label{fig:notworking}
-\end{figure}
-
-If we try to define the instance of |GenericNSOP| for lists as shown
-in \Cref{fig:notworking} we still run into some type errors.  First of
-all, GHC cannot check that the use of |T x| in |from| is well-typed:
-\begin{verbatim}
-Could not deduce:
-  Ty (* -> *) (a ':&: 'Epsilon) x0 ~ a
-\end{verbatim}
-The fix is simple, we just need visible type application~\cite{EisenbergWA16}.
-\begin{myhs}
-\begin{code}
-from (Arg (A0 (x : xs)))
-  = There $ Here $ T @(Star -> Star) @V0 x :* T xs :* Nil
-\end{code}
-\end{myhs}
-In this case, we only need the annotation for that argument, and not
-for |xs|. We have not been able to find a common pattern about when
-these annotations are required, although it seems that references to
-variables almost always need them. One can simply generate these instances
-in a potential production version of the library.
-
-The second problem happens in the conversion from the generic
-representation back to the original datatype:
-\begin{verbatim}
-Couldn't match type 'ts' with 't0 ':&: 'Epsilon'
-\end{verbatim}
-Although in theory just knowing the kind |dtk| of the datatype we are
-describing is enough to know the shape of the context |LoT dtk|, 
-the compiler does not know that invariant. 
-
-\begin{figure}
-\begin{myhs}
-\begin{code}
+-- Singletons for contexts
 data SLoT (dtk :: Kind) (tys :: LoT dtk) where
   SLoT0  ::                 SLoT (Star)     LoT0
   SLoTA  ::  SLoT ks as ->  SLoT (k -> ks)  (t :&&: ts)
@@ -1077,38 +1018,13 @@ instance SSLoT ks ts => SSLoT (k -> ks) (t :&&: ts) where
   sslot = SLoTA sslot
 \end{code}
 \end{myhs}
-\caption{Singleton for contexts}
-\label{fig:singctx}
+\caption{The |GenericNSOP| type class}
+\label{fig:genericnsopclass}
+
 \end{figure}
-
-We need to pattern match on the shape of the context to resolve this problem.
-First we define a singleton for contexts, |SLoT|, as given
-in \Cref{fig:singctx}. Even though a context and its singleton are
-in one-to-one correspondence, we need to witness this fact explicitly.
-Finally, we require a |SSLoT| instance
-for the context in the |to| method, so we
-can retrieve the singleton and pattern match. This is a vacuous constraint,
-since |SSLoT| is defined for every possible shape of the context
-
-The definitive version of |GenericNSOP| and its instance for lists is given
-in \Cref{fig:genericnsop}. In the updated definition of |to| for the instance,
-we first match on the shape of the context by means of the singleton obtained
-through |sslot|. Once again we use visible type application to ask
-explicitly for the correct singleton, and this in turn forced us to write
-an explicit signature for |to|, in order to introduce a name for the
-type variable |tys|. After a successful match, we have refined the type
-information enough for the compiler to know that the result of the conversion
-is well typed.
-
 \begin{figure}
 \begin{myhs}
 \begin{code}
-class GenericNSOP dtk (f :: dtk) where
-  type Code f :: DataType dtk
-  from  ::  ApplyT dtk f tys -> SOPn dtk (Code f) tys
-  to    ::  SSLoT dtk tys
-        =>  SOPn dtk (Code f) tys -> ApplyT dtk f tys
-
 instance GenericNSOP (* -> *) [] where
   type Code [] = P [ P [ ], P [ V0, Kon [] :@: V0 ] ]
 
@@ -1124,9 +1040,54 @@ instance GenericNSOP (* -> *) [] where
       There (  Here (T x :* T xs :* Nil))  -> Arg $ A0 $ x : xs
 \end{code}
 \end{myhs}
-\caption{The |GenericNSOP| type class and its instance for lists}
-\label{fig:genericnsop}
+\caption{|GenericNSOP| instance for lists}
+\label{fig:genericnsoplist}
 \end{figure}
+
+The introduction of |ApplyT| and |SLoT| respond to different problems.
+The former is required to render the types of |from| and |to|
+un-ambiguous. Take one of the type signatures in the original definition:
+\begin{myhs}
+\begin{code}
+from  :: Apply dtk f tys -> SOPn dtk (Code f) tys
+\end{code}
+\end{myhs}
+Here the type variable |f| appears only as an argument of type families:
+|Apply| and |Code|.
+None of the type families are injective, which means that the
+instantiation of |f| cannot be inferred in its usage sites. In fact,
+if we have |Either a b| as a result, there are three different calls
+to |Apply| which would give the same result:\footnote{Although one could
+argue that the combination of the result of |Apply| and the sequence
+of types |tys| is enough to fix the parameter |f|.}
+\begin{myhs}
+\begin{code}
+Apply (Star -> Star -> Star)  Either        (a :&&:   b   :&&:  LoT0)
+Apply (Star -> Star)          (Either a)              (b  :&&:  LoT0)
+Apply (Star)                  (Either a b)                      LoT0
+\end{code}
+\end{myhs}
+The solution is to use a GADT |ApplyT| instead of a type family,
+which provides the \emph{evidence} of which part of the type
+is the constructor |f| and which are the type parameters.
+
+Replacing |Apply| with |ApplyT| is enough to make |from| work.
+However, if one tries to define an instance of |to|, a new problem arises.
+Although in theory just knowing the kind |dtk| of the datatype we are
+describing is enough to know the shape of the context |LoT dtk|, 
+the compiler does not know that invariant. For that reason we introduce
+a singleton for contexts |SLoT|, and an accompanying type class
+|SSLoT| which witnesses the one-to-one correspondence between the
+singleton term and its indexed context.
+
+The instance for lists uses visible type application not only in its
+implementation of |to|, but also in the second branch of |from|.
+In this case, GHC is not able to infer the right type applications, and we
+need to give them explicitly. This is quite annoying for hand-written
+instances, but we do not see it as a big problem, as an automated generator
+could just write all the annotations defensively. Unfortunately, we could
+not find a complete description of when the annotations are required, but
+they seems to be needed always for variables.
 
 \subsection{Generic Functor}
 
@@ -1177,8 +1138,7 @@ We had to work quite a bit to obtain the definitive form of
 how to define the generic operations. In fact, it is more important
 for this second mode of use to have a nice interface for the
 programmer, since the definition of |GenericNSOP| instances can be
-automated using Template Haskell or a similar metaprogramming
-technology.
+automated.
 
 The definition of a generic |fmap|, given in \Cref{fig:gfmap3}, does
 not differ significantly from that of \Cref{fig:gfmap2}, where we only
@@ -1300,8 +1260,12 @@ data Eql a b where
 
 Since version 7.4.1, GHC treats constraints --- in short, anything
 which appears before the |=>| arrow --- as regular ground types, with
-the caveat that its kind is |Constraint| instead of |Star|. This means
-that we can reuse most of our framework.
+the caveat that its kind is |Constraint| instead of |Star|.
+We sometimes refer to constraints as \emph{implicit} parameters,
+since they are filled in by the compiler, as opposed to explicit parameters
+which need to be given in the code. In fact, other languages such as
+Agda and Scala have a native notion of implicit parameters, which are often
+used to simulate Haskell's type class mechanism.
 
 Up to now a datatype was defined as |[[Atom dtk (Star)]]|, where each
 element of the inner list represents a field in a constructor. Now we
@@ -1524,7 +1488,7 @@ Although we greatly exapended the set of types that the (generic)
 programmer has access to, this is still not exhaustive.
 With the introduction of the |TypeInType| extension, quantification in types
 works as a telescope. That is, the kind of a variable might depend on
-the variables introduced before it. For example, here |a| depends on
+the variables introduced before it. For example, here |t| depends on
 the kind |dtk|:
 \begin{myhs}
 \begin{code}
@@ -1538,15 +1502,17 @@ The |Exists| combinator in our library only allows
 Another shortcoming of our library is that only \emph{single}
 recursion can be represented. The
 \texttt{multirec}~\cite{Yakushev2009} library adds support families of
-mutually recursive datatypes, but with the caveat that all members
-have to be of kind |*|. It might be possible to use a similar technique
+mutually recursive datatypes, and \texttt{generic-mrsop}~\cite{MrSop}
+translated its approach to the sum-of-products style.
+However, in both cases all members of a datatype
+are restricted to be of kind |*|. It might be possible to use a similar technique
 --- adding an index to the |Rec| atom -- to try tackling this. 
-The difficulty is in the possbility of different members of the family
-having potentially different kinds.
+The difficulty is in the possibility of different members of the family
+having different kinds.
 
 Through several refinements, starting with the original
 sum-of-products construction, we have built a generic
-programming library supporting a wide range of Haskell datatypes. Our
+programming library supporting a wider range of datatypes. Our
 main novelties are the uniform treatment of types of different kinds,
 and the support for the most important features in GADTs. To do so, we
 have leveraged many of the Haskell extensions proposed in the
