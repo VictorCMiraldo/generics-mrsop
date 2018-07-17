@@ -696,12 +696,12 @@ gfmap f = to . goS . from
 
 type family AllRec2  c xs :: Constraint where
   AllRec2 c (P [])          = ()
-  AllRec2 c (x qcolon xs)  = (AllRec c x, AllRec2 c xs)
+  AllRec2 c (x qcolon xs)   = (AllRec c x, AllRec2 c xs)
 
 type family AllRec   c xs :: Constraint where
   AllRec c (P [])               = ()
-  AllRec c (Rec x  qcolon xs)  = (c x, AllRec c xs)
-  AllRec c (x      qcolon xs)  = AllRec c xs
+  AllRec c (Rec x  qcolon xs)   = (c x, AllRec c xs)
+  AllRec c (x      qcolon xs)   = AllRec c xs
 \end{code} %$
 \end{myhs}
 \caption{Generic |fmap| using |Generic1SOP|}
@@ -717,7 +717,8 @@ must help the compiler by annotating the local declarations.
 We cannot use the same type family |All2| that we were using, because
 we need to treat |Rec| positions differently from the rest. The
 solution is to define a more specific |AllRec2| type family, which
-only applies the a constraint |c| only over those positions.
+only applies the a constraint |c| only over those positions. Unfortunately,
+we have not yet found a way to implement |AllRec2| in terms of |All2|.
 
 \section{Generics of All Kinds}
 \label{sec:allkinds}
