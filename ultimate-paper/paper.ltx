@@ -126,18 +126,19 @@ comparison). Ultimately, GHC added special support via the
 |Data|~\cite{Lammel2003,Mitchell2007} and
 |Generic|~\cite{Magalhaes2010} type classes.
 
-In fact, the built-in |Generic| is one of the most widespread
-libraries. One of the reasons for that is the lightweight encoding it
-employs. One of its key design aspects is to \emph{not} represent
-recursion explicitly; this is a major point when designing a generic
-programming library.  Our approach is inspired by the same lightweight
-philosophy, but we extend it much further, enalbing the programmer to
+The built-in |Generic| uses a lightweight encoding of datatypes.
+One of its key design aspects is to \emph{not} represent
+recursion explicitly, as opposed to \texttt{regular}~\cite{Noort2008},
+\texttt{multirec}~\cite{Yakushev2009}, and
+\texttt{generic-mrsop}~\cite{MrSop}.
+Our approach is inspired by the same lightweight
+philosophy, but we extend it much further, enabling the programmer to
 employ generic programming techniques to much more expressive
 datatypes.
 
   For instance, |Generic| only supports representing ground types,
 that is, types of kind |Star|. It does provide a second typeclass,
-|Generic1|, for type constructors of kind |Star -> Star|, but that is
+|Generic1|, for type constructors of kind |k -> Star|, but that is
 as far as it goes. Our techniques are able to represent types of
 arbitrary kinds by using some of the more modern features of the
 Haskell language.
@@ -178,7 +179,7 @@ type CodeIsInt = P [ P  [ Implicit (Kon (~) :@: V0 :@: Kon Int)
                         , Explicit V0 ] ]
 \end{code}
 \end{myhs}
-In our case there is one one constructor, |Prf|, which translates
+In our case there is only one constructor, |Prf|, which translates
 to a single-element inner list. This inner list has two fields:
 the \emph{implicit} one represents the constraint |a ~ Int|, and
 the explicit one the field of type |a|.
@@ -200,8 +201,11 @@ data types and type constructors of \emph{all kinds}
 (\Cref{sec:allkinds}) and also a large subset of Generalised Algebraic
 Data Types~\cite{Xi2003}, \emph{GADTs} for short
 (\Cref{sec:constraints,sec:exists}).  We do so by using a variant of
-the sum-of-products representation. We explore the required background
-in \Cref{sec:pre}.
+the sum-of-products representation.
+
+Before delving into the most general framework, we explore the required background
+in \Cref{sec:pre}, and provide a first extension of the sum-of-products style
+for type constructor with a single parameter in \Cref{sec:generic1}.
 
 Since the introduction of GADTs, datatype constructors may have more complicated
 shapes than a mere list of fields:
@@ -224,8 +228,8 @@ shapes than a mere list of fields:
    we explore how to extend our base framework to
   account for these constraints.
 
-  \item Constructor may mention type variables which are not
-  reflected in the indices. These are called \emph{existentials}, since
+  \item Constructor may introduce new type variables.
+  These are called \emph{existentials}, since
   once you pattern match you know that a type has been used, but not
   exactly which one. The support for existentials is discussed in
   \Cref{sec:exists}.
@@ -244,15 +248,18 @@ to represent the \emph{shape} of datatypes.
 
 Each generic programming library provides different \emph{building blocks}
 for the representations. For example, |Generic| uses the following
-set of functors and combinators:
+set of functors and combinators:\footnote{In the actual library, |K1|
+has an additional type parameter |i|, which was used
+to distinguish recursive positions from non-recursive ones. In latest
+versions this distinction has been removed and |i| is always set to |R|,
+but the type parameter remains for backwards compatibility.}
 \begin{myhs}
 \begin{code}
 data V1           p                           -- empty
 data U1           p = U1                      -- unit
-data K1 i c       p = K1 c                    -- constant
+data K1   c       p = K1 c                    -- constant
 data (f  :+:  g)  p = L1 (f p) | R1 (g p)     -- sum
 data (f  :*:  g)  p = (f p) :*: (g p)         -- product
-data M1 i c f     p = M1 (f p)                -- metadata
 \end{code}
 \end{myhs}
 By combining these blocks we can describe the structure of any
@@ -266,13 +273,10 @@ for binary trees:
 data Tree a = Leaf | Node (Tree a) a (Tree a)
 \end{code}
 \end{myhs}
-The shape of this datatype is described by the following functor. For
-the sake of conciseness, we omit the additional information such as
-the name of constructors and fields, which would be present as
-metadata via the |M1| functor.
+The shape of this datatype is described as follows:
 \begin{myhs}
 \begin{code}
-U1 :+: (K1 R (Tree a) :*: K1 R a :*: K1 R (Tree a))
+U1 :+: (K1 (Tree a) :*: K1 a :*: K1 (Tree a))
 \end{code}
 \end{myhs}
 The type above is the \emph{representation} of |Tree
@@ -280,6 +284,12 @@ a|. Note that this representation refers to the type |Tree a| itself.
 Hence, we say that recursion is encoded \emph{implicitly} here.
 Other approaches to generic programming use a specific combinator for marking recursive
 positions instead~\cite{Noort2008,Yakushev2009}.
+
+The combinators presented above are enough to
+describe the structure of a datatype, but not metadata such as the names
+of the type and constructor. |Generic| includes an additional functor
+|M1| for that purpose, but we omit further discussion for the sake of
+conciseness.
 
 In order to use generic operations, we must tie each datatype with
 its representation. This is done via the |Generic| type class. In
@@ -297,7 +307,8 @@ Fortunately, we do not have to write |Generic| instances by hand. GHC
 provides an extension to the |deriving| mechanism to create these
 instances. In fact, all generic programming libraries automate this
 step, making use of metaprogramming facilities such as Template
-Haskell~\cite{Sheard2002}.
+Haskell~\cite{Sheard2002}. In many cases, generic descriptions can also be
+derived from the compiler-generated one~\cite{Magalhaes2014}.
 
 %Before exploring the novel ideas in the paper, we need to recap some
 %notions from the current landscape of generic programming in GHC. As
@@ -330,7 +341,7 @@ instance (GSize f , GSize g) => GSize (f :+: g) where
   gsize (L1 f)     = gsize f
   gsize (R1 g)     = gsize g
 
-instance (Size c) => GSize (K1 i c) where
+instance (Size c) => GSize (K1 c) where
   gsize (K1 x)     = size x
 \end{code}
 \end{myhs}
@@ -350,6 +361,8 @@ instance Size (Tree a) where
 By using the |default| keyword~\cite{Magalhaes2010} available in GHC,
 the implementation of |size| in terms of |gsize| can be completely automated.
 In that case, only an empty |instance| declaration for |Size| is required.
+The recent |deriving via| proposal~\cite{DerivingVia} provides another
+way to automatize the creation of such instances.
 
 The definition of |size| is very simple, other generic operations such
 as |show| or |parse| need to access the metadata and keep additional
@@ -369,7 +382,7 @@ we can use a promoted Boolean value to encode whether a certain string
 has been validated or not.
 \begin{myhs}
 \begin{code}
-data VString (v :: Bool) = VString String
+newtype VString (v :: Bool) = VString String
 
 validate :: VString False -> VString True
 \end{code}
@@ -381,26 +394,30 @@ described by a list of list of types, where the outer level should be
 thought as the choice between constructors, and each inner list
 represents the fields in that constructor. This structure corresponds
 to that of algebraic datatypes in Haskell, and it is called
-\emph{sum of products}. In contrast, the representation using |Generic| is not
-strong enough to guarantee that shape; the compiler does not stop
-us from writing:
-\begin{myhs}
-\begin{code}
-U1 :*: (K1 R Int :+: Maybe)
-\end{code}
-\end{myhs}
-
-The description of a datatype using a list of lists of types is called
-the \emph{code} of the datatype. For example, here is the code for
+\emph{sum of products}. We refer to the list of list of types
+which describe a datatype as the \emph{code} of that datatype.
+For example, here is the code for
 |Tree a| defined above:\footnote{The quote sign serves to
 differentiate type level from term level when there is a risk of
-confusion.}
+confusion. For example, |[]| is the name of the list \emph{type constructor},
+whereas |P []| is the \emph{promoted empty list}.}
 \begin{myhs}
 \begin{code}
 P [ P [], P [Tree a, a, Tree a]]
 \end{code}
 \end{myhs}
-But now another problem arises: we cannot construct terms of the code
+In contrast, the representation using |Generic| is not
+strong enough to guarantee that shape; the compiler does not stop
+us from writing:
+\begin{myhs}
+\begin{code}
+U1 :*: (K1 Int :+: Maybe)
+\end{code}
+\end{myhs}
+that is, a product of sums instead of a sum of products. Furthermore, it
+uses a functor |Maybe| which is not part of the basic building blocks.
+
+Unfortunately, a new problem arises: we cannot construct terms of the code
 directly, we first need to turn it into a ground type. The kind of the
 type level list is |[[Star]]| -- where |Star| is the kind of ground
 types in Haskell -- yet, we can only write terms of kind
@@ -410,13 +427,13 @@ two GADTs: |NS|, which interprets a list of elements as a choice, and
 product.
 \begin{myhs}
 \begin{code}
-data NS :: (k -> Star) -> [k] -> Star where
-  Here   :: f k      -> NS f (k qcolon ks)
-  There  :: NS f ks  -> NS f (k qcolon ks)
+data NS  :: (k -> Star) -> [k] -> Star where
+  Here    :: f k      -> NS f (k qcolon ks)
+  There   :: NS f ks  -> NS f (k qcolon ks)
 
-data NP :: (k -> Star) -> [k] -> Star where
-  Nil  ::                    NP f (P [])
-  (:*) :: f x -> NP f xs ->  NP f (x qcolon xs)
+data NP  :: (k -> Star) -> [k] -> Star where
+  Nil   ::                    NP f (P [])
+  (:*)  :: f x -> NP f xs ->  NP f (x qcolon xs)
 \end{code}
 \end{myhs}
 Both |NS| and |NP| receive as first argument a type constructor
@@ -473,9 +490,10 @@ gsize = goS . from
 \end{myhs}
 The only remarkable part of this implementation is the use of the
 |All2| type class to ensure that every type which appears in a field
-of the code has a corresponding |size| operation.
+of the code has a corresponding |size| operation. We omit further details
+about |All2|, the interested reader is referred to \citet{deVries2014}.
 
-\subsection{Generic Type Constructors}
+\section{Generic Type Constructors}
 \label{sec:generic1}
 
 If we want to write functions such as |fmap|, from |Functor|, generically,
@@ -483,6 +501,8 @@ we need to have knowledge about which fields of a type of kind |Star -> Star|
 are, in fact, an occurence of its type parameter. In this section we
 look into how this has been done by |GHC.Generics| and how to
 translate this to the \texttt{generics-sop} style.
+
+\subsection{Type constructors using |Generic1|}
 
 The |Generic1| type class is the counterpart of |Generic| for types
 with one parameter, such as |Maybe| or |[]|. The definition is pretty
@@ -531,33 +551,21 @@ recursion in our type, is does not only model recursion.
 In fact, every application of a type constructor to the type variable has to
 be encoded by the means of |Rec1|, even if this is not a recursive application.
 
-Our |Rec1| is not expressive enough to represent arbitrary recursion.
-If we want to represent non-regular datatypes, such as |Rose a| below,
-we need some extra machinery.
+Note that |Rec1| is not expressive enough to represent arbitrary recursion.
+If we want to represent non-regular datatypes, such as |Rose a| below:
 \begin{myhs}
 \begin{code}
 data Rose a = Fork a [Rose a]
 \end{code}
 \end{myhs}
-The solution is to introduce \emph{functor composition} as an
-additional building block:
-\begin{myhs}
-\begin{code}
-data (f :.: g) a = Comp (f (g a))
-\end{code}
-\end{myhs}
-The second field of |Fork| is described then as the composition of the
-list constructor, and recursion done via |Rec1|.
-\begin{myhs}
-\begin{code}
-Par1 :*: ([] :.: Rec1 Rose)
-\end{code}
-\end{myhs}
+we need some extra machinery in the form of \emph{functor composition}.
+We omit discussion of these non-regular datatypes in this section,
+but note that the framework in forecoming sections \emph{does}
+support this shape of recursion.
 
 Defining generic operations for |Generic1| is done as for |Generic|;
 one just need to add additional instances for the new |Par1| and
-|Rec1| functors, and for |f :.: g| if non-regular recursion is
-allowed. Here are the important pieces of the generic |fmap|
+|Rec1| functors. Here are the important pieces of the generic |fmap|
 declaration, taken from the \texttt{generic-deriving} package. The
 rest of the instances just apply |gfmap| recursively in every
 position.
@@ -565,21 +573,11 @@ position.
 \begin{code}
 class GFunctor f where
   gfmap :: (a -> b) -> f a -> f b
-\end{code}
-\end{myhs}
-\begin{myhs}
-\begin{code}
+
 instance GFunctor Par1 where
   gfmap f (Par1 a)  = Par1 (f a)
 instance (Functor f) => GFunctor (Rec1 f) where
   gfmap f (Rec1 a)  = Rec1 (fmap f a)
-\end{code}
-\end{myhs}
-\begin{myhs}
-\begin{code}
-instance (Functor f, GFunctor g) 
-  => GFunctor (f :.: g) where
-  gfmap f (Comp x)  = Comp (fmap (gfmap f) x)
 \end{code}
 \end{myhs}
 
@@ -601,7 +599,7 @@ set of primitive building blocks for two-parameter types, but the
 problem would repeat again once we consider three parameters. We will
 address this issue in \Cref{sec:allkinds}.
 
-\subsection{|Generic1| in sum-of-products style}
+\subsection{Type constructors in sum-of-products style}
 
 The key point to extend a generic framework to handle type
 constructors is to introduce marks for those places where the type
@@ -742,7 +740,7 @@ in the following datatype of kind |Star -> (Star -> Star) -> Star ->
 Star|:
 \begin{myhs}
 \begin{code}
-data ReaderT r m a = r -> m a
+newtype ReaderT r m a = Reader (r -> m a)
 \end{code}
 \end{myhs}
 the second type variable is applied to the third one. We cannot
@@ -752,20 +750,21 @@ is a dead end.
 
 Looking at the Haskell Report~\cite[section 4.1.2]{haskell2010}, we see
 that a type follows closely the applicative fragment of the $\lambda$-calculus:
-it is either a type variable, a type constructor or an application.
-Using de Bruijn indices, this is straight forward to encode
-in Haskell:
-\begin{myhs}
-\begin{code}
--- Natural numbers to represent indices
-data Nat   = Z | S Nat
+it is either a type variable, a type constructor, or an application.
+We use well-known techniques to represent the structure of these types
+as terms:
+\begin{enumerate}
+\item We use de Bruijn indices to refer to variables.
+\item We prevent ill-kinded types such as |Kon Int :@: Var Z| by keeping
+track of the kind of the type being described as an index~\cite{BAARS201051}.
+\end{enumerate}
+The result is the |Atom| GADT given in \Cref{fig:atomdefn}.
+For the sake of clarity, we define a
+synonym |Kind| for |(*)|,
+which we used whenever the instantiation of a type argument represents
+a kind as opposed to a regular type.
 
-data Atom  = Var Nat | Kon k | Atom :@: Atom
-\end{code}
-\end{myhs}
-Alas, this definition of |Atom| is too permissive. It allows us to represent ill-kinded
-types such as |Kon Int :@: Var Z|. The solution is to lift |Atom|
-to a GADT which keeps track of the kind of type.
+\begin{figure}
 \begin{myhs}
 \begin{code}
 type Kind = (*)
@@ -774,59 +773,56 @@ data Atom (dtk :: Kind) (k :: Kind) :: (Star) where
   Var    :: SNat n  -> Atom dtk (Pos n dtk)
   Kon    :: k       -> Atom dtk k
   (:@:)  :: Atom dtk (ell -> k) -> Atom dtk ell  -> Atom dtk k
-\end{code}
-\end{myhs}
-For the sake of clarity, we define a synonym |Kind| for |(*)|,
-which we used whenever the instantiation of a type argument represents
-a kind as opposed to a regular type. The |Atom| datatype receives two
-|Kind|-indices: the first one |dtk| represents the kind of the datatype
-we are describing, and the second one |k| gives the kind of the type
-represented by the |Atom| itself.
 
-This refinement is enough to reject the previous example |Kon Int :@: Var Z|,
-since the kind of |Int| is not of the form |k1 -> k2|, as required
-by |(:@:)|. 
-The |Var| constructor is slightly more complicated. 
-As we discussed above, a variable is defined by a natural number
-which represents its de Bruijn index. To find the kind of
-that variable, we need to perform a lookup within |dtk|.
-We introduce a |Pos| type family for this:
-\begin{myhs}
-\begin{code}
 type family Pos (n :: Nat) (dtk :: Kind) :: Kind where
   Pos n      (Star)     = TypeError (Text "Not found")
   Pos Z      (x -> xs)  = x
   Pos (S n)  (x -> xs)  = Pos n xs
-\end{code}
-\end{myhs}
 
-Alas Haskell is not a dependently-typed language, which means we
-cannot use the value of the argument of type |Nat|
-as an argument of |Pos|. To work around this restriction we use a
-\emph{singleton}~\cite{Eisenberg2012} for natural numbers. 
-In short, a singleton for |tau| is a datatype indexed by that |tau| which
-accurately reflects the structure of |tau|. Thus, by pattern matching
-on the singleton, we gain information about |tau| itself. Here is the
-definition of the singleton for |Nat|:
-\begin{myhs}
-\begin{code}
+data Nat = Z | S Nat
+
 data SNat (n :: Nat) where
   SZ ::            SNat Z
   SS :: SNat n ->  SNat (S n)
 \end{code}
 \end{myhs}
-By replacing |Nat| with |SNat n| in the definition of |Var|, we
-are no longer in dependently-typed territory. The first argument and
-the result now just happen to share a reference to the same variable
-of kind |Nat|.
+\caption{Definition of |Atom|}
+\label{fig:atomdefn}
+\end{figure}
+
+The |Atom| datatype receives two
+|Kind|-indices: the first one |dtk| represents the kind of the datatype
+we are describing, and the second one |k| gives the kind of the type
+represented by the |Atom| itself. The latter index is the one preventing
+ill-kinded expressions such as |Kon Int :@: Var Z|.
+
+The |Var| constructor is slightly more complicated. 
+As we discussed above, a variable is defined by a natural number
+which represents its de Bruijn index. To find the kind of
+that variable, we need to perform a lookup within |dtk|, the kind
+of the datatype being defined. The |Pos| type family traverses |dtk|
+looking for the corresponding kind, and raises a type error if the
+de Bruijn index is out of bounds.
+
+Alas Haskell is not a dependently-typed language, which means we
+cannot use the value of the argument of type |Nat|
+as an argument of |Pos|. To work around this restriction we use a
+\emph{singleton}~\cite{Eisenberg2012} called |SNat| for natural numbers. 
+In short, a singleton for |tau| is a datatype indexed by that |tau| which
+accurately reflects the structure of |tau|. Thus, by pattern matching
+on the singleton, we gain information about |tau| itself.
+By using |SNat n| instead of |Nat| in the definition of |Var|, we
+are no longer in dependently-typed territory.
 
 A datatype of kind |dtk| is now encoded as a list of list of the atoms
-defined above, given that they form a type of kind |Star|:
+defined above, given that they form a type of kind |Star|.
+We define a type synonym |DataType| to refer to such lists:
 \begin{myhs}
 \begin{code}
 type DataType dtk = [[Atom dtk (Star)]]
 \end{code}
 \end{myhs}
+
 At this point we need the |Atom| datatype to be promoted, in order
 to use it in the list defining the code. Since |Atom| is a GADT,
 we are required to enable the |TypeInType| extension to promote it.
@@ -857,9 +853,9 @@ type RoseCode    = P [ P [ V0, Kon [] :@: (Kon Rose :@: V0) ] ]
 \end{code}
 \end{myhs}
 
-\paragraph{Interpreting Atoms.} This new language of Atoms reused
-the sum-of-products structure, hence, the |NS| and |NP| types do
-need no modifications. On the other hand, the interpretation of
+\paragraph{Interpreting Atoms.} In order to interpret this new language,
+none of the previously defined |NS| and |NP| require any modifications. 
+On the other hand, the interpretation of
 atoms requires some type engineering. Recall the definition of |NA|
 given in \Cref{sec:generic1}:
 \begin{myhs}
@@ -924,7 +920,7 @@ type family Ty dtk (tys :: LoT dtk) (t :: Atom dtk k) :: k where
 \end{code}
 \end{myhs}
 Although not very elegant, this is a reasonable compromise and
-solves the problema at hand. Haskell datatypes commonly do not have a very large number of
+solves the problem at hand. Haskell datatypes commonly do not have a very large number of
 type parameters, so one can get around way with a limited number of these
 expanded lookups.
 
