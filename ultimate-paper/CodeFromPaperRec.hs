@@ -205,8 +205,12 @@ class MegaMapField (r :: k) (t :: Atom k k Type) where
             ->  Mappings as bs
             ->  NA k k r as (Explicit t)
             ->  NA k k r bs (Explicit t)
-instance MegaMapField r V0 where
+instance MegaMapField r (Var VZ) where
   megamapF r (MCons f _) (E x) = E (f x)
+instance (Functor f, MegaMapField r x) => MegaMapField r (Kon f :@: x) where
+  megamapF r f (E x) = E (fmap (unE . megamapF r f . E @_ @_ @x) x)
+instance MegaMapField r (Kon t) where
+  megamapF r f (E x) = E x
 
 instance GenericNSOP (* -> *) [] where
   type Code [] = '[ Constr '[ ], Constr '[ Explicit V0, Explicit (Rec :@: V0) ] ]
