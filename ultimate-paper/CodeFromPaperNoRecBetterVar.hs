@@ -17,6 +17,7 @@
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language RankNTypes #-}
+{-# language UndecidableInstances #-}
 module CodeFromPaper where
 
 import Data.Kind (type (*), type Type, Constraint)
@@ -60,7 +61,7 @@ data Branch (dtk :: Kind) where
 type DataType dtk = [Branch dtk]
 
 data NA (dtk :: Kind) :: LoT dtk -> Field dtk -> * where
-  E ::  forall dtk t tys .  Ty dtk tys t  ->  NA dtk tys (Explicit t)
+  E ::  forall dtk t tys .  { unE :: Ty dtk tys t }  ->  NA dtk tys (Explicit t)
   I ::  forall dtk t tys .  Ty dtk tys t  =>  NA dtk tys (Implicit t)
 
 infixr 5 :*
@@ -130,3 +131,83 @@ instance GenericNSOP (* -> *) [] where
     SLoTA SLoT0 -> case sop of
       Here (Cr Nil) -> Arg $ A0 []
       There (Here (Cr (E x :* E xs :* Nil))) -> Arg $ A0 $ x : xs
+
+
+-- Try multi-arity map
+
+type family AllE2 c xs :: Constraint where
+  AllE2 c '[] = ()
+  AllE2 c (x ': xs) = (AllB c x, AllE2 c xs)
+
+type family AllB c xs :: Constraint where
+  AllB c (Constr x) = AllE c x
+
+type family AllE c xs :: Constraint where
+  AllE c '[] = ()
+  AllE c (Explicit x ': xs) = (c x, AllE c xs)
+
+
+data Mappings (as :: LoT dtk) (bs :: LoT dtk) where
+  MNil  :: Mappings LoT0 LoT0
+  MCons :: (a -> b) -> Mappings as bs -> Mappings (a :&&: as) (b :&&: bs)
+
+data Proxy (a :: k) = Proxy
+
+class KFunctor k (f :: k) where
+  kmap :: Mappings as bs -> ApplyT k f as -> ApplyT k f bs
+
+{-
+gkmap :: forall k (f :: k) (as :: LoT k) (bs :: LoT k)
+       . (GenericNSOP k f, SSLoT k bs, AllE2 KFunctorT (Code f))
+      => Mappings as bs -> ApplyT k f as -> ApplyT k f bs
+gkmap f = to . goS . from
+  where
+    goS :: AllE2 KFunctorT xs
+        => NS (NB k as) xs -> NS (NB k bs) xs
+    goS (Here  x) = Here  (goB x)
+    goS (There x) = There (goS x)
+
+    goB :: AllB KFunctorT xs
+        => NB k as xs -> NB k bs xs
+    goB (Cr x) = Cr (goP x)
+
+    goP :: AllE KFunctorT xs
+        => NP (NA k as) xs -> NP (NA k bs) xs
+    goP Nil         = Nil
+    goP (E x :* xs) = E (kmapT AMNil f (AA0 x)) :* goP xs
+
+data AtomMappings (args :: [Atom dtk Type]) where
+  AMNil  :: AtomMappings '[]
+  AMCons :: KFunctorT Type x '[]
+         => AtomMappings xs -> AtomMappings (x ': xs)
+-}
+
+class KFunctorT (f :: Atom dtk k) where
+  kmapT :: Mappings as bs
+        -> Mappings rs ts
+        -> AtomApplyT k f rs
+        -> AtomApplyT k f ts
+
+data AtomApplyT k (t :: Atom dtk k) (tys :: LoT k)  where
+  AA0  :: Ty k tys t -> AtomApplyT Type 
+  AArg :: { unAArg :: AtomApplyT dtk tys k (f :@: x) args }
+       -> AtomApplyT dtk tys (Type -> k) f (x ': args)
+
+{-
+instance KFunctorT Type (Var VZ) '[] where
+  kmapT AMNil (MCons f _) (AA0 x) = AA0 $ f x
+instance (KFunctorT (Type -> k) f (x ': args), KFunctorT Type x '[])
+         => KFunctorT k (f :@: x) args where
+  kmapT atoms f x = unAArg $ kmapT (AMCons atoms) f (AArg x)
+instance KFunctor k f => KFunctorT k (Kon f) args where
+  kmapT atoms f x = undefined
+
+{-
+instance KFunctorField (Var VZ) where
+  kmapF (MCons f _) (E x) = E (f x)
+instance (Functor f, KFunctorField x) => KFunctorField (Kon f :@: x) where
+  kmapF f (E x) = E (fmap (unE . kmapF f . E @_ @_ @x) x)
+instance KFunctorField (Kon t) where
+  kmapF f (E x) = E x
+-}
+-}
