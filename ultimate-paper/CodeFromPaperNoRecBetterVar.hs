@@ -211,5 +211,19 @@ instance forall k (v :: TyVar k Type). SForTyVar k v => KFunctorField (Var v) wh
              -> Ty k bs (Var v)
           go SVZ      (MCons g _)  x = g x
           go (SVS v') (MCons _ f') x = go v' f' x
+
 instance KFunctorField (Kon t) where
   kmapf f (E x) = E x
+
+instance (KFunctorHead f, KFunctorField x) => KFunctorField (f :@: x) where
+  kmapf :: forall dtk (as :: LoT dtk) (bs :: LoT dtk)
+                  (f :: Atom dtk (Type -> Type)) (x :: Atom dtk Type).
+           (KFunctorHead f, KFunctorField x)
+        => Mappings as bs
+        -> NA dtk as (Explicit (f :@: x))
+        -> NA dtk bs (Explicit (f :@: x))
+  kmapf f (E x) = E
+                $ unA0 $ unArg
+                $ kmaph (Proxy :: Proxy f) (Proxy :: Proxy as) (Proxy :: Proxy bs)
+                        (MCons (unE . kmapf f . E @_ @x) MNil)
+                $ Arg $ A0 x
