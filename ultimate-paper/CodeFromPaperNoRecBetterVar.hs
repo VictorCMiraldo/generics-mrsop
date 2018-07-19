@@ -164,24 +164,19 @@ gkmap :: forall k (f :: k) (as :: LoT k) (bs :: LoT k)
       => Proxy f -> Mappings as bs -> SOPn k (Code f) as -> SOPn k (Code f) bs
 gkmap _ f = goS
   where
-    goS :: AllE2 KFunctorField xs
-        => NS (NB k as) xs -> NS (NB k bs) xs
+    goS :: AllE2 KFunctorField xs => NS (NB k as) xs -> NS (NB k bs) xs
     goS (Here  x) = Here  (goB x)
     goS (There x) = There (goS x)
 
-    goB :: AllB KFunctorField xs
-        => NB k as xs -> NB k bs xs
+    goB :: AllB KFunctorField xs => NB k as xs -> NB k bs xs
     goB (Cr x) = Cr (goP x)
 
-    goP :: AllE KFunctorField xs
-        => NP (NA k as) xs -> NP (NA k bs) xs
+    goP :: AllE KFunctorField xs => NP (NA k as) xs -> NP (NA k bs) xs
     goP Nil         = Nil
     goP (E x :* xs) = kmapf f (E x) :* goP xs
 
 class KFunctorField (t :: Atom dtk Type) where
-  kmapf :: Mappings as bs
-        -> NA dtk as (Explicit t)
-        -> NA dtk bs (Explicit t)
+  kmapf :: Mappings as bs -> NA dtk as (Explicit t) -> NA dtk bs (Explicit t)
 
 data STyVar k (t :: TyVar k Type) where
   SVZ :: STyVar (Type -> k) VZ
@@ -197,10 +192,7 @@ instance SForTyVar k v => SForTyVar (Type -> k) (VS v) where
 instance forall k (v :: TyVar k Type). SForTyVar k v => KFunctorField (Var v) where
   kmapf f (E x) = E (go (styvar @k @v) f x)
     where go :: forall k (as :: LoT k) (bs :: LoT k) (v :: TyVar k Type)
-              . STyVar k v
-             -> Mappings as bs
-             -> Ty k as (Var v)
-             -> Ty k bs (Var v)
+              . STyVar k v -> Mappings as bs -> Ty k as (Var v) -> Ty k bs (Var v)
           go SVZ      (MCons g _)  x = g x
           go (SVS v') (MCons _ f') x = go v' f' x
 
@@ -208,10 +200,8 @@ instance KFunctorField (Kon t) where
   kmapf f (E x) = E x
 
 instance forall f x. (KFunctorHead f, KFunctorField x) => KFunctorField (f :@: x) where
-  kmapf f (E x) = E
-                $ unA0 $ unArg
-                $ kmaph (Proxy :: Proxy f) f
-                        (MCons (unE . kmapf f . E @_ @x) MNil)
+  kmapf f (E x) = E $ unA0 $ unArg
+                $ kmaph (Proxy :: Proxy f) f (MCons (unE . kmapf f . E @_ @x) MNil)
                 $ Arg $ A0 x
 
 class KFunctorHead (t :: Atom dtk k) where
@@ -224,8 +214,7 @@ class KFunctorHead (t :: Atom dtk k) where
 
 instance forall f x. (KFunctorHead f, KFunctorField x) => KFunctorHead (f :@: x) where
   kmaph _ f r x = unArg
-                $ kmaph (Proxy :: Proxy f) f
-                        (MCons (unE . kmapf f . E @_ @x) r)
+                $ kmaph (Proxy :: Proxy f) f (MCons (unE . kmapf f . E @_ @x) r)
                 $ Arg x
 
 instance forall k (f ::k). (KFunctor k f) => KFunctorHead (Kon f) where
