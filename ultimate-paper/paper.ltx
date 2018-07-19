@@ -915,9 +915,9 @@ from2  :: f a b  -> SOPn (k1 -> k2 -> Star)  (Code f) (a :&&: b :&&: LoT0)
 -- and so on
 \end{code}
 \end{myhs}
-The problem is in the shape of the first argument, since |f| is
+The difficulty arises on the first argument, since |f| is
 applied to a different number of variables in each case. 
-Nevertheless, we can always describe this situation as |f|
+Hence, we have to describe this situation as |f|
 being applied to a \emph{context} whose length varies.
 \begin{myhs}
 \begin{code}
@@ -927,7 +927,7 @@ from2  :: Apply f (a :&&: b :&&: LoT0)  -> SOPn dots
 -- and so on
 \end{code}
 \end{myhs}
-|Apply| is defined as a type family. In order
+Where |Apply| is defined as a type family. In order
 to help the compiler in forecoming developments, we also include the
 kind of the context as an explicit argument to this family.
 \begin{myhs}
@@ -938,20 +938,6 @@ type family Apply dtk (f :: dtk) (tys :: LoT dtk) :: (Star) where
 \end{code}
 \end{myhs}
 
-Our first attempt for a unified |GenericNSOP| type class is thus:
-\begin{myhs}
-\begin{code}
-class GenericNSOP dtk (f :: dtk) where
-  type Code f :: DataType dtk
-  from  :: Apply dtk f tys -> SOPn dtk (Code f) tys
-  to    :: SOPn dtk (Code f) tys -> Apply dtk f tys
-\end{code}
-\end{myhs}
-Unfortunately, GHC rejects this declaration altogether.
-The actual definition of
-|GenericNSOP|, along with some auxiliary datatypes,
-and the corresponding instance for lists
-is given in \Cref{fig:genericnsoplist}.
 \begin{figure}
 \begin{myhs}
 \begin{code}
@@ -998,14 +984,18 @@ instance GenericNSOP (* -> *) [] where
 \label{fig:genericnsoplist}
 \end{figure}
 
-The introduction of |ApplyT| and |SLoT| respond to different problems.
-The former is required to render the types of |from| and |to|
-un-ambiguous. Take one of the type signatures in the original definition:
+This is not yet sufficient to type either the |from| or |to| functions. 
+The complete declarations can be found in \Cref{fig:genericnsoplist},
+together with an example instance.
+For pedagogical purposes, let us start from a naive type signature for |to| 
+and build it up to the real signature, one piece at a time. We start with:
+
 \begin{myhs}
 \begin{code}
-from  :: Apply dtk f tys -> SOPn dtk (Code f) tys
+to :: SOPn dtk (Code f) tys -> Apply dtk f tys
 \end{code}
 \end{myhs}
+
 Here the type variable |f| appears only as an argument of type families:
 |Apply| and |Code|.
 None of the type families are injective, which means that the
@@ -1021,23 +1011,20 @@ Apply (Star -> Star)          (Either a)              (b  :&&:  LoT0)
 Apply (Star)                  (Either a b)                      LoT0
 \end{code}
 \end{myhs}
-The solution is to use a GADT |ApplyT| instead of a type family,
-which provides the \emph{evidence} of which part of the type
+Datatypes, on the other hand, are injective. Hence we lift |Apply|
+to a GADT, |ApplyT|. This provides \emph{evidence}  of which part of the type
 is the constructor |f| and which are the type parameters.
 
-Replacing |Apply| with |ApplyT| is enough to make |from| work.
-However, if one tries to define an instance of |to|, a new problem arises.
-Although in theory just knowing the kind |dtk| of the datatype we are
-describing is enough to know the shape of the context |LoT dtk|, 
-the compiler does not know that invariant. For that reason we introduce
-a singleton for contexts |SLoT|, and an accompanying type class
-|SSLoT| which witnesses the one-to-one correspondence between the
-singleton term and its indexed context.
-In short, a singleton for |tau| is a datatype indexed by that |tau| which
-accurately reflects the structure of |tau|~\cite{Eisenberg2012}.
-Thus, by pattern matching
-on the singleton, we gain information about |tau| itself. In this case,
-the information about the shape of the context is reified.
+Next, we need to inform the typechecker about the shape of the context
+|LoT dtk|. Unfortunately Haskell cannot infer that only from the kind
+|dtk|, even though this should be enough in theory. We introduce
+singletons for contexts, |SLoT|, and an accompanying type class
+|SSLoT|, which witnesses the one-to-one correspondence between the
+singleton term and its indexed context.  In short, a singleton for
+|tau| is a datatype indexed by that |tau| which accurately reflects
+the structure of |tau|~\cite{Eisenberg2012}.  Thus, by pattern
+matching on the singleton, we gain information about |tau| itself. In
+this case, the information about the shape of the context is reified.
 
 \subsection{Generic Functor}
 
