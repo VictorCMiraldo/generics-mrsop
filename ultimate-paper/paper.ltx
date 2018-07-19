@@ -1381,18 +1381,6 @@ outer and inner lists.
 
 \section{Related Work}
 
-In a dependently typed setting, the technique of using universes 
-and interpretation functions \cite{Altenkirch2006} has been thoroughly studied. 
-The general idea is that the values that result from interpreting elements of
-the universe live one hierarchy higher in the predicative hierarchy. 
-We borrow this technique and define
-\citet{Altenkirch2006} defines a hierarchy of universes ultimately leading
-to \emph{strictly postiive types}, which are essentially a family of mutually recursive,
-potentially infinitely branching, types. The authors then proceed to define
-a number of generic functions for these types, including generic equality
-and generic |fmap|. We borrow the idea of universes and their interpretation,
-but in our work we restrict our universe to the sums-of-products form and
-we do not handle mutual recursion.
 
 Our approach to generic programming is heavily inspired by the
 original list-of-list-of-types construction by
@@ -1425,6 +1413,18 @@ of functions |zipWith|, |zipWith3|, and so on. In their case the
 operations are indexed by a natural number which specifies the amount
 of arguments; in contrast our development is indexed by contexts
 |LoT| which specify the kind of each type variable.
+
+%format PredU (j) = "Set_{" j "}"
+With respect to our Agda model, \Cref{sec:agda}, we have adapted the technique
+of generic programming with universes \cite{Altenkirch2006}, where
+one separates the description of types from their interpretation into different
+hierarchies. That is, if the description of types live in |PredU i|, then
+their interpretation lives in |PredU (i+1)|. Differently from \citet{Altenkirch2006},
+we enforce that the descriptions must be in the \emph{sums-of-products} shape,
+we do not handle mutual recursion and we handle predicates over variables. 
+This requires us to put the elements of the interpretation in |PredU (i+2)|. 
+These differences stems from the fact that we aim at representing
+Haskell datatypes, including GADTs with potential constraints.
 
 \section{Conclusion and Future Work}
 
