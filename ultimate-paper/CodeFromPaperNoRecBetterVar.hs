@@ -4,19 +4,13 @@
 {-# language TypeOperators #-}
 {-# language GADTs #-}
 {-# language TypeFamilies #-}
-{-# language PolyKinds #-}
-{-# language ExistentialQuantification #-}
 {-# language InstanceSigs #-}
 {-# language TypeApplications #-}
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
-{-# language FunctionalDependencies #-}
-{-# language PatternSynonyms #-}
 {-# language TypeInType #-}
 {-# language ScopedTypeVariables #-}
 {-# language FlexibleContexts #-}
-{-# language FlexibleInstances #-}
-{-# language RankNTypes #-}
 {-# language DefaultSignatures #-}
 module CodeFromPaper where
 
@@ -201,12 +195,7 @@ instance SForTyVar k v => SForTyVar (Type -> k) (VS v) where
   styvar = SVS styvar
 
 instance forall k (v :: TyVar k Type). SForTyVar k v => KFunctorField (Var v) where
-  kmapf :: forall dtk (as :: LoT dtk) (bs :: LoT dtk) v.
-           SForTyVar dtk v 
-        => Mappings as bs
-        -> NA dtk as (Explicit (Var v))
-        -> NA dtk bs (Explicit (Var v))
-  kmapf f (E x) = E (go (styvar @dtk @v) f x)
+  kmapf f (E x) = E (go (styvar @k @v) f x)
     where go :: forall k (as :: LoT k) (bs :: LoT k) (v :: TyVar k Type)
               . STyVar k v
              -> Mappings as bs
@@ -218,13 +207,7 @@ instance forall k (v :: TyVar k Type). SForTyVar k v => KFunctorField (Var v) wh
 instance KFunctorField (Kon t) where
   kmapf f (E x) = E x
 
-instance (KFunctorHead f, KFunctorField x) => KFunctorField (f :@: x) where
-  kmapf :: forall dtk (as :: LoT dtk) (bs :: LoT dtk)
-                  (f :: Atom dtk (Type -> Type)) (x :: Atom dtk Type).
-           (KFunctorHead f, KFunctorField x)
-        => Mappings as bs
-        -> NA dtk as (Explicit (f :@: x))
-        -> NA dtk bs (Explicit (f :@: x))
+instance forall f x. (KFunctorHead f, KFunctorField x) => KFunctorField (f :@: x) where
   kmapf f (E x) = E
                 $ unA0 $ unArg
                 $ kmaph (Proxy :: Proxy f) f
@@ -239,15 +222,7 @@ class KFunctorHead (t :: Atom dtk k) where
         -> ApplyT k (Ty dtk as t) rs
         -> ApplyT k (Ty dtk bs t) ts
 
-instance (KFunctorHead f, KFunctorField x) => KFunctorHead (f :@: x) where
-  kmaph :: forall dtk (as :: LoT dtk) (bs :: LoT dtk)
-                  k (rs :: LoT k) (ts :: LoT k)
-                  (f :: Atom dtk (Type -> k)) (x :: Atom dtk Type).
-           (KFunctorHead f, KFunctorField x, SSLoT k ts)
-        => Proxy (f :@: x) -> Mappings as bs
-        -> Mappings rs ts
-        -> ApplyT k (Ty dtk as (f :@: x)) rs
-        -> ApplyT k (Ty dtk bs (f :@: x)) ts
+instance forall f x. (KFunctorHead f, KFunctorField x) => KFunctorHead (f :@: x) where
   kmaph _ f r x = unArg
                 $ kmaph (Proxy :: Proxy f) f
                         (MCons (unE . kmapf f . E @_ @x) r)
