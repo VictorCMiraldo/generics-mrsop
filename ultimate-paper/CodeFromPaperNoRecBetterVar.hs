@@ -139,6 +139,20 @@ type family AllB c xs :: Constraint where
 type family AllE c xs :: Constraint where
   AllE c '[] = ()
   AllE c (Explicit x ': xs) = (c x, AllE c xs)
+  AllE c (Implicit x ': xs) = AllE c xs
+
+
+type family ISatisfied dtk (tys :: LoT dtk) xs :: Constraint where
+  ISatisfied dtk tys '[] = ()
+  ISatisfied dtk tys (x ': xs) = (ISatisfiedB dtk tys x, ISatisfied dtk tys xs)
+
+type family ISatisfiedB dtk (tys :: LoT dtk) xs :: Constraint where
+  ISatisfiedB dtk tys (Constr x) = ISatisfiedE dtk tys x
+
+type family ISatisfiedE dtk (tys :: LoT dtk) xs :: Constraint where
+  ISatisfiedE dtk tys '[] = ()
+  ISatisfiedE dtk tys (Implicit x ': xs) = (Ty dtk tys x, ISatisfiedE dtk tys xs)
+  ISatisfiedE dtk tys (Explicit x ': xs) = ISatisfiedE dtk tys xs
 
 
 data Mappings (as :: LoT dtk) (bs :: LoT dtk) where
@@ -150,7 +164,8 @@ data Proxy (a :: k) = Proxy
 class KFunctor k (f :: k) where
   kmap :: SSLoT k bs => Mappings as bs -> ApplyT k f as -> ApplyT k f bs
 
-  default kmap :: (GenericNSOP k f, SSLoT k bs, AllE2 KFunctorField (Code f))
+  default kmap :: (GenericNSOP k f, SSLoT k bs,
+                   AllE2 KFunctorField (Code f), ISatisfied k bs (Code f))
                => Mappings as bs -> ApplyT k f as -> ApplyT k f bs
   kmap fs = to . gkmap (Proxy :: Proxy f) fs . from
 
@@ -159,21 +174,48 @@ instance KFunctor (* -> *) []
 listmap :: (a -> b) -> [a] -> [b]
 listmap f x = unravel $ kmap (MCons f MNil) $ ravel x
 
+data Showy t where
+  Showable   :: Show t => t -> Showy t
+  NoShowable :: String -> t -> Showy t
+
+instance GenericNSOP (* -> *) Showy where
+  type Code Showy = '[ Constr '[ Implicit (Kon Show :@: V0), Explicit V0 ] 
+                     , Constr '[ Explicit (Kon String), Explicit V0] ]
+
+  from (Arg (A0 (Showable x))) = Here $ Cr $ I :* E x :* Nil
+  from (Arg (A0 (NoShowable s x))) = There $ Here $ Cr $ E s :* E x :* Nil
+
+  to :: forall tys. SSLoT (* -> *) tys
+     => SOPn (* -> *) (Code Showy) tys -> ApplyT (* -> *) Showy tys
+  to sop = case sslot @(* -> *) @tys of
+    SLoTA SLoT0 -> case sop of
+      Here (Cr (I :* E x :* Nil)) -> Arg $ A0 $ Showable x
+      There (Here (Cr (E s :* E x :* Nil))) -> Arg $ A0 $ NoShowable s x
+
+showymap :: Show b => (a -> b) -> Showy a -> Showy b
+showymap f x = unravel $ to
+             $ gkmap (Proxy :: Proxy Showy) (MCons f MNil)
+             $ from $ ravel x
+
 gkmap :: forall k (f :: k) (as :: LoT k) (bs :: LoT k)
-       . (GenericNSOP k f, AllE2 KFunctorField (Code f))
+       . (GenericNSOP k f, AllE2 KFunctorField (Code f), ISatisfied k bs (Code f))
       => Proxy f -> Mappings as bs -> SOPn k (Code f) as -> SOPn k (Code f) bs
 gkmap _ f = goS
   where
-    goS :: AllE2 KFunctorField xs => NS (NB k as) xs -> NS (NB k bs) xs
+    goS :: (AllE2 KFunctorField xs, ISatisfied k bs xs)
+        => NS (NB k as) xs -> NS (NB k bs) xs
     goS (Here  x) = Here  (goB x)
     goS (There x) = There (goS x)
 
-    goB :: AllB KFunctorField xs => NB k as xs -> NB k bs xs
+    goB :: (AllB KFunctorField xs, ISatisfiedB k bs xs)
+        => NB k as xs -> NB k bs xs
     goB (Cr x) = Cr (goP x)
 
-    goP :: AllE KFunctorField xs => NP (NA k as) xs -> NP (NA k bs) xs
+    goP :: (AllE KFunctorField xs, ISatisfiedE k bs xs)
+        => NP (NA k as) xs -> NP (NA k bs) xs
     goP Nil         = Nil
     goP (E x :* xs) = kmapf f (E x) :* goP xs
+    goP (I   :* xs) = I :* goP xs
 
 class KFunctorField (t :: Atom dtk Type) where
   kmapf :: Mappings as bs -> NA dtk as (Explicit t) -> NA dtk bs (Explicit t)
@@ -205,12 +247,9 @@ instance forall f x. (KFunctorHead f, KFunctorField x) => KFunctorField (f :@: x
                 $ Arg $ A0 x
 
 class KFunctorHead (t :: Atom dtk k) where
-  kmaph :: SSLoT k ts
-        => Proxy t
-        -> Mappings as bs
-        -> Mappings rs ts
-        -> ApplyT k (Ty dtk as t) rs
-        -> ApplyT k (Ty dtk bs t) ts
+  kmaph :: SSLoT k ts => Proxy t
+        -> Mappings as bs -> Mappings rs ts 
+        -> ApplyT k (Ty dtk as t) rs -> ApplyT k (Ty dtk bs t) ts
 
 instance forall f x. (KFunctorHead f, KFunctorField x) => KFunctorHead (f :@: x) where
   kmaph _ f r x = unArg
