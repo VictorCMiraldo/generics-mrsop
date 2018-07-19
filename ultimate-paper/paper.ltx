@@ -1028,6 +1028,7 @@ this case, the information about the shape of the context is reified.
 
 \subsection{Generic Functor}
 
+
 \begin{figure}
 \begin{myhs}
 \begin{code}
@@ -1070,15 +1071,10 @@ instance  FunctorAtom (Kon t) where
 \label{fig:gfmap3}
 \end{figure}
 
-We had to work quite a bit to obtain the definitive form of
-|GenericNSOP|. The other side of the coin in generic programming is
-how to define the generic operations. In fact, it is more important
-for this second mode of use to have a nice interface for the
-programmer, since the definition of |GenericNSOP| instances can be
-automated.
-
-The definition of a generic |fmap|, given in \Cref{fig:gfmap3}, does
-not differ significantly from that of \Cref{fig:gfmap2}, where we only
+Just like \Cref{fig:gfmap2}, we can also write a generic |fmap|
+for functors in the |GenericsNSOP| universe, given in \Cref{fig:gfmap3}.
+In fact, the code in \Cref{fig:gfmap3}, does
+not significantly differ from that of \Cref{fig:gfmap2}, where we only
 had |Generic1SOP| at our hand. The main change is our treatment of
 atoms. In the case of |Generic1SOP|, we knew how to implement |fmap|
 for every possible shape of field. However, the language of atoms in
