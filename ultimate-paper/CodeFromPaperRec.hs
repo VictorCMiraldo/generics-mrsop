@@ -176,42 +176,6 @@ gfmap f = unravel . to
     goP Nil         = Nil
     goP (E x :* xs) = gfmapF gfmap f (E x) :* goP xs
 
-
-data Mappings (as :: LoT dtk) (bs :: LoT dtk) where
-  MNil  :: Mappings LoT0 LoT0
-  MCons :: (a -> b) -> Mappings as bs -> Mappings (a :&&: as) (b :&&: bs)
-
-megamap' :: forall k (f :: k) (as :: LoT k) (bs :: LoT k)
-          . (GenericNSOP k f, SSLoT k bs, AllE2 (MegaMapField f) (Code f))
-         => Mappings as bs -> ApplyT k f as -> ApplyT k f bs
-megamap' f = to . goS . from
-  where
-    goS :: AllE2 (MegaMapField f) xs
-        => NS (NB k k f as) xs -> NS (NB k k f bs) xs
-    goS (Here  x) = Here  (goB x)
-    goS (There x) = There (goS x)
-
-    goB :: AllB (MegaMapField f) xs
-        => NB k k f as xs -> NB k k f bs xs
-    goB (Cr x) = Cr (goP x)
-
-    goP :: AllE (MegaMapField f) xs
-        => NP (NA k k f as) xs -> NP (NA k k f bs) xs
-    goP Nil         = Nil
-    goP (E x :* xs) = megamapF megamap' f (E x) :* goP xs
-
-class MegaMapField (r :: k) (t :: Atom k k Type) where
-  megamapF  ::  (forall xs ys. SSLoT k ys => Mappings xs ys -> ApplyT k r xs -> ApplyT k r ys)
-            ->  Mappings as bs
-            ->  NA k k r as (Explicit t)
-            ->  NA k k r bs (Explicit t)
-instance MegaMapField r (Var VZ) where
-  megamapF r (MCons f _) (E x) = E (f x)
-instance (Functor f, MegaMapField r x) => MegaMapField r (Kon f :@: x) where
-  megamapF r f (E x) = E (fmap (unE . megamapF r f . E @_ @_ @x) x)
-instance MegaMapField r (Kon t) where
-  megamapF r f (E x) = E x
-
 instance GenericNSOP (* -> *) [] where
   type Code [] = '[ Constr '[ ], Constr '[ Explicit V0, Explicit (Rec :@: V0) ] ]
 

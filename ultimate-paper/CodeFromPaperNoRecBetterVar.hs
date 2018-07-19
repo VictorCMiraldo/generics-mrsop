@@ -4,20 +4,14 @@
 {-# language TypeOperators #-}
 {-# language GADTs #-}
 {-# language TypeFamilies #-}
-{-# language PolyKinds #-}
-{-# language ExistentialQuantification #-}
 {-# language InstanceSigs #-}
 {-# language TypeApplications #-}
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
-{-# language FunctionalDependencies #-}
-{-# language PatternSynonyms #-}
 {-# language TypeInType #-}
 {-# language ScopedTypeVariables #-}
 {-# language FlexibleContexts #-}
-{-# language FlexibleInstances #-}
-{-# language RankNTypes #-}
-{-# language UndecidableInstances #-}
+{-# language DefaultSignatures #-}
 module CodeFromPaper where
 
 import Data.Kind (type (*), type Type, Constraint)
@@ -154,31 +148,35 @@ data Mappings (as :: LoT dtk) (bs :: LoT dtk) where
 data Proxy (a :: k) = Proxy
 
 class KFunctor k (f :: k) where
-  kmap :: Mappings as bs -> ApplyT k f as -> ApplyT k f bs
+  kmap :: SSLoT k bs => Mappings as bs -> ApplyT k f as -> ApplyT k f bs
+
+  default kmap :: (GenericNSOP k f, SSLoT k bs, AllE2 KFunctorField (Code f))
+               => Mappings as bs -> ApplyT k f as -> ApplyT k f bs
+  kmap fs = to . gkmap (Proxy :: Proxy f) fs . from
+
+instance KFunctor (* -> *) []
+
+listmap :: (a -> b) -> [a] -> [b]
+listmap f x = unravel $ kmap (MCons f MNil) $ ravel x
 
 gkmap :: forall k (f :: k) (as :: LoT k) (bs :: LoT k)
-       . (GenericNSOP k f, SSLoT k bs, AllE2 KFunctorField (Code f))
-      => Mappings as bs -> ApplyT k f as -> ApplyT k f bs
-gkmap f = to . goS . from
+       . (GenericNSOP k f, AllE2 KFunctorField (Code f))
+      => Proxy f -> Mappings as bs -> SOPn k (Code f) as -> SOPn k (Code f) bs
+gkmap _ f = goS
   where
-    goS :: AllE2 KFunctorField xs
-        => NS (NB k as) xs -> NS (NB k bs) xs
+    goS :: AllE2 KFunctorField xs => NS (NB k as) xs -> NS (NB k bs) xs
     goS (Here  x) = Here  (goB x)
     goS (There x) = There (goS x)
 
-    goB :: AllB KFunctorField xs
-        => NB k as xs -> NB k bs xs
+    goB :: AllB KFunctorField xs => NB k as xs -> NB k bs xs
     goB (Cr x) = Cr (goP x)
 
-    goP :: AllE KFunctorField xs
-        => NP (NA k as) xs -> NP (NA k bs) xs
+    goP :: AllE KFunctorField xs => NP (NA k as) xs -> NP (NA k bs) xs
     goP Nil         = Nil
     goP (E x :* xs) = kmapf f (E x) :* goP xs
 
 class KFunctorField (t :: Atom dtk Type) where
-  kmapf :: Mappings as bs
-        -> NA dtk as (Explicit t)
-        -> NA dtk bs (Explicit t)
+  kmapf :: Mappings as bs -> NA dtk as (Explicit t) -> NA dtk bs (Explicit t)
 
 data STyVar k (t :: TyVar k Type) where
   SVZ :: STyVar (Type -> k) VZ
@@ -192,53 +190,32 @@ instance SForTyVar k v => SForTyVar (Type -> k) (VS v) where
   styvar = SVS styvar
 
 instance forall k (v :: TyVar k Type). SForTyVar k v => KFunctorField (Var v) where
-  kmapf :: forall dtk (as :: LoT dtk) (bs :: LoT dtk) v.
-           SForTyVar dtk v 
-        => Mappings as bs
-        -> NA dtk as (Explicit (Var v))
-        -> NA dtk bs (Explicit (Var v))
-  kmapf f (E x) = E (go (styvar @dtk @v) f x)
+  kmapf f (E x) = E (go (styvar @k @v) f x)
     where go :: forall k (as :: LoT k) (bs :: LoT k) (v :: TyVar k Type)
-              . STyVar k v
-             -> Mappings as bs
-             -> Ty k as (Var v)
-             -> Ty k bs (Var v)
+              . STyVar k v -> Mappings as bs -> Ty k as (Var v) -> Ty k bs (Var v)
           go SVZ      (MCons g _)  x = g x
           go (SVS v') (MCons _ f') x = go v' f' x
 
 instance KFunctorField (Kon t) where
   kmapf f (E x) = E x
 
-instance (KFunctorHead f, KFunctorField x) => KFunctorField (f :@: x) where
-  kmapf :: forall dtk (as :: LoT dtk) (bs :: LoT dtk)
-                  (f :: Atom dtk (Type -> Type)) (x :: Atom dtk Type).
-           (KFunctorHead f, KFunctorField x)
-        => Mappings as bs
-        -> NA dtk as (Explicit (f :@: x))
-        -> NA dtk bs (Explicit (f :@: x))
-  kmapf f (E x) = E
-                $ unA0 $ unArg
-                $ kmaph (Proxy :: Proxy f) f
-                        (MCons (unE . kmapf f . E @_ @x) MNil)
+instance forall f x. (KFunctorHead f, KFunctorField x) => KFunctorField (f :@: x) where
+  kmapf f (E x) = E $ unA0 $ unArg
+                $ kmaph (Proxy :: Proxy f) f (MCons (unE . kmapf f . E @_ @x) MNil)
                 $ Arg $ A0 x
 
 class KFunctorHead (t :: Atom dtk k) where
-  kmaph :: Proxy t
+  kmaph :: SSLoT k ts
+        => Proxy t
         -> Mappings as bs
         -> Mappings rs ts
         -> ApplyT k (Ty dtk as t) rs
         -> ApplyT k (Ty dtk bs t) ts
 
-instance (KFunctorHead f, KFunctorField x) => KFunctorHead (f :@: x) where
-  kmaph :: forall dtk (as :: LoT dtk) (bs :: LoT dtk)
-                  k (rs :: LoT k) (ts :: LoT k)
-                  (f :: Atom dtk (Type -> k)) (x :: Atom dtk Type).
-           (KFunctorHead f, KFunctorField x)
-        => Proxy (f :@: x) -> Mappings as bs
-        -> Mappings rs ts
-        -> ApplyT k (Ty dtk as (f :@: x)) rs
-        -> ApplyT k (Ty dtk bs (f :@: x)) ts
+instance forall f x. (KFunctorHead f, KFunctorField x) => KFunctorHead (f :@: x) where
   kmaph _ f r x = unArg
-                $ kmaph (Proxy :: Proxy f) f
-                        (MCons (unE . kmapf f . E @_ @x) r)
+                $ kmaph (Proxy :: Proxy f) f (MCons (unE . kmapf f . E @_ @x) r)
                 $ Arg x
+
+instance forall k (f ::k). (KFunctor k f) => KFunctorHead (Kon f) where
+  kmaph _ _ r x = kmap r x
