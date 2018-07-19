@@ -180,12 +180,6 @@ class KFunctorField (t :: Atom dtk Type) where
         -> NA dtk as (Explicit t)
         -> NA dtk bs (Explicit t)
 
-class KFunctorHead (t :: Atom dtk k) where
-  kmaph :: Proxy t -> Proxy as -> Proxy bs
-        -> Mappings rs ts
-        -> ApplyT k (Ty dtk as t) rs
-        -> ApplyT k (Ty dtk bs t) ts
-
 data STyVar k (t :: TyVar k Type) where
   SVZ :: STyVar (Type -> k) VZ
   SVS :: STyVar k v -> STyVar (Type -> k) (VS v)
@@ -224,6 +218,27 @@ instance (KFunctorHead f, KFunctorField x) => KFunctorField (f :@: x) where
         -> NA dtk bs (Explicit (f :@: x))
   kmapf f (E x) = E
                 $ unA0 $ unArg
-                $ kmaph (Proxy :: Proxy f) (Proxy :: Proxy as) (Proxy :: Proxy bs)
+                $ kmaph (Proxy :: Proxy f) f
                         (MCons (unE . kmapf f . E @_ @x) MNil)
                 $ Arg $ A0 x
+
+class KFunctorHead (t :: Atom dtk k) where
+  kmaph :: Proxy t
+        -> Mappings as bs
+        -> Mappings rs ts
+        -> ApplyT k (Ty dtk as t) rs
+        -> ApplyT k (Ty dtk bs t) ts
+
+instance (KFunctorHead f, KFunctorField x) => KFunctorHead (f :@: x) where
+  kmaph :: forall dtk (as :: LoT dtk) (bs :: LoT dtk)
+                  k (rs :: LoT k) (ts :: LoT k)
+                  (f :: Atom dtk (Type -> k)) (x :: Atom dtk Type).
+           (KFunctorHead f, KFunctorField x)
+        => Proxy (f :@: x) -> Mappings as bs
+        -> Mappings rs ts
+        -> ApplyT k (Ty dtk as (f :@: x)) rs
+        -> ApplyT k (Ty dtk bs (f :@: x)) ts
+  kmaph _ f r x = unArg
+                $ kmaph (Proxy :: Proxy f) f
+                        (MCons (unE . kmapf f . E @_ @x) r)
+                $ Arg x
