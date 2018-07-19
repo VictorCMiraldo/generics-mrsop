@@ -1794,7 +1794,7 @@ the when |Rec| is found.
 \begin{myhs}
 \begin{code}
 gfmap  ::  (GenericNSOP (* -> *) f,
-           All2 (FunctorAtom f) (Code f))
+           AllD (FunctorAtom f) (Code f))
        =>  (a -> b) -> f a -> f b
 gfmap f  =  dots
   where
@@ -1879,6 +1879,136 @@ type SOPn dtk (c :: DataType dtk) (r :: dtk) (tys :: LoT dtk)
 \end{myhs}
 In both cases the single argument which represents the kind of the datatype
 to describe is used as kind for recursion and context.
+
+\section{Arity-generic |fmap|}
+
+\begin{figure*}
+\begin{myhs}
+\begin{code}
+data Mappings (as :: LoT dtk) (bs :: LoT dtk) where
+  MNil   ::                                Mappings LoT0         LoT0
+  MCons  :: (a -> b) -> Mappings as bs ->  Mappings (a :&&: as)  (b :&&: bs)
+\end{code}
+\end{myhs}
+\begin{myhs}
+\begin{code}
+class KFunctor k (f :: k) where
+  kmap :: SSLoT k bs => Mappings as bs -> ApplyT k f as -> ApplyT k f bs
+
+  default kmap  ::  (GenericNSOP k f, SSLoT k bs, AllD KFunctorField (Code f), ISatisfiedD k bs (Code f))
+                =>  Mappings as bs -> ApplyT k f as -> ApplyT k f bs
+  kmap fs = to . gkmap (Proxy :: Proxy f) fs . from
+\end{code}
+\end{myhs}
+\begin{myhs}
+\begin{code}
+gkmap  ::  forall k (f :: k) (as :: LoT k) (bs :: LoT k) dot
+           (GenericNSOP k f, AllD KFunctorField (Code f), ISatisfiedD k bs (Code f))
+       =>  Proxy f -> Mappings as bs -> SOPn k (Code f) as -> SOPn k (Code f) bs
+gkmap _ f = goS
+  where
+    goS :: (AllD KFunctorField xs,  ISatisfiedD k bs xs)  => NS (NB k as) xs -> NS (NB k bs) xs
+    goS  (Here   x)    = Here   (goB x)
+    goS  (There  x)    = There  (goS x)
+
+    goB :: (AllB KFunctorField xs,  ISatisfiedB k bs xs)  => NB k as xs -> NB k bs xs
+    goB  (Cr x)        = Cr (goP x)
+
+    goP :: (AllE KFunctorField xs,  ISatisfiedE k bs xs)  => NP (NA k as) xs -> NP (NA k bs) xs
+    goP  Nil           = Nil
+    goP  (E x  :* xs)  = kmapf f (E x) :* goP xs
+    goP  (I    :* xs)  = I :* goP xs
+\end{code}
+\end{myhs}
+\begin{myhs}
+\begin{code}
+class KFunctorField (t :: Atom dtk Star) where
+  kmapf :: Mappings as bs -> NA dtk as (Explicit t) -> NA dtk bs (Explicit t)
+
+instance forall dtk (v :: TyVar dtk Type) dot SForTyVar k v => KFunctorField (Var v) where
+  kmapf f (E x) = E (go (styvar @dtk @v) f x)
+    where  go ::  forall k (as :: LoT k) (bs :: LoT k) (v :: TyVar k Star) dot STyVar k v -> Mappings as bs -> Ty k as (Var v) -> Ty k bs (Var v)
+           go SVZ       (MCons g _)   x  = g x
+           go (SVS v')  (MCons _ f')  x  = go v' f' x
+
+instance KFunctorField (Kon t) where
+  kmapf f (E x) = E x
+
+instance forall f x dot (KFunctorHead f, KFunctorField x) => KFunctorField (f :@: x) where
+  kmapf f (E x)  =  E $ unA0 $ unArg
+                 $  kmaph (Proxy :: Proxy f) f (MCons (unE . kmapf f . E atunder @x) MNil)
+                 $  Arg $ A0 x
+\end{code}
+\end{myhs}
+\begin{myhs}
+\begin{code}
+class KFunctorHead (t :: Atom dtk k) where
+  kmaph  ::  SSLoT k ts => Proxy t -> Mappings as bs -> Mappings rs ts 
+         ->  ApplyT k (Ty dtk as t) rs -> ApplyT k (Ty dtk bs t) ts
+
+instance forall f x dot (KFunctorHead f, KFunctorField x) => KFunctorHead (f :@: x) where
+  kmaph _ f r x = unArg $ kmaph (Proxy :: Proxy f) f (MCons (unE . kmapf f . E atunder @x) r) $ Arg x
+
+instance forall k (f :: k) dot (KFunctor k f) => KFunctorHead (Kon f) where
+  kmaph _ _ r x = kmap r x
+\end{code}
+\end{myhs}
+\caption{Arity-generic |fmap| and associated |KFunctor| type class}
+\label{fig:kfmap}
+\end{figure*}
+
+\begin{figure}
+\begin{myhs}
+\begin{code}
+data STyVar k (t :: TyVar k Star) where
+  SVZ  ::                STyVar (Star -> k)  VZ
+  SVS  :: STyVar k v ->  STyVar (Star -> k)  (VS v)
+
+class SForTyVar k (t :: TyVar k Star) where
+  styvar :: STyVar k t
+instance SForTyVar (Star -> k) VZ where
+  styvar = SVZ
+instance SForTyVar k v => SForTyVar (Star -> k) (VS v) where
+  styvar = SVS styvar
+\end{code}
+\end{myhs}
+\caption{Auxiliary singleton for |TyVar|}
+\label{fig:styvar}
+\end{figure}
+
+\begin{figure}
+\begin{myhs}
+\begin{code}
+type family AllD c xs :: Constraint where
+  AllD  c (P [])                   =  ()
+  AllD  c (x qcolon xs)            =  (AllB c x, AllD c xs)
+
+type family AllB c xs :: Constraint where
+  AllB  c (Constr x)               =  AllE c x
+
+type family AllE c xs :: Constraint where
+  AllE  c (P [])                   =  ()
+  AllE  c (Explicit  x qcolon xs)  =  (c x,  AllE c xs)
+  AllE  c (Implicit  x qcolon xs)  =         AllE c xs
+
+type family ISatisfiedD dtk (tys :: LoT dtk) xs :: Constraint where
+  ISatisfiedD  dtk tys (P []) =  ()
+  ISatisfiedD  dtk tys (x qcolon xs)
+    =  (ISatisfiedB dtk tys x, ISatisfied dtk tys xs)
+
+type family ISatisfiedB dtk (tys :: LoT dtk) xs :: Constraint where
+  ISatisfiedB  dtk tys (Constr x) =  ISatisfiedE dtk tys x
+
+type family ISatisfiedE dtk (tys :: LoT dtk) xs :: Constraint where
+  ISatisfiedE  dtk tys (P []) =  ()
+  ISatisfiedE  dtk tys (Implicit  x qcolon xs)  
+    =  (Ty dtk tys x,  ISatisfiedE dtk tys xs)
+  ISatisfiedE  dtk tys (Explicit  x qcolon xs)
+    =                  ISatisfiedE dtk tys xs
+\end{code}
+\end{myhs}
+\caption{Auxiliary type families for arity-generic |fmap|}
+\end{figure}
 
 \section{Full Implementation}
 \label{sec:fullimpl}
