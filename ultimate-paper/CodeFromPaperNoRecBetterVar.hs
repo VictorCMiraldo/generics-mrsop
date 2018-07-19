@@ -156,14 +156,14 @@ data Proxy (a :: k) = Proxy
 class KFunctor k (f :: k) where
   kmap :: SSLoT k bs => Mappings as bs -> ApplyT k f as -> ApplyT k f bs
 
-  {-
   default kmap :: (GenericNSOP k f, SSLoT k bs, AllE2 KFunctorField (Code f))
                => Mappings as bs -> ApplyT k f as -> ApplyT k f bs
-  kmap = gkmap
-  -}
+  kmap fs = to . gkmap (Proxy :: Proxy f) fs . from
 
-instance KFunctor (* -> *) [] where
-  kmap f = to . gkmap (Proxy :: Proxy []) f . from
+instance KFunctor (* -> *) []
+
+listmap :: (a -> b) -> [a] -> [b]
+listmap f x = unravel $ kmap (MCons f MNil) $ ravel x
 
 gkmap :: forall k (f :: k) (as :: LoT k) (bs :: LoT k)
        . (GenericNSOP k f, AllE2 KFunctorField (Code f))
