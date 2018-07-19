@@ -1517,8 +1517,8 @@ to extract some kind |k| from within |ks|.
 \begin{myhs}
 \begin{code}
 data TyVar : KK -> KK -> Set where
-  VZ  :             -> TyVar (KS k   ks)  k
-  VS  : TyVar ks k  -> TyVar (KS k'  ks)  k
+   VZ  : forall {k ks}                   ->  TyVar (KS k ks) k
+   VS  : forall {k k' ks} -> TyVar ks k  ->  TyVar (KS k' ks) k
 \end{code}
 \end{myhs}
 
