@@ -1028,7 +1028,6 @@ this case, the information about the shape of the context is reified.
 
 \subsection{Generic Functor}
 
-
 \begin{figure}
 \begin{myhs}
 \begin{code}
@@ -1112,11 +1111,10 @@ directly, as the following example from the interpreter shows:
 
 \subsection{Unraveling Singletons}
 
-The introduction of a datatype |ApplyT| was essential for the definition
-of |GenericNSOP|. On the other hand, the type family |Apply| exposes a nicer
-interface to the programmer, who otherwise needs to wrap and unwrap the
-values using |A0| and |Arg| before entering the generic world. This section
-shows how the wrapping can be mostly automated.
+Although the type family |Apply| exposes a nicer interface to the programmer,
+the introduction of the |ApplyT| datatype was essential for the definition
+of |GenericNSOP|. Turns out we can maintain that nice interface 
+by wrapping or unwrapping values using |A0| and |Arg| automatically.
 
 Going from |ApplyT| to |Apply| is trivial. This is expected, as |ApplyT|
 is a refinement of the type family in which the evidence is explicit.
@@ -1511,27 +1509,16 @@ interpK (KS k1 k2)  = interpK k1 -> interpK k2
 \end{code}
 \end{myhs}
 
-  The amount of type parameters a kind provides is called
-its |arity|:
+  In order to refer to the kind of a type variable within a
+larger kind declaration we declare the |TyVar| relation below.
+Essentially, an inhabitant of type |TyVar ks k| provides a way
+to extract some kind |k| from within |ks|.
 
 \begin{myhs}
 \begin{code}
-arity : KK -> Nat
-arity KZ          = 0
-arity (KS k1 k2)  = 1 + arity k2
-\end{code}
-\end{myhs}
-
-  With arity and finite types at hand we can define 
-a lookup for the kind of the $n$-th parameter within a 
-outermost kind.
-
-\begin{myhs}
-\begin{code}
-pos : (k : KK) -> Fin (arity k) -> KK
-pos KZ          ()
-pos (KS k1 k2)  zero     = k1
-pos (KS k1 k2)  (suc n)  = pos k2 n
+data TyVar : KK -> KK -> Set where
+  VZ  :             -> TyVar (KS k   ks)  k
+  VS  : TyVar ks k  -> TyVar (KS k'  ks)  k
 \end{code}
 \end{myhs}
 
@@ -1541,7 +1528,7 @@ in \Cref{sec:allkinds}:
 \begin{myhs}
 \begin{code}
 data Atom (dk : KK) : KK -> Set1 where
-  Var  : (n : Fin (arity dk)) -> Atom dk (arg dk n)
+  Var  : forall {k1} -> TyVar dk k1 -> Atom dk k1
   Kon  : forall {k1} -> interpK k1 -> Atom dk k1
   App  : forall {k1 k2} -> Atom dk (KS k1 k2) -> Atom dk k1 
        -> Atom dk k2
@@ -1558,14 +1545,16 @@ data Gamma : KK -> Set1 where
 \begin{myhs}
 \begin{code}
 Ty : forall {res k} -> Gamma k -> Atom k res -> interpK res
-Ty gamma  (Var n)    = lkup gamma n
-Ty gamma  (Kon x)    = x
-Ty gamma  (App f x)  = Ty gamma f (Ty gamma x)
+Ty GZ            (Var ())
+Ty (GS g gamma)  (Var VZ)      = gamma
+Ty (GS g gamma)  (Var (VS v))  = Ty gamma (Var v)
+Ty gamma         (Kon x)       = x
+Ty gamma         (App f x)     = Ty gamma f (Ty gamma x)
 \end{code}
 \end{myhs}
 
-  Were |lkup gamma n : interpK (pos k n)| returns the $n$-th entry in |gamma : Gamma k|.
-Finally, we are now able to define the fields of the constructors. These
+Note how we can discharge the case of interpreting a variable in an
+empty environment. Finally, we are now able to define the fields of the constructors. These
 come in two flavours. Explicit fields are values of some ground type whereas
 implicit fields are constraints over the type parameters in scope.
 
@@ -1619,7 +1608,7 @@ data IsNat : Set -> Set where
   Prf : Nat -> IsNat Nat
 
 isnatSOP : SoP (KS KZ KZ)
-isnatSOP = (Implicit ctr :: Explicit (Var zero) :: []) :: []
+isnatSOP = (Implicit ctr :: Explicit (Var VZ) :: []) :: []
   where
     ctr : Gamma (KS KZ KZ) -> Set1
     ctr (x :: []) = x == Nat

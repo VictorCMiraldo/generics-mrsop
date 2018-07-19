@@ -28,21 +28,9 @@ module GenericsNSOP where
   ⟦ ⋆       ⟧K = Set
   ⟦ k₁ ⇒ k₂ ⟧K = ⟦ k₁ ⟧K → ⟦ k₂ ⟧K
 
-  -- How many positions does a kind have?
-  -- Analogous to Pos in the haskell code.
-  arity : 𝕂 → ℕ
-  arity ⋆         = 0
-  arity (k₁ ⇒ k₂) = 1 + arity k₂
-
-  -- Positions in a kind
-  pos𝕂 : 𝕂 → Set
-  pos𝕂 k = Fin (arity k)
-
-  -- Gets the kind on the n'th position
-  arg : (k : 𝕂) → pos𝕂 k → 𝕂
-  arg ⋆ ()
-  arg (k₁ ⇒ k₂) zero    = k₁
-  arg (k₁ ⇒ k₂) (suc n) = arg k₂ n
+  data TyVar : 𝕂 → 𝕂 → Set where
+    VZ : ∀{k    ks}              → TyVar (k  ⇒ ks) k
+    VS : ∀{k' k ks} → TyVar ks k → TyVar (k' ⇒ ks) k
 
   -- Finally, our term language. 
   -- Imagine we have something like:
@@ -58,7 +46,7 @@ module GenericsNSOP where
   -- We just have the applicative fragment of the simply typed
   -- lambda calculus here.
   data Term (k : 𝕂) : 𝕂 → Set₁ where
-    Var : (n : pos𝕂 k) → Term k (arg k n)
+    Var : ∀{k₁}    → TyVar k k₁ → Term k k₁
     Kon : ∀{k₁}    → ⟦ k₁ ⟧K → Term k k₁
     App : ∀{k₁ k₂} → Term k (k₁ ⇒ k₂) → Term k k₁ →  Term k k₂
     
@@ -67,16 +55,12 @@ module GenericsNSOP where
     []  : Γ ⋆
     _∷_ : ∀{k₁ k₂} → ⟦ k₁ ⟧K → Γ k₂ → Γ (k₁ ⇒ k₂)
 
-  -- looks an argument up in a context
-  lkup : ∀{k} → Γ k → (n : pos𝕂 k) → ⟦ arg k n ⟧K
-  lkup []       ()
-  lkup (t ∷ ts) zero    = t
-  lkup (t ∷ ts) (suc n) = lkup ts n
-
   Ty : ∀{res k} → Γ k → Term k res → ⟦ res ⟧K
-  Ty γ (Var n) = lkup γ n
-  Ty γ (Kon x) = x
-  Ty γ (App f x) = Ty γ f (Ty γ x)
+  Ty []       (Var ())
+  Ty (γ ∷ γs) (Var VZ)     = γ
+  Ty (γ ∷ γs) (Var (VS n)) = Ty γs (Var n)
+  Ty γ        (Kon x)      = x
+  Ty γ        (App f x)    = Ty γ f (Ty γ x)
 
   -- Now, a constraint over kind k is just a map from k to set, or
   -- a predicate over it.
@@ -180,7 +164,7 @@ module GenericsNSOP where
 
   -- Maybe type:
   maybe : SoP (⋆ ⇒ ⋆)
-  maybe = [] ∷ (Explicit (Var Fin.zero) ∷ []) ∷ []
+  maybe = [] ∷ (Explicit (Var VZ) ∷ []) ∷ []
 
   nothing : ∀{A} → ⟦ maybe ⟧S (A ∷ [])
   nothing = here []
@@ -207,7 +191,7 @@ module GenericsNSOP where
     XBool : Bool → X Bool
 
   sopX : SoP (⋆ ⇒ ⋆)
-  sopX = (Implicit ctr ∷ Explicit (Var Fin.zero) ∷ []) ∷ []
+  sopX = (Implicit ctr ∷ Explicit (Var VZ) ∷ []) ∷ []
     where
       ctr : (γ : Γ (⋆ ⇒ ⋆)) → Set₁
       ctr (x ∷ []) = x ≡ Bool
@@ -215,7 +199,6 @@ module GenericsNSOP where
   xbool : Bool → ⟦ sopX ⟧S (Bool ∷ [])
   xbool b = here (refl ∷ ((lift b) ∷ []))
    
-
 {-
 
   gfmap : {t : SoP (⋆ ⇒ ⋆)}{A B : Set}
