@@ -17,7 +17,7 @@
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language RankNTypes #-}
-{-# language UndecidableInstances #-}
+{-# language DefaultSignatures #-}
 module CodeFromPaper where
 
 import Data.Kind (type (*), type Type, Constraint)
@@ -154,12 +154,21 @@ data Mappings (as :: LoT dtk) (bs :: LoT dtk) where
 data Proxy (a :: k) = Proxy
 
 class KFunctor k (f :: k) where
-  kmap :: Mappings as bs -> ApplyT k f as -> ApplyT k f bs
+  kmap :: SSLoT k bs => Mappings as bs -> ApplyT k f as -> ApplyT k f bs
+
+  {-
+  default kmap :: (GenericNSOP k f, SSLoT k bs, AllE2 KFunctorField (Code f))
+               => Mappings as bs -> ApplyT k f as -> ApplyT k f bs
+  kmap = gkmap
+  -}
+
+instance KFunctor (* -> *) [] where
+  kmap f = to . gkmap (Proxy :: Proxy []) f . from
 
 gkmap :: forall k (f :: k) (as :: LoT k) (bs :: LoT k)
-       . (GenericNSOP k f, SSLoT k bs, AllE2 KFunctorField (Code f))
-      => Mappings as bs -> ApplyT k f as -> ApplyT k f bs
-gkmap f = to . goS . from
+       . (GenericNSOP k f, AllE2 KFunctorField (Code f))
+      => Proxy f -> Mappings as bs -> SOPn k (Code f) as -> SOPn k (Code f) bs
+gkmap _ f = goS
   where
     goS :: AllE2 KFunctorField xs
         => NS (NB k as) xs -> NS (NB k bs) xs
@@ -223,7 +232,8 @@ instance (KFunctorHead f, KFunctorField x) => KFunctorField (f :@: x) where
                 $ Arg $ A0 x
 
 class KFunctorHead (t :: Atom dtk k) where
-  kmaph :: Proxy t
+  kmaph :: SSLoT k ts
+        => Proxy t
         -> Mappings as bs
         -> Mappings rs ts
         -> ApplyT k (Ty dtk as t) rs
@@ -233,7 +243,7 @@ instance (KFunctorHead f, KFunctorField x) => KFunctorHead (f :@: x) where
   kmaph :: forall dtk (as :: LoT dtk) (bs :: LoT dtk)
                   k (rs :: LoT k) (ts :: LoT k)
                   (f :: Atom dtk (Type -> k)) (x :: Atom dtk Type).
-           (KFunctorHead f, KFunctorField x)
+           (KFunctorHead f, KFunctorField x, SSLoT k ts)
         => Proxy (f :@: x) -> Mappings as bs
         -> Mappings rs ts
         -> ApplyT k (Ty dtk as (f :@: x)) rs
@@ -242,3 +252,6 @@ instance (KFunctorHead f, KFunctorField x) => KFunctorHead (f :@: x) where
                 $ kmaph (Proxy :: Proxy f) f
                         (MCons (unE . kmapf f . E @_ @x) r)
                 $ Arg x
+
+instance forall k (f ::k). (KFunctor k f) => KFunctorHead (Kon f) where
+  kmaph _ _ r x = kmap r x
