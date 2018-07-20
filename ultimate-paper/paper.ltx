@@ -153,7 +153,7 @@ which have been implemented in GHC. The list includes datatype
 promotion, kind polymorphism ~\cite{Yorgey2012}, the |Constraint|
 kind~\cite{constraintkinds}, and
 |TypeInType|~\cite{Weirich2013,Weirich2017}.  Regarding the latter, we
-show that our construction does \emph{not} require the |Star : Star| axiom
+show that our construction does \emph{not} require the |Star agdatyof Star| axiom
 by attaching a model in Agda~(\Cref{sec:agda}).  Nevertheless, using
 these recent additions we drastically expand the amount of Haskell
 datatypes we can represent generically compared to other
@@ -830,7 +830,7 @@ At this point we need the |Atom| datatype to be promoted, in order
 to use it in the list defining the code. Since |Atom| is a GADT,
 we are required to enable the |TypeInType| extension to promote it.
 However, we are not using
-the |Star : Star| judgement in our construction, we discuss this matter in
+the |Star agdatyof Star| judgement in our construction, we discuss this matter in
 \Cref{sec:inconsistent1}. 
 
 As an example, here are the codes corresponding to |[]|, |Either|, and
@@ -1240,7 +1240,7 @@ To answer the question we have build a model of |GenericNSOP| in Agda,
 which we describe in \Cref{sec:agda}. If we assume that our universe
 of basic types lives in |Set0|, our codes live in |Set1|, and our
 interpretation of those in |Set2|. The code compiles fine, showing
-that the |Star : Star| axiom is not essential to our construction.
+that the |Star agdatyof Star| axiom is not essential to our construction.
 
 \section{Constraints}
 \label{sec:constraints}
