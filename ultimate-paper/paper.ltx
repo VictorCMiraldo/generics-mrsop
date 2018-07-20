@@ -1045,6 +1045,7 @@ matching on the singleton, we gain information about |tau| itself. In
 this case, the information about the shape of the context is reified.
 
 \subsection{Generic Functor}
+\label{sec:genericfunctor}
 
 \begin{figure}
 \begin{myhs}
@@ -2092,14 +2093,85 @@ type family ISatisfiedE dtk (tys :: LoT dtk) xs :: Constraint where
 \end{code}
 \end{myhs}
 \caption{Auxiliary type families for arity-generic |fmap|}
+\label{fig:auxkmap}
 \end{figure}
+
+The generic |fmap| described in \Cref{sec:genericfunctor} can be generalized
+to a version which works on any type constructor whose type variables are
+all of kind |Star|. The full code is given in \Cref{fig:kmap}, with some
+auxiliary definitions in \Cref{fig:styvar,fig:auxkmap}.
+
+As we have already discussed, the mapping operation |kmap| requires
+a different amount of functions to apply over each type parameter
+depending on the kind of the type constructor. The |Mappings| datatype
+defines such a structure by recursion over two contexts |as| and |bs|
+which define the source and target types.
+
+The body of the generic implementation |gkmap| recurses over the structure
+of a generic value. The first difference with the implementation of |gfmap|
+-- the generic |fmap| for one-argument type constructors we developed
+in \Cref{sec:genericfunctor} -- is that we do not only handle explicit fields
+in |goP|, but also implicit values. Take the following datatype:
+\begin{myhs}
+\begin{code}
+data Showy a where
+  Showable     :: Show a  =>  a -> Showy a
+  NotShowable  :: String  ->  a -> Showy a
+\end{code}
+\end{myhs}
+If we want to perform a shape-preserving map, we need to ensure that
+the target type argument satisfies the constraints imposed by the different
+constructors. In this case, the type of the map should be:
+\begin{myhs}
+\begin{code}
+showyMap :: Show b => (a -> b) -> Showy a -> Showy b
+\end{code}
+\end{myhs}
+The |ISatisfiedD| type family in \Cref{fig:auxkmap} inspects the code
+of a datatype building up the set of such constraints. The body of the family
+is mostly recurring over the code; the interesting bit is in the case
+of an |Implicit| field, for which we reify the description of the type
+of the constraint by using |Ty|.
+
+Most of the magic happens in |KFunctorField|, which takes care of
+applying the mappings to each field in the datatype. The |Kon| case is the
+simplest one, as no change has to take place. The case of a type variable
+is more complicated, as we need to lookup the function to apply in the list
+of mappings. Since the de Bruijn index of the variable only exists at 
+type level, but we need different run-time behavior depending on it,
+we are require to introduce a singleton, which we do in \Cref{fig:styvar}.
+Once we obtain the singleton using |styvar|, we traverse it in sync
+with the list of mappings. The indices in both cases ensure that we can
+only apply the correct mapping from the ones available.
+
+Consider now the case of an application of a type constructor to one
+or more types. For example, in the second field of |Fork|,
+\begin{myhs}
+\begin{code}
+data Rose a = Fork a [Rose a]
+\end{code}
+\end{myhs}
+To implement map over |Rose|, we need to call the map operation on |[]|.
+However, we cannot maintain the same list of mappings, since we need
+to map |Rose a| to |Rose b|. As a consequence, when we find a type
+application in a field, we need to build the \emph{new} list of mappings,
+which is then fed to the type constructor on the head of the application.
+
+Such an algorithm is implemented by the |KFunctorHead| type class in
+\Cref{fig:kmap}. Note that the |kmaph| operation take not one, but \emph{two}
+lists of mappings. The first one refers to the original context |as| and |bs|,
+the second one accumulates the new mappings for the type arguments |rs| and |ts|.
+If we find an application we attach a new mapping -- note the use of |MCons| --,
+if we are already at the end of the application we recursively apply |kmap|.
+There is no case for a head being a variable, as we assume that the datatype
+for which we are defining |kmap| has only |Star|-kinded arguments.
 
 \section{Full Implementation}
 \label{sec:fullimpl}
 
 Throughout the paper we have refined the different types and classes involved in our generic programming library. We give the end result as a reference, with support for constraints, existentials, and explicit recursion. \Cref{fig:full1} describes the language of codes, \Cref{fig:full2} the datatypes involved in the interpretation of the codes, \Cref{fig:full3} the |GenericNSOP| type class and ancillary constructions, and \Cref{fig:full4} the conversion between applied types and the evidence-carrying |ApplyT|.
 
-\begin{figure}
+\begin{figure*}
 \begin{myhs}
 \begin{code}
 data TyVar (dtk :: Kind) k where
@@ -2109,9 +2181,8 @@ data TyVar (dtk :: Kind) k where
 data Atom (rtk :: Kind) (dtk :: Kind) k where
   Var    :: TyVar dtk k  ->  Atom rtk dtk k
   Kon    :: k            ->  Atom rtk dtk k
-  (:@:)  :: Atom dtk (k1 -> k2) -> Atom dtk k1
-                         ->  Atom dtk k2
   Rec    ::                  Atom rtk dtk rtk
+  (:@:)  :: Atom dtk (k1 -> k2) -> Atom dtk k1  ->  Atom dtk k2
 
 data Field (rtk :: Kind) (dtk :: Kind) where
   Explicit  :: Atom rtk dtk (Star)      -> Field rtk dtk
@@ -2120,15 +2191,15 @@ data Field (rtk :: Kind) (dtk :: Kind) where
 data SKind (ell :: Kind) = KK
 
 data Branch (rtk :: Kind) (dtk :: Kind) where
-  Exists  :: SKind ell -> Branch rtk (ell -> dtk)   -> Branch rtk dtk
-  Constr  :: [Field rtk dtk]                        -> Branch rtk dtk
+  Exists  :: SKind ell -> Branch rtk (ell -> dtk)    -> Branch rtk dtk
+  Constr  :: [Field rtk dtk]                         -> Branch rtk dtk
 
 type DataType dtk = [Branch dtk dtk]
 \end{code}
 \end{myhs}
 \caption{Full implementation, part 1: language of codes}
 \label{fig:full1}
-\end{figure}
+\end{figure*}
 
 \begin{figure*}
 \begin{myhs}
