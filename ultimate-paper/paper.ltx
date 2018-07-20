@@ -153,7 +153,7 @@ which have been implemented in GHC. The list includes datatype
 promotion, kind polymorphism ~\cite{Yorgey2012}, the |Constraint|
 kind~\cite{constraintkinds}, and
 |TypeInType|~\cite{Weirich2013,Weirich2017}.  Regarding the latter, we
-show that our construction does \emph{not} require the |Star : Star| axiom
+show that our construction does \emph{not} require the |Star agdatyof Star| axiom
 by attaching a model in Agda~(\Cref{sec:agda}).  Nevertheless, using
 these recent additions we drastically expand the amount of Haskell
 datatypes we can represent generically compared to other
@@ -830,7 +830,7 @@ At this point we need the |Atom| datatype to be promoted, in order
 to use it in the list defining the code. Since |Atom| is a GADT,
 we are required to enable the |TypeInType| extension to promote it.
 However, we are not using
-the |Star : Star| judgement in our construction, we discuss this matter in
+the |Star agdatyof Star| judgement in our construction, we discuss this matter in
 \Cref{sec:inconsistent1}. 
 
 As an example, here are the codes corresponding to |[]|, |Either|, and
@@ -1241,7 +1241,7 @@ To answer the question we have build a model of |GenericNSOP| in Agda,
 which we describe in \Cref{sec:agda}. If we assume that our universe
 of basic types lives in |Set0|, our codes live in |Set1|, and our
 interpretation of those in |Set2|. The code compiles fine, showing
-that the |Star : Star| axiom is not essential to our construction.
+that the |Star agdatyof Star| axiom is not essential to our construction.
 
 \section{Constraints}
 \label{sec:constraints}
@@ -1560,7 +1560,7 @@ literature and available in GHC.
 \label{sec:agda}
 
 %option agda
-
+%{
   In this section we shall describe the Agda model of
 |GenericsNSOP|. Agda~\cite{Norell09} is a depentently typed language
 with a predicative hierarchy of universes. This allows us to
@@ -1568,19 +1568,22 @@ model our construction with a finer level of detail. Ultimately
 showing one does not need the |Set : Set| axiom to make the construction
 work. 
 
-%format holder = "\_"
-%format KK = "\mathbb{K}"
-%format KZ = "\star"
-%format KS a b = "{" a "}\Rightarrow {" b "}"
-%format forall = "\forall"
-%format (interpK (a)) = "\llbracket {" a "}\rrbracket_{\mathbb{K}}"
-%format (interpA (a)) = "\llbracket {" a "}\rrbracket_{A}"
-%format (interpP (a)) = "\llbracket {" a "}\rrbracket_{P}"
-%format (interpS (a)) = "\llbracket {" a "}\rrbracket_{S}"
-%format Gamma = "\Gamma"
-%format gamma = "\gamma"
-%format alpha = "\alpha"
-%format pi    = "\pi"
+%format holder        = "\HS{\_}"
+%format KK            = "\HT{\mathbb{K}}"
+%format KZ            = "\HT{\star}"
+%format KS a b        = "{" a "}\mathbin{\HT{\Rightarrow}} {" b "}"
+%format forall        = "\HS{\forall}"
+%format (interpK (a)) = "\HT{\llbracket} {" a "}\HT{\rrbracket_{\mathbb{K}}}"
+%format (interpA (a)) = "\HT{\llbracket} {" a "}\HT{\rrbracket_{A}}"
+%format (interpP (a)) = "\HT{\llbracket} {" a "}\HT{\rrbracket_{P}}"
+%format (interpS (a)) = "\HT{\llbracket} {" a "}\HT{\rrbracket_{S}}"
+%format Gamma         = "\HV{\Gamma}"
+%format gamma         = "\HV{\gamma}"
+%format alpha         = "\HV{\alpha}"
+%format pi            = "\HV{\pi}"
+%format dk            = "\HV{\zeta}"
+
+%format : = "\mathbin{\HS{:}}"
 
   The starting point for our construction is modelling the
 notion of kind, as we aim to encode arbitrarily kinded types.
@@ -1724,7 +1727,7 @@ Rec : Term k k
   And we would need one extra parameter of type |interpK k| in the interpretation
 functions. Again, as long as we do not take the least fixpoint of this construction,
 there is no need for the |Set : Set| axiom.
-
+%}
 %option haskell
 
 \section{Explicit Recursion}
