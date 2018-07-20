@@ -807,13 +807,14 @@ data Atom   (dtk :: Kind) (k :: Kind) :: (Star) where
 The |TyVar| represents a de Bruijn index into the datatype |dtk|.
 We represent this index as a Peano numeral using |VZ| and |VS|, and ensure
 that references are never out of bounds.
-For simplicity, we also introduce some synonyms for the first, second, and third
-variable, in order to make the descriptions of types in the rest of
+For simplicity, we also introduce some synonyms 
+in order to make the descriptions of types in the rest of
 the paper a bit more concise:
 \begin{myhs}
 \begin{code}
 type V0  = Var VZ
 type V1  = Var (VS VZ)
+type V2  = Var (VS (VS VZ))
 \end{code}
 \end{myhs}
 
@@ -1394,21 +1395,21 @@ about the fields.
 type TmCode 
      =  ( P [                           Constr (P [  Implicit (Kon (~) :@: Kon Int :@: V0),  Explicit (Kon Int) ]) ,
                 Exists KK (Exists KK (  Constr (P [  Implicit (Kon (~) :@: V2 :@: (Kon (,) :@: V1 :@: V0)),
-                                                     Explicit (Kon Tm :@: V1), Explicit (Kon Tm :@: V0) ] ) ) )  ] )
+                                                     Explicit (Kon Expr' :@: V1), Explicit (Kon Expr' :@: V0) ] ) ) )  ] )
 \end{code}
 \end{myhs}
-\caption{Code for |Tm|}
+\caption{Code for |Expr'|}
 \label{fig:codetm}
 \end{figure*}
 
-The |Tm| datatype above can be described using our extended language
+The |Expr'| datatype above can be described using our extended language
 of codes as given in \Cref{fig:codetm}. For that, we do not use the
 user-facing version, but the second representation with explicit
 quantification and equalities. Note that each |Exists| ``shift'' the
 position of type variables: the first variable in the context is now
 the second, and so on. As a result, |V0| refers to the last-introduced
 variable, |b| in this case, |V1| corresponds to |a|, and |V2| is the
-original type argument to |Tm|, which we called |t| in the datatype
+original type argument to |Expr'|, which we called |t| in the datatype
 declaration.
 
 \
