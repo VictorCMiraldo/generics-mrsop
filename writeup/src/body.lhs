@@ -120,9 +120,9 @@ such as equality, $\alpha$-equivalence (\Cref{sec:alphaequivalence})
 and the zipper (\Cref{sec:mrecexamples}),
 illustrating how it subsumes the features of the previous approaches.
 \item We provide Template Haskell functionality to derive all the
-boilerplate code needed to use our library (\Cref{sec:templatehaskell}).
-The novelty lies in our handling of instantiated type constructors. Due to
-space restrictions, we had to leave this in the appendix.
+boilerplate code needed to use our library (in \Cref{sec:templatehaskell},
+due to space restrictions).
+The novelty lies in our handling of instantiated type constructors.
 \end{itemize}
 We have packaged our results as a Haskell library. 
 This library, \texttt{\nameofourlibrary}, fills the hole in \Cref{fig:gplibraries} for a code-based
@@ -671,10 +671,10 @@ class GenericFix a where
   toFix    :: RepFix a a -> a
 
 instance GenericFix (Bin Int) where
-  fromFix (Leaf x)
-    = Rep (        Here  (NA_K x  :* NP0))
+  fromFix (Leaf x) 
+    = Rep (         Here  (NA_K x  :* NP0))
   fromFix (Bin l r)
-    = Rep (There ( Here  (NA_I l  :* NA_I r :* NP0)))
+    = Rep (There (  Here  (NA_I l  :* NA_I r :* NP0)))
 \end{code}
 \end{myhs}
 
@@ -707,9 +707,7 @@ user to pattern match on generic representations just like they would
 on values of the original type, contrasting with
 \texttt{GHC.Generics}. One can precisely state that a value of a
 representation is composed by a choice of constructor and its
-respective product of fields by the |View| type.  A value of |Constr n
-sum| is a proof that |n| is a valid constructor for |sum|,
-stating that |n < length sum|. |Lkup| performs list lookup at the type level.
+respective product of fields by the |View| type. 
 
 \begin{myhs}
 \begin{code}
@@ -717,7 +715,18 @@ data Nat = Z | S Nat
 
 data View :: [[ Atom ]] -> Star -> Star where
   Tag  ::  Constr n t -> NP (NA x) (Lkup t n) ->  View t x
+\end{code}
+\end{myhs}
 
+\noindent A value of |Constr n
+sum| is a proof that |n| is a valid constructor for |sum|,
+stating that |n < length sum|. |Lkup| performs list lookup at the type level.
+In order to improve type error messages, we generate a |TypeError| whenever we
+reach a given index |n| that is out of bounds. Interestingly, our design
+guarantees that this case is never reached by |Constr|.
+
+\begin{myhs}
+\begin{code}
 data Constr :: Nat -> [k] -> Star where
   CZ  ::                  Constr Z      (x : xs)
   CS  :: Constr n xs  ->  Constr (S n)  (x : xs)
@@ -729,17 +738,13 @@ type family Lkup (ls :: [k]) (n :: Nat) :: k where
 \end{code}
 \end{myhs}
 
-  In order to improve type error messages, we generate a |TypeError| whenever we
-reach a given index |n| that is out of bounds. Interestingly, our design
-guarantees that this case is never reached by the definition of |Constr|.
-
   Now we are able to easily pattern match and inject into and from
 generic values.  Unfortunately, matching on |Tag| requires describing
 in full detail the shape of the generic value using the elements of
 |Constr|. Using pattern synonyms~\cite{Pickering2016} we can define
 those patterns once and for all, and give them more descriptive names.
 For example, here are the synonyms describing the constructors |Bin|
-and |Leaf|: \footnote{Throughout this
+and |Leaf|. \footnote{Throughout this
 paper we use the syntax |(Pat C)| to refer to the pattern describing a
 view for constructor |C|.}
 
@@ -973,7 +978,7 @@ type  RepMRec (phi :: Nat -> Star) (c :: [[Atom]])
 The only piece missing here is tying the recursive knot. If we want our
 representation to describe a family of datatypes, the obvious choice
 for |phi n| is to look up the type at index |n| in |FamRose|. In fact,
-we are simply performing a type level lookup in the family in question,
+we are simply performing a type level lookup in the family,
 so we can reuse the |Lkup| from \Cref{sec:explicitfix}.
 
 In principle, this is enough to provide a ground representation for the family
@@ -998,7 +1003,7 @@ that \texttt{GHC.Generics} would have chosen for |Rose Int|:
   =    RepMRec  (Lkup FamRose)      (P [ (P [ KInt, I (S Z)])])
   =    NS (NP (NA (Lkup FamRose)))  (P [ (P [ KInt, I (S Z)])])
   ==   K1 R Int :*: K1 R (Lkup FamRose (S Z))
-  =    K1 R Int :*: K1 R [Rose Int]
+  =    K1 R Int :*: K1 R [Rose Int] 
   =    RepGen (Rose Int)
 \end{code}
 \end{myhs}
@@ -1036,7 +1041,7 @@ class Family (fam :: [Star]) (codes :: [[[Atom]]]) where
 \end{myhs}
 
 One of the differences between other approaches and ours is that we do not
-use an associated type to define the |codes| for a mutually recursive family
+use an associated type to define the |codes| for the family
 |fam|. One of the reasons to choose this path is that it alleviates the
 burden of writing the longer |CodeMRec fam| every time we want to
 refer to |codes|. Furthermore, there are types like lists which appear in
@@ -1082,8 +1087,7 @@ the family directly, but an |El|-wrapped one. However, to construct that value,
 embedding our type into and the index in that family. Those values are not
 immediately obvious, but we can use Haskell's visible type
 application~\cite{EisenbergWA16} to work around
-it. The final |into| function, which injects a value into the corresponding |El|
-is defined as follows:
+it. The |into| function injects a value into the corresponding |El|:
 
 \begin{myhs}
 \begin{code}
@@ -1267,10 +1271,10 @@ data Value :: Star -> Star where
 In order to use |(*)| as an argument to a type, we are required to enable
 the \texttt{TypeInType} language extension~\cite{Weirich2013,Weirich2017}.
 
-  All the generic operations implemented use
-parametrized version of |Atom|s and representations described in this section.
-For convenience we also provide a basic set of opaque types which includes the
-most common primitive datatypes.
+%  All the generic operations implemented use
+%parametrized version of |Atom|s and representations described in this section.
+%For convenience we also provide a basic set of opaque types which includes the
+%most common primitive datatypes.
 
 \subsection{Combinators}
 \label{sec:combinators}
@@ -1517,7 +1521,7 @@ The implementation of these functions for |MonadAlphaEq (State [[ (String , Stri
 aside, we define in \Cref{fig:alphalambda} our alpha equivalence decision procedure by encoding what to do
 for |Var| and |Abs| constructors. The |App| can be eliminated generically.
 
-\begin{figure*}[t]
+\begin{figure*}
 \begin{minipage}[t]{.35\textwidth}
 \begin{myhs}
 \begin{code}
@@ -1620,10 +1624,9 @@ some amount of reduction for types.  This limits the functions we can
 implement generically, for example we cannot write a generic |fmap|
 function, since it operates on types of kind |Star -> Star|.
 \texttt{GHC.Generics} supports type constructors with exactly one
-argument via the \texttt{Generic1} type class. We foresee most of the
-complexity to be in the definition of |Atom|, as it must support some
-kind of application of type constructors to other parameters or opaque
-types.
+argument via the \texttt{Generic1} type class. 
+We intend to combine the approach in this paper with that of
+\citet{Ultimate}, in which atoms have a wider choice of shapes.
 
   The original sum-of-products approach does not handle all the ground
 types either, only regular ones~\cite{deVries2014}. We inherit this
@@ -1636,7 +1639,7 @@ programming that combines the advantages of previous approaches to
 generic programming. We have carefully blended the information about
 (mutually) recursive positions from \texttt{multirec}, with the
 sums-of-products codes introduced by \texttt{generics-sop}, while maintaining the
-advantages of both. The Haskell programmer is now able to use
+advantages of both. The programmer is now able to use
 simple, combinator-based generic programming for a more expressive
 class of types than the sums-of-products approach allows. This is
 interesting, especially since mutually recursive types were hard 
