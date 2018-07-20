@@ -45,6 +45,26 @@ data NA  :: (kon -> *) -> (Nat -> *) -> Atom kon -> * where
   NA_I :: (IsNat k) => phi k -> NA ki phi (I k) 
   NA_K ::              ki  k -> NA ki phi (K k)
 
+instance (Eq1 phi, Eq1 ki) => Eq1 (NA ki phi) where
+  eq1 = eqNA eq1 eq1
+
+instance (TestEquality ki, TestEquality kon) => TestEquality (NA ki kon) where
+  testEquality (NA_I i) (NA_I i') = 
+    case testEquality i i' of
+      Just Refl -> Just Refl
+      Nothing -> Nothing
+  testEquality (NA_K k) (NA_K k') =
+    -- we learn that
+    -- a ~ (K k1)
+    -- b ~ (K k2)
+    case testEquality k k' of
+      -- we learn that  k1 ~ k2
+      Just Refl ->
+        -- thus we learn that a ~ b. Q.e.d
+        Just Refl
+      Nothing -> Nothing
+
+
 -- ** Map, Elim and Zip
 
 -- |Maps a natural transformation over an atom interpretation
@@ -94,6 +114,9 @@ eqNA kp fp x = elimNA (uncurry' kp) (uncurry' fp) . zipNA x
 newtype Rep (ki :: kon -> *) (phi :: Nat -> *) (code :: [[Atom kon]])
   = Rep { unRep :: NS (PoA ki phi) code }
 
+instance (Eq1 phi, Eq1 ki) => Eq1 (Rep ki phi) where
+  eq1 = eqRep eq1 eq1
+  
 -- |Product of Atoms is a handy synonym to have.
 type PoA (ki :: kon -> *) (phi :: Nat -> *) = NP (NA ki phi)
 
@@ -239,6 +262,9 @@ sop = go . unRep
 -- |Indexed least fixpoints
 newtype Fix (ki :: kon -> *) (codes :: [[[ Atom kon ]]]) (n :: Nat)
   = Fix { unFix :: Rep ki (Fix ki codes) (Lkup n codes) }
+
+instance Eq1 ki => Eq1 (Fix ki codes) where
+  eq1 = eqFix eq1
 
 -- |Retrieves the index of a 'Fix'
 proxyFixIdx :: Fix ki fam ix -> Proxy ix
