@@ -1451,7 +1451,7 @@ outer and inner lists.
 
 \section{Related Work}
 
-
+\paragraph{Sums of products.}
 Our approach to generic programming is heavily inspired by the
 original list-of-list-of-types construction by
 \citet{deVries2014}. Each of the extensions we present: support for
@@ -1467,23 +1467,7 @@ a huge library of maps, sequences, and folds. Our definition of
 and we cannot easily abstract that pattern because of the very strong
 types which are involved.
 
-The problem of generic programming for GADTs have not received much
-attention in the literature. The approach of \citet{Magalhaes2011} is based on pattern
-functors: the basic set of blocks is extended with |CEq|, which
-represents equalities at the level of constructors, and a ``mobility
-family'' |X| to fake existentials. Our approach reuses most of the
-machinery for regular types, by taking advantage of the availability
-of |Constraint| as a kind in GHC. Using quantified class
-constraints~\cite{Bottu2017}, \citet{ScottBlog} describes how to derive
-|Generic| for some GADTs. The approach does not scale, though, to
-handle existentials or kinds different from |Star|.
-
-\citet{Weirich2010} describe arity-generic operations, such as the family
-of functions |zipWith|, |zipWith3|, and so on. In their case the
-operations are indexed by a natural number which specifies the amount
-of arguments; in contrast our development is indexed by contexts
-|LoT| which specify the kind of each type variable.
-
+\paragraph{Generic universes.}
 %format PredU (j) = "Set_{" j "}"
 With respect to our Agda model, \Cref{sec:agda}, we have adapted the technique
 of generic programming with universes \cite{Altenkirch2006}, where
@@ -1495,6 +1479,27 @@ we do not handle mutual recursion and we handle predicates over variables.
 This requires us to put the elements of the interpretation in |PredU (i+2)|. 
 These differences stems from the fact that we aim at representing
 Haskell datatypes, including GADTs with potential constraints.
+
+\paragraph{GADTs.}
+The problem of generic programming for GADTs have not received much
+attention in the literature. The approach of \citet{Magalhaes2011} is based on pattern
+functors: the basic set of blocks is extended with |CEq|, which
+represents equalities at the level of constructors, and a ``mobility
+family'' |X| to fake existentials. Our approach reuses most of the
+machinery for regular types, by taking advantage of the availability
+of |Constraint| as a kind in GHC. Using quantified class
+constraints~\cite{Bottu2017}, \citet{ScottBlog} describes how to derive
+|Generic| for some GADTs. The approach does not scale, though, to
+handle existentials or kinds different from |Star|.
+
+\paragraph{Kind-genericity.}
+\citet{Hinze2000,Hinze:2000:NAG:325694.325709}
+
+\citet{Weirich2010} describe arity-generic operations, such as the family
+of functions |zipWith|, |zipWith3|, and so on. In their case the
+operations are indexed by a natural number which specifies the amount
+of arguments; in contrast our development is indexed by contexts
+|LoT| which specify the kind of each type variable.
 
 \section{Conclusion and Future Work}
 
@@ -1527,13 +1532,17 @@ having different kinds.
 Through several refinements, starting with the original
 sum-of-products construction, we have built a generic
 programming library supporting a wider range of datatypes. Our
-main novelties are the uniform treatment of types of different kinds,
+main novelties are the uniform treatment of different kinds,
 and the support for the most important features in GADTs. To do so, we
 have leveraged many of the Haskell extensions proposed in the
-literature and implemented in GHC. 
+literature and available in GHC. 
 
 %% Acknowledgments
 %\begin{acks}
+%We thank the anonymous reviewers which provided very helpful comments
+%and pushed us to simplify and extend our library. The participants of the
+%Reading Club at Utrecht provided many suggestions in early
+%versions of this paper.
 %\end{acks}
 
 %% Bibliography
