@@ -132,7 +132,7 @@ comparison). Ultimately, GHC added special support via the
 |Data|~\cite{Lammel2003,Mitchell2007} and
 |Generic|~\cite{Magalhaes2010} type classes.
 
-The built-in |Generic| uses a lightweight encoding of datatypes.
+The built-in |Generic| uses a lightweight encoding.
 One of its key design aspects is to \emph{not} represent
 recursion explicitly, as opposed to \texttt{regular}~\cite{Noort2008},
 \texttt{multirec}~\cite{Yakushev2009}, and
@@ -158,20 +158,25 @@ show that our construction does \emph{not} require the |* : *| axiom
 by attaching a model in Agda~(\Cref{sec:agda}).  Nevertheless, using
 these recent additions we drastically expand the amount of Haskell
 datatypes we can represent generically compared to other
-approaches. For example, take the GADT given below.
+approaches. Take for example the following datatype for simple
+well-typed expressions:
 \begin{myhs}
 \begin{code}
-data IsInt :: Star -> Star where
-  Prf :: Int -> IsInt Int
+data Expr :: Star -> Star where
+  Lit  :: a -> Expr a
+  IsZ  :: Expr Int -> Expr Bool
+  If   :: Expr Bool -> Expr a -> Expr a -> Expr a
 \end{code}
 \end{myhs}
-An inhabitant of |IsInt a| is, essentially, a proof that the index
-equals |Int|. In fact, GHC represents this datatype internally using
-an equality constraint |a ~ Int|.
+Internally, GHC enforces a specific type in a constructor -- as |Bool|
+in the constructor |Eq| above -- by using equality constraints.
+Thus the previous declaration is internally translated to the following form:
 \begin{myhs}
 \begin{code}
-data IsInt :: Star -> Star where
-  Prf :: (a ~ Int) => a -> IsInt a
+data Expr :: Star -> Star where
+  Lit  :: a -> Expr a
+  IsZ  :: a ~ Bool => Expr Int -> Expr a
+  If   :: Expr Bool -> Expr a -> Expr a -> Expr a
 \end{code}
 \end{myhs}
 
@@ -181,44 +186,48 @@ of constructors, and the inner list represents
 the fields of such constructors.
 \begin{myhs}
 \begin{code}
-type CodeIsInt = P [ P  [ Implicit (Kon (~) :@: V0 :@: Kon Int)
-                        , Explicit V0 ] ]
+type CodeExpr =
+  P  [  P  [  Explicit V0 ],
+        P  [  Implicit (Kon (~) :@: V0 :@: Kon Bool ),
+              Explicit (Kon Expr :@: Kon Int) ],
+        P  [  Explicit (Kon Expr :@: Kon Bool),
+              Explicit (Kon Expr :@: V0), 
+              Explicit (Kon Expr :@: V0) ]]
 \end{code}
 \end{myhs}
-In our case there is only one constructor, |Prf|, which translates
-to a single-element inner list. This inner list has two fields:
-the \emph{implicit} one represents the constraint |a ~ Int|, and
-the explicit one the field of type |a|.
-
+The three constructors translate into three elements in the outer list.
+Each of the inner lists contain a list of fields.
 The type of each of their fields are represented using the
 applicative fragment of $\lambda$-calculus. Constant types and type
 constructors are brought in via |Kon|, application is represented
 by |(:@:)|, and |V0|, |V1|, \dots represent each of the type variables
-of the datatype. For example, the constraint |a ~ Int| is represented
+of the datatype. For example, the constraint |a ~ Bool| is represented
 as the application of the type constructor |(~)| to the first
-argument |V0| and the constant type |Int|.
+argument |V0| and the constant |Kon Bool|.
 Our encoding ensures that everything is \emph{well-kinded}.
+
+If a field represents a constraint in Haskell code, it is marked
+as \emph{implicit} in the code. This is the case for the equality
+|a ~ Bool| above. All other fields are marked as explicit.
 
 \subsection{Contributions}
 
 The main contribution of this paper is to provide a \emph{single,
 unified} type class for generic programming, which supports algebraic
 data types and type constructors of \emph{all kinds}
-(\Cref{sec:allkinds}) and also a large subset of Generalised Algebraic
-Data Types~\cite{Xi2003}, \emph{GADTs} for short
-(\Cref{sec:constraints,sec:exists}).  We do so by using a variant of
+(\Cref{sec:allkinds}) by using a variant of
 the sum-of-products representation.
-
 Before delving into the most general framework, we explore the required background
 in \Cref{sec:pre}, and provide a first extension of the sum-of-products style
 for type constructor with a single parameter in \Cref{sec:generic1}.
 
-Since the introduction of GADTs, datatype constructors may have more complicated
+Since the introduction of Generalised Algebraic
+Data Types \cite{Xi2003}, \emph{GADTs} for short,
+datatype constructors may have more complicated
 shapes than a mere list of fields:
-%, we need to additional combinators to enable that:
 \begin{itemize}
   \item Each constructor may require one or more \emph{constraints} to
-  be satisfied by the types of their fields. The |IsInt| datatype defined
+  be satisfied by the types of their fields. The |Expr| datatype defined
   above is a prime example of this feature.
 %   For example, when we write
 %  a datatype to witness the equality between two types:
@@ -234,7 +243,7 @@ shapes than a mere list of fields:
    we explore how to extend our base framework to
   account for these constraints.
 
-  \item Constructor may introduce new type variables.
+  \item Constructors may introduce new type variables.
   These are called \emph{existentials}, since
   once you pattern match you know that a type has been used, but not
   exactly which one. The support for existentials is discussed in
@@ -470,7 +479,7 @@ the inner lists is paramount to our approach.
 
 Just like the built-in |Generic|, each datatype is tied to its
 code by a type class. In the \texttt{generics-sop} this class is also known
-as |Generic|, but we shall use a superscript to distinguish it.
+as |Generic|, but we use a superscript to distinguish it.
 \begin{myhs}
 \begin{code}
 class GenericSOP a where
@@ -742,8 +751,8 @@ The resulting generic type-class supports types of arbitrary kinds.
 
 The first step is representing each of the types
 of the fields, that is, estabilishing our new language of atoms. 
-In \Cref{sec:generic1} we had to introduce an additional composition combinator |(:.:)| to
-support nested recursion. Here this problem is magnified; for example,
+In \Cref{sec:generic1} we discussed the problem
+of nested recursion, as in |Rose|. Here this problem is magnified; for example,
 in the following datatype of kind |Star -> (Star -> Star) -> Star ->
 Star|:
 \begin{myhs}
@@ -805,7 +814,6 @@ the paper a bit more concise:
 \begin{code}
 type V0  = Var VZ
 type V1  = Var (VS VZ)
-type V2  = Var (VS (VS VZ))
 \end{code}
 \end{myhs}
 
@@ -881,9 +889,6 @@ in Haskell. Instead, we define a type family |Ty| which computes the type
 of a field given a context.
 \begin{myhs}
 \begin{code}
-data NA (dtk :: Kind) :: LoT dtk -> Atom dtk (Star) -> Star where
-  T :: forall dtk t tys dot { unT :: Ty dtk tys t } -> NA dtk tys t
-
 type family Ty dtk (tys :: LoT dtk) (t :: Atom dtk k) :: k where
   Ty (k -> ks) (t :&&: tys) (Var VZ)      = t
   Ty (k -> ks) (t :&&: tys) (Var (VS v))  = Ty ks tys (Var v)
@@ -898,7 +903,12 @@ required to use visible type application~\cite{EisenbergWA16}. The code
 uses record syntax to generate an eliminator |unT| for the only field
 in |T|.\footnote{Not to be confused with Agda and Idris' syntax for
 implicit parameters.}
-
+\begin{myhs}
+\begin{code}
+data NA (dtk :: Kind) :: LoT dtk -> Atom dtk (Star) -> Star where
+  T :: forall dtk t tys dot { unT :: Ty dtk tys t } -> NA dtk tys t
+\end{code}
+\end{myhs}
 These new parameters
 to |NA| appear also in the new |SOPn| type, which interpets codes of
 the new shape:
@@ -1008,9 +1018,10 @@ Here the type variable |f| appears only as an argument of type families:
 None of the type families are injective, which means that the
 instantiation of |f| cannot be inferred in its usage sites. In fact,
 if we have |Either a b| as a result, there are three different calls
-to |Apply| which would give the same result:\footnote{Although one could
-argue that the combination of the result of |Apply| and the sequence
-of types |tys| is enough to fix the parameter |f|.}
+to |Apply| which would give the same result:
+%\footnote{Although one could
+%argue that the combination of the result of |Apply| and the sequence
+%of types |tys| is enough to fix the parameter |f|.}
 \begin{myhs}
 \begin{code}
 Apply (Star -> Star -> Star)  Either        (a :&&:   b   :&&:  LoT0)
@@ -1038,13 +1049,11 @@ this case, the information about the shape of the context is reified.
 \begin{figure}
 \begin{myhs}
 \begin{code}
-gfmap  ::  forall f a b dot
-           (GenericNSOP (* -> *) f,
+gfmap  ::  forall f a b dot  (GenericNSOP (* -> *) f,
            All2 FunctorAtom (Code f))
        =>  (a -> b) -> f a -> f b
-gfmap f  =  unA0 . unArg . to
-         .  goS
-         .  from  . Arg . A0
+gfmap f  =            unA0 . unArg . to
+         .  goS  .    from . Arg . A0
   where
     goS  ::  All2 FunctorAtom xs
          =>  NS (NP (NA (* -> *) (a :&&: LoT0))) xs
@@ -1059,9 +1068,8 @@ gfmap f  =  unA0 . unArg . to
     goP (T x :* xs)  = gfmapF f (T x) :* goP xs
 
 class FunctorAtom (t :: Atom (* -> *) (Star)) where
-  gfmapF  ::  (a -> b)
-          ->  NA (* -> *) (a :&&: LoT0) t
-          ->  NA (* -> *) (b :&&: LoT0) t
+  gfmapF  ::  (a -> b)  -> NA (* -> *) (a :&&: LoT0) t
+                        -> NA (* -> *) (b :&&: LoT0) t
 
 instance  FunctorAtom V0 where
   gfmapF f (T x)  =  T (f x)
@@ -1109,7 +1117,7 @@ context. In this case it can be readily obtained from the following
 Note that this use of type classes in the definition of generic |fmap|
 is quite different from the usage in \Cref{sec:genericops}. There the
 instances describe how to handle sums and products, which we do simply
-by recursion on the structure of |NS| and |NP|. In our case the type class
+by recursion on the structure of |NS| and |NP|. In our case
 |FunctorAtom| describes which shapes of \emph{atoms} can appear as fields
 of a datatype which supports the |Functor| operations. We need such a
 restriction because the universe of types we can describe is very wide,
@@ -1238,8 +1246,8 @@ that the |Star : Star| axiom is not essential to our construction.
 
 The move from ADTs to GADTs makes it possible to require a constraint
 to be satisfied when using a certain constructor of a datatype. The
-|IsInt| type described in the Introduction is one example: it mandates
-the index to be exactly |Int|. Here is another example, in which
+|Expr| type described in the Introduction is one example: it mandates
+the index to be exactly |Bool| in the |IsZ| case. Here is another example, in which
 the constructor |Refl| mandates the two type arguments to coincide by
 imposing an equality constraint |a ~ b|.
 \begin{myhs}
@@ -1319,23 +1327,24 @@ Apart from constraints, every constructor in a GADT may introduce one
 or more \emph{existentially quantified type variables}, which are
 available once your pattern match. Although seemingly rare,
 existentials become ubiquituous once you consider how GHC represents
-GADTs. Take the following datatype, which follows the common idiom of
-indexing a type with the shape of the data it contains:
+GADTs. Consider another simple type of well-typed expressions,
+which features only integer literals and pairs:
 \begin{myhs}
 \begin{code}
-data Tm t where
-  AnInt  ::  Int -> Tm Int
-  APair  ::  Tm a -> Tm b -> Tm (a, b)
+data Expr' t where
+  AnInt  ::  Int -> Expr' Int
+  APair  ::  Expr' a -> Expr' b -> Expr' (a, b)
 \end{code}
 \end{myhs}
-Under the hood, the refinement in the index of |Tm| is turned into an
+Under the hood, the refinement in the index of |Expr'| is turned into an
 equality constraint, and every new new variable is quantified. Thus,
 we obtain the following form:
 \begin{myhs}
 \begin{code}
-data Tm t where
-  AnInt  ::                  t ~ Int     => Int -> Tm t
-  APair  ::  forall a b dot  t ~ (a, b)  => Tm a -> Tm b -> Tm t
+data Expr' t where
+  AnInt  ::                  t ~ Int     =>  Int -> Expr' t
+  APair  ::  forall a b dot  t ~ (a, b)  =>  Expr' a -> Expr' b
+                                         ->  Expr' t
 \end{code}
 \end{myhs}
 Our language of codes is enough to describe |AnInt|, but
