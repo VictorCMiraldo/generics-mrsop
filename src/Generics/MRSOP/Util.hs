@@ -20,6 +20,7 @@ module Generics.MRSOP.Util
   , Nat(..) , proxyUnsuc
   , SNat(..) , snat2int
   , IsNat(..) , getNat , getSNat'
+  , snat2Nat
 
     -- * Type-level Lists
   , ListPrf(..) , IsList(..), All
@@ -88,6 +89,10 @@ getNat = snat2int . getSNat
 
 getSNat' :: forall (n :: Nat). IsNat n => SNat n
 getSNat' = getSNat (Proxy :: Proxy n)
+
+snat2Nat :: SNat n -> Nat
+snat2Nat SZ     = Z
+snat2Nat (SS n) = S (snat2Nat n)
 
 instance TestEquality SNat where
   testEquality SZ     SZ     = Just Refl

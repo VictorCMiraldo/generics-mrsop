@@ -1,7 +1,6 @@
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE RankNTypes           #-}
 {-# LANGUAGE FlexibleContexts     #-}
-{-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE GADTs                #-}
 {-# LANGUAGE TypeOperators        #-}
@@ -9,14 +8,169 @@
 {-# LANGUAGE PolyKinds            #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TypeApplications     #-}
+{-# LANGUAGE UndecidableInstances #-}
 -- |Provides the notion of typed tree-prefix
 --  for out universe.
 module Generics.MRSOP.Treefix where
 
+import Data.Proxy
 import Data.Type.Equality
+import Data.Kind (Type)
 
 import Generics.MRSOP.Util hiding (Cons , Nil)
 import Generics.MRSOP.Base
+
+-- |Forgetful version of 'Path', that drops the indexes so we do not
+--  have to use @TypeInType@
+data PathU :: Type where
+  EndU  :: PathU
+  HoleU :: Nat -> PathU
+  ForkU :: { pathType   :: Nat  
+           , pathConstr :: Nat 
+           , pathFields :: [PathU]
+           } -> PathU
+
+type family PathTypes (p :: PathU) :: [Nat] where
+  PathTypes EndU           = '[]
+  PathTypes (HoleU i)      = i ': '[]
+  PathTypes (ForkU i c ps) = PathTypesNP ps
+
+type family PathTypesNP (ps :: [PathU]) :: [Nat] where
+  PathTypesNP '[]       = '[]
+  PathTypesNP (p ': ps) = PathTypes p :++: PathTypesNP ps
+
+data PathLeaves :: (Nat -> Type) -> PathU -> Type where
+  EndL  :: PathLeaves f EndU
+  HoleL :: f i -> PathLeaves f (HoleU i)
+  ForkL :: NP (PathLeaves f) ps
+        -> PathLeaves f (ForkU i c ps)
+
+-- |A value @p : Path codes a@ specifies a path of constructors
+--  inside an inhabitant of @NA ki (Fix codes) a@.
+data Path (codes :: [[[Atom kon]]]) (a :: Atom kon) (p :: PathU) :: Type where
+  End  :: Path codes (K k) EndU
+  Hole :: (IsNat i)
+       => Path codes (I i) (HoleU i)
+  Fork :: (IsNat ctr , IsNat i)
+       => Constr (Lkup i codes) ctr
+       -> PathNP codes (Lkup ctr (Lkup i codes)) ps
+       -> Path codes (I i) (ForkU i ctr ps)
+
+-- |A value @w : Way codes a@ specifies a pat
+--  with a single hole. It's different from a zipper
+--  since it carries no data.
+data Way :: [[[Atom kon]]] -> Atom kon -> Type where
+  HoleW  :: Way codes (I i)
+  Follow :: (IsNat ctr , IsNat i)
+         => Constr (Lkup i codes) ctr
+         -> NS (Way codes) (Lkup ctr (Lkup i codes))
+         -> Way codes (I i)
+
+catWay :: Way codes a -> Way codes b -> Way codes a
+catWay HoleW w2 = w2
+catWay (Follow c ns) w2 = Follow c (mapNS (\w -> _) ns)
+
+data PathE :: [[[Atom kon]]] -> Nat -> Type where
+  PathE :: Path codes (I i) p -> PathE codes i
+
+data PathNP (codes :: [[[Atom kon]]]) (prod :: [Atom kon]) (ps :: [PathU]) :: Type where
+  PNPNil  :: PathNP codes '[] '[]
+  PNPCons :: Path   codes a  p
+          -> PathNP codes as ps
+          -> PathNP codes (a ': as) (p ': ps)
+ 
+-- |Forgetful map from 'Path' to 'PathU'
+pathFgt :: Path codes a p -> PathU
+pathFgt End  = EndU
+pathFgt f@(Hole) = HoleU (snat2Nat $ getSNat (tyProxy f))
+  where
+    tyProxy :: Path codes (I i) p -> Proxy i
+    tyProxy _ = Proxy
+pathFgt f@(Fork ctr np)
+  = ForkU (snat2Nat $ getSNat (tyProxy f))
+          (snat2Nat $ getSNat (ctrProxy ctr))
+          (pathFgtNP np)
+  where
+    ctrProxy :: Constr l ctr -> Proxy ctr
+    ctrProxy _ = Proxy
+
+    tyProxy :: Path codes (I i) p -> Proxy i
+    tyProxy _ = Proxy
+
+    pathFgtNP :: PathNP codes prod ps -> [PathU]
+    pathFgtNP PNPNil = []
+    pathFgtNP (PNPCons p ps) = pathFgt p : pathFgtNP ps
+
+-- |A Tree-prefix @Tx ki fam codes i js@ specifies a path that ultimately
+--  leats to @length js@ trees of the respective types inside an element
+--  of type @El fam i@. In a dependently typed language, one would use
+--  a notion of /subsequence/ and write a slightly more elegant version.
+data Tx :: (kon -> *) -> [*] -> [[[Atom kon]]] -> Nat -> PathU -> * where
+  -- |Marks the end of a path. As soon as a path ends, there is only
+  --  one possible subtree it can mark.
+  TxHere :: Tx ki fam codes i (HoleU i)
+  -- |Marks the forking of a path by specifying a constructor
+  --  and a selection of the elements of this constructor's fields
+  --  to continue.
+  TxPeel :: Constr (Lkup i codes) n
+         -> TxNP ki fam codes (Lkup n (Lkup i codes)) paths
+         -> Tx ki fam codes i (ForkU i n paths)
+
+-- |A Tree-prefix over a product; a value pf type @TxNP ki fam codes prod js@
+--  marks @length js@ subtrees of the corresponding type within a
+--  product-of-atoms ('PoA') @PoA ki (El fam) prod@.
+--
+--  We employ several Haskell hacks here. Most notably, this datatype is
+--  'fused' with a proof that 'map I js' is a subsequence of 'prod'
+--
+data TxNP :: (kon -> *) -> [*] -> [[[Atom kon]]] -> [Atom kon] -> [PathU] -> *
+    where
+  TxNPNil   :: TxNP ki fam codes '[] '[]
+  TxNPPath  :: (IsNat i)
+            => Tx ki fam codes i ys
+            -> TxNP ki fam codes prod yss
+            -> TxNP ki fam codes (I i ': prod) (ys ': yss)
+  TxNPSolid :: ki k
+            -> TxNP ki fam codes prod yss
+            -> TxNP ki fam codes (K k ': prod) (EndU ': yss) 
+
+visit :: (Family ki fam codes)
+      => El fam i -> Path codes (I i) p -> Maybe (Tx ki fam codes i p)
+visit el Hole        = return TxHere
+visit el (Fork c ps) = do
+  fields <- match c (sfrom el)
+  txno   <- visitNP fields ps
+  return (TxPeel c txno)
+  where
+    visitNP :: (Family ki fam codes)
+            => PoA ki (El fam) prod
+            -> PathNP codes prod ps 
+            -> Maybe (TxNP ki fam codes prod ps)
+    visitNP NP0 PNPNil = Just TxNPNil
+    visitNP (NA_K k :* as) (PNPCons End ps)
+      = TxNPSolid k <$> visitNP as ps
+    visitNP (NA_I v :* as) (PNPCons pv ps)
+      = TxNPPath <$> visit v pv <*> visitNP as ps
+
+txInj :: (Family ki fam codes, IsNat ix)
+      => Tx ki fam codes ix p
+      -> PathLeaves (El fam) p
+      -> El fam ix
+txInj TxHere        (HoleL el)  = el
+txInj (TxPeel c ps) (ForkL els) = sto $ inj c (txnpInj ps els)
+  where
+    txnpInj :: (Family ki fam codes)
+            => TxNP ki fam codes prod ps
+            -> NP (PathLeaves (El fam)) ps
+            -> PoA ki (El fam) prod
+    txnpInj TxNPNil            els
+      = NP0
+    txnpInj (TxNPSolid k rest) (EndL :* els)
+      = NA_K k :* txnpInj rest els
+    txnpInj (TxNPPath  v rest) (els  :* dls)
+      = NA_I (txInj v els) :* txnpInj rest dls
+
+{-
 
 -- |Kind of paths on a mutually recursive family
 data Paths
@@ -88,6 +242,7 @@ walkTo :: Way codes i path'
 walkTo WayHere tx            = _
 walkTo (WayThere c wayNP) tx = _
 
+-}
 {-
 
 -- |A Tree-prefix @Tx ki fam codes i js@ specifies a path that ultimately
