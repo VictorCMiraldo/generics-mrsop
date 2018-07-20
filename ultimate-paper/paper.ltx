@@ -153,7 +153,7 @@ which have been implemented in GHC. The list includes datatype
 promotion, kind polymorphism ~\cite{Yorgey2012}, the |Constraint|
 kind~\cite{constraintkinds}, and
 |TypeInType|~\cite{Weirich2013,Weirich2017}.  Regarding the latter, we
-show that our construction does \emph{not} require the |* : *| axiom
+show that our construction does \emph{not} require the |Star : Star| axiom
 by attaching a model in Agda~(\Cref{sec:agda}).  Nevertheless, using
 these recent additions we drastically expand the amount of Haskell
 datatypes we can represent generically compared to other
@@ -312,7 +312,7 @@ pair of functions |to| and |from|.
 \begin{myhs}
 \begin{code}
 class Generic a where
-  type Rep a :: * -> *
+  type Rep a :: Star -> Star
   from  :: a -> Rep a p
   to    :: Rep a p -> a
 \end{code}
@@ -527,7 +527,7 @@ instantiation is done in the generic representation.
 \begin{myhs}
 \begin{code}
 class Generic1 f where
-  type Rep1 f :: * -> *
+  type Rep1 f :: Star -> Star
   from1  :: f a -> Rep f a
   to1    :: Rep f a -> f a
 \end{code}
@@ -662,7 +662,7 @@ nested application of the interpretation functors |NS|, |NP|, and
 \begin{code}
 type SOP1 c a = NS (NP (NA a)) c
 
-class Generic1SOP (f :: * -> *) where
+class Generic1SOP (f :: Star -> Star) where
   type Code1 f :: [[Atom]]
   from1  :: f a -> SOP1 (Code1 f) a
   to1    :: SOP1 (Code1 f) a -> f a
@@ -776,7 +776,7 @@ track of the kind of the type being described as an index~\cite{BAARS201051}.
 \end{enumerate}
 In \Cref{fig:atomdefn} we define two GADTs, |TyVar| and |Atom|, to represent
 types. For the sake of clarity, we also define a
-synonym |Kind| for |(*)|,
+synonym |Kind| for |(Star)|,
 which we used whenever the instantiation of a type argument represents
 a kind as opposed to a regular type. Both |TyVar| and |Atom| receive two
 |Kind|-indices: the first one |dtk| represents the kind of the datatype
@@ -787,7 +787,7 @@ ill-kinded expressions such as |Kon Int :@: Var Z|.
 \begin{figure}
 \begin{myhs}
 \begin{code}
-type Kind = (*)
+type Kind = (Star)
 
 data TyVar  (dtk :: Kind) (k :: Kind) :: (Star) where
   VZ  ::                TyVar (x -> xs) x
@@ -975,7 +975,7 @@ data SLoT (dtk :: Kind) (tys :: LoT dtk) where
 
 class SSLoT k (tys :: LoT k) where
   sslot :: SLoT k ts
-instance SSLoT (*) LoT0 where
+instance SSLoT (Star) LoT0 where
   sslot = SLoT0
 instance SSLoT ks ts => SSLoT (k -> ks) (t :&&: ts) where
   sslot = SLoTA sslot
@@ -983,15 +983,15 @@ instance SSLoT ks ts => SSLoT (k -> ks) (t :&&: ts) where
 \end{myhs}
 \begin{myhs}
 \begin{code}
-instance GenericNSOP (* -> *) [] where
+instance GenericNSOP (Star -> Star) [] where
   type Code [] = P [ P [ ], P [ V0, Kon [] :@: V0 ] ]
 
   from (Arg (A0 []))        =          Here $ Nil
   from (Arg (A0 (x : xs)))  = There $  Here $ T x :* T xs :* Nil
   
-  to   ::  forall tys dot SSLoT (* -> *) tys
-       =>  SOPn (* -> *) (Code []) tys -> ApplyT (* -> *) [] tys
-  to sop = case sslot @(* -> *) @tys of
+  to   ::  forall tys dot SSLoT (Star -> Star) tys
+       =>  SOPn (Star -> Star) (Code []) tys -> ApplyT (Star -> Star) [] tys
+  to sop = case sslot @(Star -> Star) @tys of
     SLoTA SLoT0 -> case sop of
                Here Nil                    -> Arg $ A0 []
       There (  Here (T x :* T xs :* Nil))  -> Arg $ A0 $ x : xs
@@ -1049,27 +1049,27 @@ this case, the information about the shape of the context is reified.
 \begin{figure}
 \begin{myhs}
 \begin{code}
-gfmap  ::  forall f a b dot  (GenericNSOP (* -> *) f,
+gfmap  ::  forall f a b dot  (GenericNSOP (Star -> Star) f,
            All2 FunctorAtom (Code f))
        =>  (a -> b) -> f a -> f b
 gfmap f  =            unA0 . unArg . to
          .  goS  .    from . Arg . A0
   where
     goS  ::  All2 FunctorAtom xs
-         =>  NS (NP (NA (* -> *) (a :&&: LoT0))) xs
-         ->  NS (NP (NA (* -> *) (b :&&: LoT0))) xs
+         =>  NS (NP (NA (Star -> Star) (a :&&: LoT0))) xs
+         ->  NS (NP (NA (Star -> Star) (b :&&: LoT0))) xs
     goS (Here   x) = Here   (goP x)
     goS (There  x) = There  (goS x)
 
     goP  ::  All FunctorAtom xs
-         =>  NP (NA (* -> *) (a :&&: LoT0)) xs
-         ->  NP (NA (* -> *) (b :&&: LoT0)) xs
+         =>  NP (NA (Star -> Star) (a :&&: LoT0)) xs
+         ->  NP (NA (Star -> Star) (b :&&: LoT0)) xs
     goP Nil          = Nil
     goP (T x :* xs)  = gfmapF f (T x) :* goP xs
 
-class FunctorAtom (t :: Atom (* -> *) (Star)) where
-  gfmapF  ::  (a -> b)  -> NA (* -> *) (a :&&: LoT0) t
-                        -> NA (* -> *) (b :&&: LoT0) t
+class FunctorAtom (t :: Atom (Star -> Star) (Star)) where
+  gfmapF  ::  (a -> b)  -> NA (Star -> Star) (a :&&: LoT0) t
+                        -> NA (Star -> Star) (b :&&: LoT0) t
 
 instance  FunctorAtom V0 where
   gfmapF f (T x)  =  T (f x)
@@ -1226,10 +1226,11 @@ unaware of the intermediate |ApplyT| datatype.
 \subsection{Are We Inconsistent?}
 \label{sec:inconsistent1}
 
+%format agdatyof = "\mathrel{\HS{:}}"
 In order to perform the entire construction, we were forced to enable
 the |TypeInType| extension in GHC. This extension is quite powerful:
 it allows working with kinds as they were types, and to promote GADTs,
-among others. But it also adds an axiom |Star : Star|, which is known
+among others. But it also adds an axiom |Star agdatyof Star|, which is known
 to introduce inconsistency when we view the language as a
 logic~\cite{Girard}. We would like to know whether this latter axiom
 is necessary for our construction, or it could be achieved using a
@@ -1274,7 +1275,7 @@ explicit.
 \begin{myhs}
 \begin{code}
 data Field (dtk :: Kind) where
-  Explicit  :: Atom dtk (*)         -> Field dtk
+  Explicit  :: Atom dtk (Star)      -> Field dtk
   Implicit  :: Atom dtk Constraint  -> Field dtk
 
 type DataType dtk = [[Field dtk]]
@@ -1297,15 +1298,15 @@ shape of the |Eql| datatype; we give its |GenericNSOP| instance in
 \begin{figure}
 \begin{myhs}
 \begin{code}
-instance GenericNSOP (k -> k -> *) Eql where
+instance GenericNSOP (k -> k -> Star) Eql where
   type Code Eql
     = P [ P [ Implicit (Kon (~) :@: V0 :@: V1) ] ]
 
   from (Arg (Arg (A0 Refl))) = Here $ I :* Nil
 
-  to   ::  forall tys dot SSLoT (k -> k -> *) tys
-       =>  SOPn (k -> k -> *) (Code Refl) tys
-       ->  ApplyT (k -> k -> *) Refl tys
+  to   ::  forall tys dot SSLoT (k -> k -> Star) tys
+       =>  SOPn (k -> k -> Star) (Code Refl) tys
+       ->  ApplyT (k -> k -> Star) Refl tys
   to sop = case sslot atunder @tys of
     SLoTA (SLoTA SLoT0) -> case sop of
       Here (I :* Nil) -> Arg $ Arg $ A0 Refl
@@ -1854,11 +1855,11 @@ need to pass the function which works on the recursive position as an
 additional argument.
 \begin{myhs}
 \begin{code}
-class FunctorAtom r (t :: Atom (* -> *) (Star)) where
+class FunctorAtom r (t :: Atom (Star -> Star) (Star)) where
   gfmapF  ::  (forall x y dot (x -> y) -> r x -> r y)
           ->  (a -> b)
-          ->  NA (* -> *) r (a :&&: LoT0) t
-          ->  NA (* -> *) r (b :&&: LoT0) t
+          ->  NA (Star -> Star) r (a :&&: LoT0) t
+          ->  NA (Star -> Star) r (b :&&: LoT0) t
 \end{code}
 \end{myhs}
 \begin{myhs}
@@ -1875,7 +1876,7 @@ call |gfmapF|, we pass |gfmap| itself as the function to execute in
 the when |Rec| is found.
 \begin{myhs}
 \begin{code}
-gfmap  ::  (GenericNSOP (* -> *) f,
+gfmap  ::  (GenericNSOP (Star -> Star) f,
            AllD (FunctorAtom f) (Code f))
        =>  (a -> b) -> f a -> f b
 gfmap f  =  dots
@@ -2113,7 +2114,7 @@ data Atom (rtk :: Kind) (dtk :: Kind) k where
   Rec    ::                  Atom rtk dtk rtk
 
 data Field (rtk :: Kind) (dtk :: Kind) where
-  Explicit  :: Atom rtk dtk (*)         -> Field rtk dtk
+  Explicit  :: Atom rtk dtk (Star)      -> Field rtk dtk
   Implicit  :: Atom rtk dtk Constraint  -> Field rtk dtk
 
 data SKind (ell :: Kind) = KK
@@ -2175,7 +2176,7 @@ data SLoT dtk (tys :: LoT dtk) where
 
 class SSLoT k (tys :: LoT k) where
   sslot :: SLoT k tys
-instance SSLoT (*) LoT0 where
+instance SSLoT (Star) LoT0 where
   sslot = SLoT0
 instance SSLoT ks ts => SSLoT (k -> ks) (t :&&: ts) where
   sslot = SLoTA sslot
@@ -2233,7 +2234,7 @@ to type classes: {\it MultiParamTypeClasses}, {\it InstanceSigs},
 {\it FlexibleContexts}, and {\it FlexibleInstances}.
 \item Support for constraints: |ConstraintKinds|.
 \item Support for explicit recursion: |RankNTypes|.
-\item To refer to the kind |(*)| explicitly: |ExplicitNamespaces|.
+\item To refer to the kind |(Star)| explicitly: |ExplicitNamespaces|.
 \end{itemize}
 There are also some language extensions whose use is not essential to the
 construction, but are required to compile the code as given:
