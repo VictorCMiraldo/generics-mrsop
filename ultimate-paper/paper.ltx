@@ -1559,7 +1559,7 @@ literature and available in GHC.
 \label{sec:agda}
 
 %option agda
-
+%{
   In this section we shall describe the Agda model of
 |GenericsNSOP|. Agda~\cite{Norell09} is a depentently typed language
 with a predicative hierarchy of universes. This allows us to
@@ -1567,19 +1567,22 @@ model our construction with a finer level of detail. Ultimately
 showing one does not need the |Set : Set| axiom to make the construction
 work. 
 
-%format holder = "\_"
-%format KK = "\mathbb{K}"
-%format KZ = "\star"
-%format KS a b = "{" a "}\Rightarrow {" b "}"
-%format forall = "\forall"
-%format (interpK (a)) = "\llbracket {" a "}\rrbracket_{\mathbb{K}}"
-%format (interpA (a)) = "\llbracket {" a "}\rrbracket_{A}"
-%format (interpP (a)) = "\llbracket {" a "}\rrbracket_{P}"
-%format (interpS (a)) = "\llbracket {" a "}\rrbracket_{S}"
-%format Gamma = "\Gamma"
-%format gamma = "\gamma"
-%format alpha = "\alpha"
-%format pi    = "\pi"
+%format holder        = "\HS{\_}"
+%format KK            = "\HT{\mathbb{K}}"
+%format KZ            = "\HT{\star}"
+%format KS a b        = "{" a "}\mathbin{\HT{\Rightarrow}} {" b "}"
+%format forall        = "\HS{\forall}"
+%format (interpK (a)) = "\HT{\llbracket} {" a "}\HT{\rrbracket_{\mathbb{K}}}"
+%format (interpA (a)) = "\HT{\llbracket} {" a "}\HT{\rrbracket_{A}}"
+%format (interpP (a)) = "\HT{\llbracket} {" a "}\HT{\rrbracket_{P}}"
+%format (interpS (a)) = "\HT{\llbracket} {" a "}\HT{\rrbracket_{S}}"
+%format Gamma         = "\HV{\Gamma}"
+%format gamma         = "\HV{\gamma}"
+%format alpha         = "\HV{\alpha}"
+%format pi            = "\HV{\pi}"
+%format dk            = "\HV{\zeta}"
+
+%format : = "\mathbin{\HS{:}}"
 
   The starting point for our construction is modelling the
 notion of kind, as we aim to encode arbitrarily kinded types.
@@ -1723,7 +1726,7 @@ Rec : Term k k
   And we would need one extra parameter of type |interpK k| in the interpretation
 functions. Again, as long as we do not take the least fixpoint of this construction,
 there is no need for the |Set : Set| axiom.
-
+%}
 %option haskell
 
 \section{Explicit Recursion}
