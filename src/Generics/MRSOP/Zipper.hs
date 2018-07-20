@@ -19,7 +19,7 @@ import Generics.MRSOP.Base
 
 -- |In a @Zipper@, a Location is a a pair of a one hole context
 --  and whatever was supposed to be there. In a sums of products
---  fashion, it consists of a choice of constructor and
+--  fashion, it consists of a choice of constructor and 
 --  a position in the type of that constructor.
 data Loc :: (kon -> *) -> [*] -> [[[Atom kon]]] -> Nat -> * where
   Loc :: IsNat ix => El fam ix -> Ctxs ki fam cs iy ix -> Loc ki fam cs iy
@@ -86,9 +86,19 @@ first f el | Tag c p <- sop el
   = do (ExistsIX el nphole) <- mkNPHole p
        return (f el (Ctx c nphole))
 
+
 -- |Fills up a hole.
 fill :: (IsNat ix) => El fam ix -> Ctx ki fam c ix -> Rep ki (El fam) c
 fill el (Ctx c nphole) = inj c (fillNPHole el nphole)
+
+-- |Recursively fills a stack of holes
+-- however, the Family constraint ain't so nice. so we perhaps want to
+-- take zippers over a deep representation
+fillCtxs :: forall ix fam iy ki c. (IsNat ix, Family ki fam c) => El fam iy -> Ctxs ki fam c ix iy -> El fam ix
+-- not sure if this should be h or Nothing
+fillCtxs h Nil = h
+fillCtxs h (Cons ctx ctxs) =
+  fillCtxs (sto @fam @ki @c $ fill h ctx) ctxs
 
 -- |Walks to the next hole and execute an action.
 next :: (IsNat ix)

@@ -18,6 +18,11 @@ data NP :: (k -> *) -> [k] -> * where
   NP0  :: NP p '[]
   (:*) :: p x -> NP p xs -> NP p (x : xs)
 
+
+instance Eq1 ki => Eq1 (NP ki) where
+  eq1 = eqNP eq1
+  
+
 -- * Relation to IsList predicate
 
 -- |Append two values of type 'NP'

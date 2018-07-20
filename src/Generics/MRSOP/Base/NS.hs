@@ -20,6 +20,9 @@ data NS :: (k -> *) -> [k] -> * where
   There :: NS p xs -> NS p (x : xs)
   Here  :: p x     -> NS p (x : xs)
 
+instance Eq1 ki => Eq1 (NS ki) where
+  eq1 = eqNS eq1
+
 -- * Map, Zip and Elim
 
 -- |Maps over a sum
