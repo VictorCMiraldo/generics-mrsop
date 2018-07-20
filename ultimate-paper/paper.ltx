@@ -1492,9 +1492,13 @@ constraints~\cite{Bottu2017}, \citet{ScottBlog} describes how to derive
 handle existentials or kinds different from |Star|.
 
 \paragraph{Kind-genericity.}
-\citet{Hinze2000,Hinze:2000:NAG:325694.325709}
+\citet{Hinze2000,Hinze:2000:NAG:325694.325709} describe an approach
+to generic operations for different kinds. The leverage the pattern functors
+(as those used in |GHC.Generics|) to work on different kinds, and define
+operations indexing by the kind. Our approach is quite different, as 
+we extend the language of atoms in \texttt{generic-sop} to cover different kinds.
 
-\citet{Weirich2010} describe arity-generic operations, such as the family
+\citet{Weirich2010} define arity-generic operations, such as the family
 of functions |zipWith|, |zipWith3|, and so on. In their case the
 operations are indexed by a natural number which specifies the amount
 of arguments; in contrast our development is indexed by contexts
