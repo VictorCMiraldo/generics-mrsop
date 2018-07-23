@@ -1,3 +1,4 @@
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE RankNTypes           #-}
 {-# LANGUAGE FlexibleContexts     #-}
@@ -66,9 +67,15 @@ data Way :: [[[Atom kon]]] -> Atom kon -> Type where
          -> NS (Way codes) (Lkup ctr (Lkup i codes))
          -> Way codes (I i)
 
-catWay :: Way codes a -> Way codes b -> Way codes a
-catWay HoleW w2 = w2
-catWay (Follow c ns) w2 = Follow c (mapNS (\w -> _) ns)
+instance Show (Way codes a) where
+  show HoleW = "HoleW"
+  show (Follow c ns)
+    = let (n , str) = go ns
+       in show c ++ "{" ++ show n ++ "}(" ++ str ++ ")"
+    where
+      go :: NS (Way codes) s -> (Int , String)
+      go (Here x) = (0 , show x)
+      go (There y) = (1+) *** id $ go y
 
 data PathE :: [[[Atom kon]]] -> Nat -> Type where
   PathE :: Path codes (I i) p -> PathE codes i
