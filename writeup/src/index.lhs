@@ -1,28 +1,22 @@
-\documentclass[sigplan]{acmart}%
+\documentclass[screen,sigplan]{acmart}%
 \settopmatter{printfolios=true,printccs=true,printacmref=true}
 
 %%%%%%%%%%%%%%
 %%%%%%%%%%%%%%
 %% Template 
 
-%% Conference information
-%% Supplied to authors by publisher for camera-ready submission;
-%% use defaults for review submission.
-\acmConference[TyDe'18]{ACM SIGPLAN Conference on Programming Languages}{January 01--03, 2017}{New York, NY, USA}
-\acmYear{2018}
-\acmISBN{} % \acmISBN{978-x-xxxx-xxxx-x/YY/MM}
-\acmDOI{} % \acmDOI{10.1145/nnnnnnn.nnnnnnn}
-\startPage{1}
-
-%% Copyright information
-%% Supplied to authors (based on authors' rights management selection;
-%% see authors.acm.org) by publisher for camera-ready submission;
-%% use 'none' for review submission.
-%\setcopyright{none}
-%\setcopyright{acmcopyright}
+%%% The following is specific to TyDe '18 and the paper
+%%% 'Sums of Products for Mutually Recursive Datatypes'
+%%% by Victor Cacciari Miraldo and Alejandro Serrano.
+%%%
 \setcopyright{acmlicensed}
-%\setcopyright{rightsretained}
-%\copyrightyear{2017}           %% If different from \acmYear
+\acmPrice{15.00}
+\acmDOI{10.1145/3240719.3241786}
+\acmYear{2018}
+\copyrightyear{2018}
+\acmISBN{978-1-4503-5825-5/18/09}
+\acmConference[TyDe '18]{Proceedings of the 3rd ACM SIGPLAN International Workshop on Type-Driven Development}{September 27, 2018}{St. Louis, MO, USA}
+\acmBooktitle{Proceedings of the 3rd ACM SIGPLAN International Workshop on Type-Driven Development (TyDe '18), September 27, 2018, St. Louis, MO, USA}
 
 %% Bibliography style
 \bibliographystyle{acmart/ACM-Reference-Format}
@@ -56,6 +50,7 @@
 %%%%%%%%%%%%%%%%%%%%
 
 \usepackage{multirow}
+\usepackage{balance}
 
 \begin{document}
 
@@ -91,7 +86,6 @@
 \email{V.CacciariMiraldo@@uu.nl}
 
 \author{Alejandro Serrano}
-\orcid{nnnn-nnnn-nnnn-nnnn}             %% \orcid is optional
 \affiliation{
   %\position{Junior lecturer}
   \department{Information and Computing Sciences}
@@ -157,6 +151,7 @@ programming over these types.
 %% environment and commands, and keywords command.
 \maketitle
 
+\balance
 %%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -186,7 +181,7 @@ programming over these types.
 
 
 %% Bibliography
-\newpage
+% \newpage
 \bibliography{references}
 
 

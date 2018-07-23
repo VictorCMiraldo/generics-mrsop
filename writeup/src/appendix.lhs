@@ -266,6 +266,7 @@ First, synonyms for generic representations, one per constructor. Second,
 synonyms which associate each type in the recursive family with their
 position in the list of codes.
 
+\vspace{.1cm}
 \begin{myhs}
 %format forkP = "\HT{\overline{Fork}}" 
 %format nilP  = "\HT{\overbar{[]}}" 
@@ -280,6 +281,7 @@ pattern (Pat ListRoseInt)  = SS SZ
 \end{code}
 \end{myhs}
 
+\vspace{.2cm}
   The actual |Family| instance is exactly as the one shown in \Cref{sec:family}
 
 \begin{myhs}
@@ -288,131 +290,132 @@ instance Family Singl FamRoseInt CodesRoseInt where dots
 \end{code}
 \end{myhs}
 
-\section{Metadata}
-\label{sec:metadata}
 
-  The representations described in this paper is enough to write generic equalities
-and zippers. But there is one missing ingredient to derive generic
-pretty-printing or conversion to JSON, for instance. We need to maintain
-the \emph{metadata} information of our datatypes.
-This metadata includes the datatype name, the module where it was defined,
-and the name of the constructors. Without this
-information you cannot write a function which outputs the string
-\begin{verbatim}
-Fork 1 [Fork 2 [], Fork 3 []]
-\end{verbatim}
-for a call to |genericShow (Fork 1 [Fork 2 [], Fork 3 []])|. The reason is that
-the code of |Rose Int| does not contain the information that the constructor
-of |Rose| is called |"Fork"|.
-
-  Like in \texttt{generics-sop}~\cite{deVries2014}, having the code
-for a family of datatypes available allows for a completely separate
-treatment of metadata. This is yet another advantage of the
-sum-of-products approach when compared to the more traditional pattern
-functors. In fact, our handling of metadata is heavily inspired from
-\texttt{generics-sop}, so much so that we will start by explaining a simplified version of
-their handling of metadata, and then outline the differences to our approach. 
-
-  The general idea is to store the meta information following the structure of
-the datatype itself. So, instead of data, we keep track of the names of the
-different parts and other meta information that can be useful. It is advantageous
-to keep metadata separate from the generic representation as it would only
-clutter the definition of generic functionality.
-This information is tied to a datatype by means of an additional type class
-|HasDatatypeInfo|.
-Generic functions may now query the metadata by means of functions like
-|datatypeName|, which reflect the type information into the term level.
-The definitions are given in \Cref{fig:sopmeta}.
-
-\begin{figure*}
-\begin{myhs}
-\begin{code}
-data DatatypeInfo :: [[Star]] -> Star where
-  ADT  :: ModuleName -> DatatypeName -> NP  ConstructorInfo cs       -> DatatypeInfo cs
-  New  :: ModuleName -> DatatypeName ->     ConstructorInfo (P [c])  -> DatatypeInfo (P [ P [ c ]])
-
-data ConstructorInfo :: [Star] -> Star where
-  Constructor  :: ConstructorName                             -> ConstructorInfo xs
-  Infix        :: ConstructorName -> Associativity -> Fixity  -> ConstructorInfo (P [ x, y ])
-  Record       :: ConstructorName -> NP FieldInfo xs          -> ConstructorInfo xs
-
-data FieldInfo :: Star -> Star where
-  FieldInfo :: FieldName -> FieldInfo a
-
-class HasDatatypeInfo a where
-  datatypeInfo :: proxy a -> DatatypeInfo (Code a)
-\end{code}
-\end{myhs}
-\caption{Definitions related to metadata from \texttt{generics-sop}}
-\label{fig:sopmeta}
-\end{figure*}
-
-
-Our library uses the same approach to handle metadata. In fact, the code remains
-almost unchanged, except for adapting it to the larger universe of
-datatypes we can now handle. Unlike \texttt{generic-sop}, our list of lists
-representing the sum-of-products structure does not contain types of kind |Star|,
-but |Atom|s. All the types representing metadata at the type level must be
-updated to reflect this new scenario:
-\begin{myhs}
-\begin{code}
-data DatatypeInfo     :: [  [  Atom kon ]]  -> Star where ...
-data ConstructorInfo  ::    [  Atom kon ]   -> Star where ...
-data FieldInfo        ::       Atom kon     -> Star where ...
-\end{code}
-\end{myhs}
-
-As we have discussed above, our library is able to generate codes not only
-for single types of kind |Star|, like |Int| or |Bool|, but also for types which
-are the result of type level applications, such as |Rose Int| and |[Rose Int]|.
-The shape of the metadata information in |DatatypeInfo|, a module name plus
-a datatype name, is not enough to handle these cases. 
-We replace the uses of |ModuleName| and |DatatypeName| in 
-|DatatypeInfo| by a richer promoted type |TypeName|, which can
-describe applications, as required.
-\begin{myhs}
-\begin{code}
-data TypeName  =  ConT ModuleName DatatypeName
-               |  TypeName :@: TypeName
-
-data DatatypeInfo :: [[Atom kon]] -> Star where
-  ADT  ::  TypeName  -> NP  ConstructorInfo cs
-       ->  DatatypeInfo cs
-  New  ::  TypeName  ->     ConstructorInfo (P [c])
-       ->  DatatypeInfo (P [ P [ c ]])
-\end{code}
-\end{myhs}
-
-The most important difference to \texttt{generics-sop}, perhaps, 
-is that the metadata is not defined for a single type, but
-for a type \emph{within} a family. This is reflected in the new signature of 
-|datatypeInfo|, which receives proxies for both the family and the type.
-The type equalities in that signature reflect the fact that the given type
-|ty| is included with index |ix| within the family |fam|. This step is needed
-to look up the code for the type in the right position of |codes|.
-\begin{myhs}
-\begin{code}
-class  (Family kappa fam codes)
-       =>  HasDatatypeInfo kappa fam codes ix 
-       |   fam -> kappa codes where
-  datatypeInfo  ::  (ix ~ Idx ty fam , Lkup ix fam ~ ty)
-                =>  Proxy fam -> Proxy ty
-                ->  DatatypeInfo (Lkup ix codes)
-\end{code}
-\end{myhs}
-
-  The Template Haskell will then generate something similar to
-the instance below for the first type in the family, |Rose Int|:
-
-\begin{myhs}
-\begin{code}
-instance HasDatatypeInfo Singl FamRose CodesRose Z where
-  datatypeInfo _ _ 
-    =  ADT (ConT "E" "Rose" :@: ConT "Prelude" "Int")
-    $  (Constructor "Fork") :* NP0
-\end{code} %$
-\end{myhs}
-
-Once all the metadata is in place, we can use it in the same fashion
-as \texttt{generics-sop}. We refer the interested reader to
-\citet{deVries2014} for examples.
+%% \section{Metadata}
+%% \label{sec:metadata}
+%% 
+%%   The representations described in this paper is enough to write generic equalities
+%% and zippers. But there is one missing ingredient to derive generic
+%% pretty-printing or conversion to JSON, for instance. We need to maintain
+%% the \emph{metadata} information of our datatypes.
+%% This metadata includes the datatype name, the module where it was defined,
+%% and the name of the constructors. Without this
+%% information you cannot write a function which outputs the string
+%% \begin{verbatim}
+%% Fork 1 [Fork 2 [], Fork 3 []]
+%% \end{verbatim}
+%% for a call to |genericShow (Fork 1 [Fork 2 [], Fork 3 []])|. The reason is that
+%% the code of |Rose Int| does not contain the information that the constructor
+%% of |Rose| is called |"Fork"|.
+%% 
+%%   Like in \texttt{generics-sop}~\cite{deVries2014}, having the code
+%% for a family of datatypes available allows for a completely separate
+%% treatment of metadata. This is yet another advantage of the
+%% sum-of-products approach when compared to the more traditional pattern
+%% functors. In fact, our handling of metadata is heavily inspired from
+%% \texttt{generics-sop}, so much so that we will start by explaining a simplified version of
+%% their handling of metadata, and then outline the differences to our approach. 
+%% 
+%%   The general idea is to store the meta information following the structure of
+%% the datatype itself. So, instead of data, we keep track of the names of the
+%% different parts and other meta information that can be useful. It is advantageous
+%% to keep metadata separate from the generic representation as it would only
+%% clutter the definition of generic functionality.
+%% This information is tied to a datatype by means of an additional type class
+%% |HasDatatypeInfo|.
+%% Generic functions may now query the metadata by means of functions like
+%% |datatypeName|, which reflect the type information into the term level.
+%% The definitions are given in \Cref{fig:sopmeta}.
+%% 
+%% \begin{figure*}
+%% \begin{myhs}
+%% \begin{code}
+%% data DatatypeInfo :: [[Star]] -> Star where
+%%   ADT  :: ModuleName -> DatatypeName -> NP  ConstructorInfo cs       -> DatatypeInfo cs
+%%   New  :: ModuleName -> DatatypeName ->     ConstructorInfo (P [c])  -> DatatypeInfo (P [ P [ c ]])
+%% 
+%% data ConstructorInfo :: [Star] -> Star where
+%%   Constructor  :: ConstructorName                             -> ConstructorInfo xs
+%%   Infix        :: ConstructorName -> Associativity -> Fixity  -> ConstructorInfo (P [ x, y ])
+%%   Record       :: ConstructorName -> NP FieldInfo xs          -> ConstructorInfo xs
+%% 
+%% data FieldInfo :: Star -> Star where
+%%   FieldInfo :: FieldName -> FieldInfo a
+%% 
+%% class HasDatatypeInfo a where
+%%   datatypeInfo :: proxy a -> DatatypeInfo (Code a)
+%% \end{code}
+%% \end{myhs}
+%% \caption{Definitions related to metadata from \texttt{generics-sop}}
+%% \label{fig:sopmeta}
+%% \end{figure*}
+%% 
+%% 
+%% Our library uses the same approach to handle metadata. In fact, the code remains
+%% almost unchanged, except for adapting it to the larger universe of
+%% datatypes we can now handle. Unlike \texttt{generic-sop}, our list of lists
+%% representing the sum-of-products structure does not contain types of kind |Star|,
+%% but |Atom|s. All the types representing metadata at the type level must be
+%% updated to reflect this new scenario:
+%% \begin{myhs}
+%% \begin{code}
+%% data DatatypeInfo     :: [  [  Atom kon ]]  -> Star where ...
+%% data ConstructorInfo  ::    [  Atom kon ]   -> Star where ...
+%% data FieldInfo        ::       Atom kon     -> Star where ...
+%% \end{code}
+%% \end{myhs}
+%% 
+%% As we have discussed above, our library is able to generate codes not only
+%% for single types of kind |Star|, like |Int| or |Bool|, but also for types which
+%% are the result of type level applications, such as |Rose Int| and |[Rose Int]|.
+%% The shape of the metadata information in |DatatypeInfo|, a module name plus
+%% a datatype name, is not enough to handle these cases. 
+%% We replace the uses of |ModuleName| and |DatatypeName| in 
+%% |DatatypeInfo| by a richer promoted type |TypeName|, which can
+%% describe applications, as required.
+%% \begin{myhs}
+%% \begin{code}
+%% data TypeName  =  ConT ModuleName DatatypeName
+%%                |  TypeName :@: TypeName
+%% 
+%% data DatatypeInfo :: [[Atom kon]] -> Star where
+%%   ADT  ::  TypeName  -> NP  ConstructorInfo cs
+%%        ->  DatatypeInfo cs
+%%   New  ::  TypeName  ->     ConstructorInfo (P [c])
+%%        ->  DatatypeInfo (P [ P [ c ]])
+%% \end{code}
+%% \end{myhs}
+%% 
+%% The most important difference to \texttt{generics-sop}, perhaps, 
+%% is that the metadata is not defined for a single type, but
+%% for a type \emph{within} a family. This is reflected in the new signature of 
+%% |datatypeInfo|, which receives proxies for both the family and the type.
+%% The type equalities in that signature reflect the fact that the given type
+%% |ty| is included with index |ix| within the family |fam|. This step is needed
+%% to look up the code for the type in the right position of |codes|.
+%% \begin{myhs}
+%% \begin{code}
+%% class  (Family kappa fam codes)
+%%        =>  HasDatatypeInfo kappa fam codes ix 
+%%        |   fam -> kappa codes where
+%%   datatypeInfo  ::  (ix ~ Idx ty fam , Lkup ix fam ~ ty)
+%%                 =>  Proxy fam -> Proxy ty
+%%                 ->  DatatypeInfo (Lkup ix codes)
+%% \end{code}
+%% \end{myhs}
+%% 
+%%   The Template Haskell will then generate something similar to
+%% the instance below for the first type in the family, |Rose Int|:
+%% 
+%% \begin{myhs}
+%% \begin{code}
+%% instance HasDatatypeInfo Singl FamRose CodesRose Z where
+%%   datatypeInfo _ _ 
+%%     =  ADT (ConT "E" "Rose" :@: ConT "Prelude" "Int")
+%%     $  (Constructor "Fork") :* NP0
+%% \end{code} %$
+%% \end{myhs}
+%% 
+%% Once all the metadata is in place, we can use it in the same fashion
+%% as \texttt{generics-sop}. We refer the interested reader to
+%% \citet{deVries2014} for examples.

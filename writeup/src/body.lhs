@@ -500,13 +500,13 @@ type instance  CodeSOP (Bin a) = P ([ P [a] , P ([Bin a , Bin a]) ])
 |NP|. With a slight abuse of notation, one can view |NS| and |NP|
 through the lens of the following type isomorphisms:
 
-\vspace{-0.3cm}
+\vspace{-0.4cm}
 {\small
 \begin{align*}
   | NS f [k_1 , k_2 , dots]| &\equiv |f k_1 :+: (f k_2 :+: dots)| \\
   | NP f [k_1 , k_2 , dots]| &\equiv |f k_1 :*: (f k_2 :*: dots)| 
 \end{align*}}
-\vspace{-0.3cm}
+\vspace{-0.4cm}
 
   We could then define |RepSOP| to be
 |NS (NP (K1 R))|, echoing the isomorphisms above, where |data K1 R a = K1 a| 
@@ -515,7 +515,7 @@ need the parameter |f| to pass |NP| to |NS| here.
 This is exactly the representation we get
 from \texttt{GHC.Generics}.
 
-\vspace{-0.3cm}
+\vspace{-0.4cm}
 {\small
 \begin{align*}
   |RepSOP (Bin a)|
@@ -524,7 +524,7 @@ from \texttt{GHC.Generics}.
   &\equiv |RepGen (Bin a)|
 \end{align*}
 }
-\vspace{-0.3cm}
+\vspace{-0.4cm}
 
   It makes no sense to go through all the trouble of adding the
 explicit \emph{sums-of-products} structure to forget this
