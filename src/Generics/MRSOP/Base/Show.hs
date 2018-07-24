@@ -48,3 +48,9 @@ instance Show (NS (PoA ki (Fix ki codes)) (Lkup ix codes))
       => Show (Fix ki codes ix)
     where
   show (Fix x) = show x
+
+
+instance (Show1 phi, Show (NS (PoA ki (AnnFix ki codes phi)) (Lkup ix codes)))
+      => Show (AnnFix ki codes phi ix)
+    where
+  show (AnnFix a x) = show1 a ++ " :> " ++ show x

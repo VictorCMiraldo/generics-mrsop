@@ -264,21 +264,24 @@ newtype Fix (ki :: kon -> *) (codes :: [[[ Atom kon ]]]) (n :: Nat)
   = Fix { unFix :: Rep ki (Fix ki codes) (Lkup n codes) }
 
 -- | Catamorphism over fixpoints
-cata :: forall ki fam codes ix.
-     (forall iy. Rep ki (El fam) (Lkup iy codes) -> El fam iy)
+cata ::
+     (forall iy. Rep ki phi (Lkup iy codes) -> phi iy)
   -> Fix ki codes ix
-  -> El fam ix
+  -> phi ix
 cata f (Fix x) = f (mapRep (cata f) x)
 
 -- | Annotated version of Fix.   This is basically the 'Cofree' datatype,
 -- but for n-ary functors
-data AnnFix (ki :: kon -> *) (codes :: [[[Atom kon]]]) (a :: *) (n :: Nat) =
-  AnnFix a
-         (Rep ki (AnnFix ki codes a) (Lkup n codes))
+data AnnFix (ki :: kon -> *) (codes :: [[[Atom kon]]]) (phi :: Nat -> *) (n :: Nat) =
+  AnnFix (phi n)
+         (Rep ki (AnnFix ki codes phi) (Lkup n codes))
 
-annCata :: (forall iy. ann -> Rep ki (El fam) (Lkup iy codes) -> El fam iy)
+getAnn :: AnnFix ki codes ann ix -> ann ix
+getAnn (AnnFix a x) = a
+
+annCata :: (forall iy. ann iy -> Rep ki phi (Lkup iy codes) -> phi iy)
         -> AnnFix ki codes ann ix
-        -> El fam ix
+        -> phi ix
 annCata f (AnnFix a x) = f a (mapRep (annCata f) x)
 
 -- | Forget the annotations
