@@ -263,6 +263,28 @@ sop = go . unRep
 newtype Fix (ki :: kon -> *) (codes :: [[[ Atom kon ]]]) (n :: Nat)
   = Fix { unFix :: Rep ki (Fix ki codes) (Lkup n codes) }
 
+-- | Catamorphism over fixpoints
+cata :: forall ki fam codes ix.
+     (forall iy. Rep ki (El fam) (Lkup iy codes) -> El fam iy)
+  -> Fix ki codes ix
+  -> El fam ix
+cata f (Fix x) = f (mapRep (cata f) x)
+
+-- | Annotated version of Fix.   This is basically the 'Cofree' datatype,
+-- but for n-ary functors
+data AnnFix (ki :: kon -> *) (codes :: [[[Atom kon]]]) (a :: *) (n :: Nat) =
+  AnnFix a
+         (Rep ki (AnnFix ki codes a) (Lkup n codes))
+
+annCata :: (forall iy. ann -> Rep ki (El fam) (Lkup iy codes) -> El fam iy)
+        -> AnnFix ki codes ann ix
+        -> El fam ix
+annCata f (AnnFix a x) = f a (mapRep (annCata f) x)
+
+-- | Forget the annotations
+forgetAnn :: AnnFix ki codes a ix -> Fix ki codes ix
+forgetAnn (AnnFix _ rep) = Fix (mapRep forgetAnn rep)
+
 instance Eq1 ki => Eq1 (Fix ki codes) where
   eq1 = eqFix eq1
 
@@ -288,3 +310,4 @@ eqFix p = eqRep p (eqFix p) `on` unFix
 heqFixIx :: (IsNat ix , IsNat ix')
          => Fix ki fam ix -> Fix ki fam ix' -> Maybe (ix :~: ix')
 heqFixIx fa fb = testEquality (getSNat Proxy) (getSNat Proxy)
+
