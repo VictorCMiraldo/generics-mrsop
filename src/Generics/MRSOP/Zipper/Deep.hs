@@ -9,8 +9,11 @@
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TypeApplications     #-}
 -- | Provides one-hole contexts for our universe, but over
--- deep encoded datatypes. These are a bit easier to use
--- computationally
+--   deep encoded datatypes. These are a bit easier to use
+--   computationally.
+--
+--   This module follows the very same structure as 'Generics.MRSOP.Zipper'.
+--   Refer there for further documentation.
 module Generics.MRSOP.Zipper.Deep where
 import Control.Monad (guard)
 import Data.Proxy
@@ -18,8 +21,7 @@ import Data.Proxy
 import Generics.MRSOP.Util hiding (Cons , Nil)
 import Generics.MRSOP.Base
 
-
-
+-- |Analogous to 'Generics.MRSOP.Zipper.Ctxs'
 data Ctxs (ki :: kon -> *) (codes :: [[[Atom kon]]]) :: Nat -> Nat -> * where
   Nil :: Ctxs ki codes ix ix
   Cons
@@ -28,10 +30,13 @@ data Ctxs (ki :: kon -> *) (codes :: [[[Atom kon]]]) :: Nat -> Nat -> * where
     -> Ctxs ki codes a ix
     -> Ctxs ki codes a b
 
+-- |Analogous to 'Generics.MRSOP.Zipper.Ctx'
 data Ctx (ki :: kon -> *) (codes :: [[[Atom kon]]]) :: [[Atom kon]] -> Nat -> * where
   Ctx
     :: Constr c n -> NPHole ki codes ix (Lkup n c) -> Ctx ki codes c ix
 
+-- |Analogous to 'Generics.MRSOP.Zipper.NPHole', but uses a deep representation
+--  for generic values.
 data NPHole (ki :: kon -> *) (codes :: [[[Atom kon]]]) :: Nat -> [Atom kon] -> * where
   H :: PoA ki (Fix ki codes) xs -> NPHole ki codes ix ('I ix ': xs)
   T
@@ -54,6 +59,7 @@ fillNPHole ::
 fillNPHole x (H xs) = NA_I x :* xs
 fillNPHole x (T y ys) = y :* fillNPHole x ys
 
+-- |Given a value that fits in a context, fills the context hole.
 fillCtxs ::
      (IsNat ix) => Fix ki codes iy -> Ctxs ki codes ix iy -> Fix ki codes ix
 fillCtxs h Nil = h
@@ -66,6 +72,9 @@ fillCtx ::
   -> Rep ki (Fix ki codes) c
 fillCtx x (Ctx c nphole) = inj c (fillNPHole x nphole)
 
+-- |Given a value and a context, tries to match to context
+-- in the value and, upon success, returns whatever overlaps with
+-- the hole.
 removeCtxs ::
      (Eq1 ki, IsNat ix)
   => Ctxs ki codes ix iy
