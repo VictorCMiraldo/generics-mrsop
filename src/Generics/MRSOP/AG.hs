@@ -66,6 +66,7 @@ synthesize f = cata alg
       -> AnnFix ki codes phi iy
     alg xs = AnnFix (f (mapRep getAnn xs)) xs
 
+-- | Annotate each node with the number of subtrees
 sizeGeneric' ::
      forall ki codes ix. Fix ki codes ix -> AnnFix ki codes (Const (Sum Int)) ix
 sizeGeneric' = synthesize alg
@@ -74,9 +75,8 @@ sizeGeneric' = synthesize alg
          forall iy.
          Rep ki (Const (Sum Int)) (Lkup iy codes)
       -> Const (Sum Int) iy
-    alg (Rep xs) =
-      Const 1 `mappend`
-      elimNS (mconcat . elimNP (elimNA (const mempty) (Const . getConst))) xs
+    alg rep =
+      Const 1 `mappend` elimRep (const mempty) (Const . getConst) mconcat rep
 
 -- | Count the number of nodes
 sizeGeneric :: forall ki codes ix. Fix ki codes ix -> Const (Sum Int) ix
@@ -86,9 +86,8 @@ sizeGeneric = cata alg
          forall iy.
          Rep ki (Const (Sum Int)) (Lkup iy codes)
       -> Const (Sum Int) iy
-    alg (Rep xs) =
-      Const 1 `mappend`
-      elimNS (mconcat . elimNP (elimNA (const mempty) (Const . getConst))) xs
+    alg rep =
+      Const 1 `mappend` elimRep (const mempty) (Const . getConst) mconcat rep
 
 -- | Returns the number of leaves in a tree
 countLeavesGeneric :: forall ki codes ix. Fix ki codes ix -> Const (Sum Int) ix
