@@ -1,4 +1,7 @@
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE GADTs #-}
 
@@ -66,22 +69,19 @@ synthesize f = cata alg
       -> AnnFix ki codes phi iy
     alg xs = AnnFix (f (mapRep getAnn xs)) xs
 
+sizeAlgebra :: Rep ki (Const (Sum Int)) xs -> Const (Sum Int) iy
+sizeAlgebra =
+  mappend (Const 1) . elimRep (const mempty) (Const . getConst) mconcat
+
 -- | Annotate each node with the number of subtrees
 sizeGeneric' ::
      forall ki codes ix. Fix ki codes ix -> AnnFix ki codes (Const (Sum Int)) ix
 sizeGeneric' = synthesize sizeAlgebra
-  where
-    sizeAlgebra :: Rep ki (Const (Sum Int)) xs -> Const (Sum Int) iy
-    sizeAlgebra =
-      mappend (Const 1) . elimRep (const mempty) (Const . getConst) mconcat
+
 
 -- | Count the number of nodes
 sizeGeneric :: forall ki codes ix. Fix ki codes ix -> Const (Sum Int) ix
 sizeGeneric = cata sizeAlgebra
-  where
-    sizeAlgebra :: Rep ki (Const (Sum Int)) xs -> Const (Sum Int) iy
-    sizeAlgebra =
-      mappend (Const 1) . elimRep (const mempty) (Const . getConst) mconcat
 
 -- | Returns the number of leaves in a tree
 countLeavesGeneric :: forall ki codes ix. Fix ki codes ix -> Const (Sum Int) ix
