@@ -74,25 +74,25 @@ synthesize f = cata alg
     alg xs = AnnFix (f (mapRep getAnn xs)) xs
 
 
+monoidAlgebra :: Monoid m => Rep ki (Const m) xs -> Const m iy
+monoidAlgebra = elimRep mempty coerce fold
+
+-- If haskell had semirings in base, or edward kmett had a package for it
+-- we could do :
+-- semiringAlgebra :: Semiring w => Rep ki (Const w) xs -> Const w iy
+-- semiringAlgebra = (one <>) . monoidAlgebra
+--
+-- sizeAlgebra :: Rep ki (Const (Sum Int)) xs -> Const (Sum Int) iy
+-- sizeAlgebra = semiringAlgebra
+
 sizeAlgebra :: Rep ki (Const (Sum Int)) xs -> Const (Sum Int) iy
-sizeAlgebra = (Const 1 <>) . elimRep mempty coerce fold
+sizeAlgebra = (Const 1 <>) . monoidAlgebra
 
 -- | Annotate each node with the number of subtrees
-sizeGeneric' ::
-     forall ki codes ix. Fix ki codes ix -> AnnFix ki codes (Const (Sum Int)) ix
+sizeGeneric' :: Fix ki codes ix -> AnnFix ki codes (Const (Sum Int)) ix
 sizeGeneric' = synthesize sizeAlgebra
 
-
 -- | Count the number of nodes
-sizeGeneric :: forall ki codes ix. Fix ki codes ix -> Const (Sum Int) ix
+sizeGeneric :: Fix ki codes ix -> Const (Sum Int) ix
 sizeGeneric = cata sizeAlgebra
 
--- | Returns the number of leaves in a tree
-countLeavesGeneric :: forall ki codes ix. Fix ki codes ix -> Const (Sum Int) ix
-countLeavesGeneric = cata alg
-  where
-    alg :: Rep ki (Const (Sum Int)) (Lkup iy codes) -> Const (Sum Int) iy
-    alg (Rep xs) = elimNS alg2 xs
-    alg2 :: PoA ki (Const (Sum Int)) xs -> Const (Sum Int) iy
-    alg2 NP0 = Const 1
-    alg2 xs = fold $ elimNP (elimNA mempty coerce) xs
