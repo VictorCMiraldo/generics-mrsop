@@ -9,7 +9,9 @@
 module Generics.MRSOP.AG where
 
 import Data.Functor.Const
-import Data.Monoid (Sum(..))
+import Data.Coerce
+import Data.Foldable (fold)
+import Data.Monoid (Sum(..), (<>))
 import Generics.MRSOP.Base
 import Generics.MRSOP.Util
 
@@ -56,6 +58,8 @@ inherit f start (Fix rep) =
 -- (forall y. phi1 y -> phi2 y -> phi3 y) -> AG ki codes phi1 -> AG ki codes phi2 -> AG ki codes phi3
 --
 -- | Synthesized attributes
+
+
 synthesize ::
      forall ki phi codes ix.
      (forall iy. Rep ki phi (Lkup iy codes) -> phi iy)
@@ -69,9 +73,9 @@ synthesize f = cata alg
       -> AnnFix ki codes phi iy
     alg xs = AnnFix (f (mapRep getAnn xs)) xs
 
+
 sizeAlgebra :: Rep ki (Const (Sum Int)) xs -> Const (Sum Int) iy
-sizeAlgebra =
-  mappend (Const 1) . elimRep (const mempty) (Const . getConst) mconcat
+sizeAlgebra = (Const 1 <>) . elimRep mempty coerce fold
 
 -- | Annotate each node with the number of subtrees
 sizeGeneric' ::
@@ -91,4 +95,4 @@ countLeavesGeneric = cata alg
     alg (Rep xs) = elimNS alg2 xs
     alg2 :: PoA ki (Const (Sum Int)) xs -> Const (Sum Int) iy
     alg2 NP0 = Const 1
-    alg2 xs = mconcat $ elimNP (elimNA (const mempty) (Const . getConst)) xs
+    alg2 xs = fold $ elimNP (elimNA mempty coerce) xs
