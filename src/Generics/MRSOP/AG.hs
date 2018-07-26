@@ -5,6 +5,7 @@
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE Arrows #-}
 
 -- | Attribute grammars over mutual recursive datatypes
 module Generics.MRSOP.AG where
@@ -23,13 +24,16 @@ import Control.Arrow
 newtype AG ki codes c a b
   = AG { unAG :: forall ix. Fix ki codes ix -> AnnFix ki codes (Const (c a b)) ix }
 
+runAG :: AG ki codes (->) () r -> Fix ki codes ix -> AnnFix ki codes (Const r) ix
+runAG (AG ag) t = synthesizeAnn (\(Const f) _ -> Const $ f ()) (ag t)
+
 instance Category c => Category (AG ki codes c) where
   id = AG $ inherit (\r x -> mapRep (const (Const id)) r) (Const id)
   (AG a) . (AG b) = AG $ \t -> zipAnn (\(Const f) (Const g) -> Const (f . g)) (a t) (b t)
 
 instance Arrow c => Arrow (AG ki codes c) where
   arr f = AG $ inherit (\r x -> mapRep (const (Const (arr f))) r) (Const (arr f))
-  -- first (AG a) = AG 
+  first (AG a) = AG $ synthesizeAnn (\(Const f) _ -> Const (first f)) . a
 
 zipAnn :: forall phi1 phi2 phi3 ki codes ix.
           (forall iy. phi1 iy -> phi2 iy -> phi3 iy)
@@ -148,6 +152,29 @@ sizeAlgebra = (Const 1 <>) . monoidAlgebra
 -- | Annotate each node with the number of subtrees
 sizeGeneric' :: Fix ki codes ix -> AnnFix ki codes (Const (Sum Int)) ix
 sizeGeneric' = synthesize sizeAlgebra
+
+-- | sizeGeneric' as an AG
+sizeGeneric'' :: AG ki codes (->) () (Sum Int)
+sizeGeneric'' = AG $ synthesize sizeAlgebra''
+  where
+    sizeAlgebra'' = (Const (const (1 :: Sum Int)) <>) . monoidAlgebra''
+    monoidAlgebra'' :: Monoid m => Rep ki (Const (() -> m)) xs -> Const (() -> m) iy
+    monoidAlgebra'' t = Const $ \() -> elimRep mempty coerce (foldMap ($ ())) t
+
+doubleSize :: AG ki codes (->) () (Sum Int)
+doubleSize = proc () -> do r <- sizeGeneric'' -< ()
+                           returnA -< (r + r)
+
+synthesizeAttrib ::
+     (forall iy. Rep ki (Const output) (Lkup iy codes) -> Const input iy -> Const output iy)
+  -- forall iy. Rep ki phi (Lkup iy codes) -> phi iy
+  -> AG ki codes (->) input output
+synthesizeAttrib f = AG $ synthesizeAnn (\(Const (_,o)) _ -> Const o) 
+                            -- Here we synthesize (i, i -> o)
+                          . synthesize (\r -> Const $ \input ->
+                              let Const output = f (mapRep (\(Const (x,f) -> Const f x))) (Const input)
+                               in 
+                            )
 
 -- | Count the number of nodes
 sizeGeneric :: Fix ki codes ix -> Const (Sum Int) ix
