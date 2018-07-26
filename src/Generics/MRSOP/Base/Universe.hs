@@ -282,8 +282,8 @@ data AnnFix (ki :: kon -> *) (codes :: [[[Atom kon]]]) (phi :: Nat -> *) (n :: N
 getAnn :: AnnFix ki codes ann ix -> ann ix
 getAnn (AnnFix a x) = a
 
-annCata :: (forall iy. ann iy -> Rep ki phi (Lkup iy codes) -> phi iy)
-        -> AnnFix ki codes ann ix
+annCata :: (forall iy. chi iy -> Rep ki phi (Lkup iy codes) -> phi iy)
+        -> AnnFix ki codes chi ix
         -> phi ix
 annCata f (AnnFix a x) = f a (mapRep (annCata f) x)
 
