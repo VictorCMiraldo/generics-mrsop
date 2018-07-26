@@ -38,6 +38,7 @@ data Atom kon
   | I Nat
   deriving (Eq, Show)
 
+
 -- |@NA ki phi a@ provides an interpretation for an atom @a@,
 --  using either @ki@ or @phi@ to interpret the type variable
 --  or opaque type.
@@ -48,11 +49,13 @@ data NA  :: (kon -> *) -> (Nat -> *) -> Atom kon -> * where
 instance (Eq1 phi, Eq1 ki) => Eq1 (NA ki phi) where
   eq1 = eqNA eq1 eq1
 
-instance (TestEquality ki, TestEquality kon) => TestEquality (NA ki kon) where
-  testEquality (NA_I i) (NA_I i') = 
-    case testEquality i i' of
+
+instance (TestEquality ki) => TestEquality (NA ki phi) where
+  testEquality (NA_I i) (NA_I i') =
+    case testEquality (sNatFixIdx i) (sNatFixIdx i') of
       Just Refl -> Just Refl
       Nothing -> Nothing
+    
   testEquality (NA_K k) (NA_K k') =
     -- we learn that
     -- a ~ (K k1)
@@ -292,8 +295,11 @@ instance Eq1 ki => Eq1 (Fix ki codes) where
   eq1 = eqFix eq1
 
 -- |Retrieves the index of a 'Fix'
-proxyFixIdx :: Fix ki fam ix -> Proxy ix
+proxyFixIdx :: phi ix -> Proxy ix
 proxyFixIdx _ = Proxy
+
+sNatFixIdx :: IsNat ix => phi ix -> SNat ix
+sNatFixIdx x = getSNat (proxyFixIdx x)
 
 -- |Maps over the values of opaque types within the
 --  fixpoint.
