@@ -20,20 +20,27 @@ import Generics.MRSOP.Util
 import Prelude hiding ((.), id)
 import Control.Category
 import Control.Arrow
+import Data.Proxy
 
-newtype AG ki codes c a b
-  = AG { unAG :: forall ix. Fix ki codes ix -> AnnFix ki codes (Const (c a b)) ix }
+newtype AG ki codes a b
+  = AG { unAG :: forall ix. AnnFix ki codes (Const a) ix -> AnnFix ki codes (Const b) ix }
 
-runAG :: AG ki codes (->) () r -> Fix ki codes ix -> AnnFix ki codes (Const r) ix
-runAG (AG ag) t = synthesizeAnn (\(Const f) _ -> Const $ f ()) (ag t)
+instance Category (AG ki codes) where
+  id = AG id
+  (AG a) . (AG b) = AG (a . b)
 
-instance Category c => Category (AG ki codes c) where
-  id = AG $ inherit (\r x -> mapRep (const (Const id)) r) (Const id)
-  (AG a) . (AG b) = AG $ \t -> zipAnn (\(Const f) (Const g) -> Const (f . g)) (a t) (b t)
+instance Arrow (AG ki codes) where
+  arr f = AG $ synthesizeAnn (\(Const x) _ -> Const (f x))
+  first (AG ag) = AG $ \x ->
+                        zipAnn (\(Const b) (Const d) -> Const (b,d))
+                               (ag (synthesizeAnn (\(Const (a,d)) _ -> Const a) x))
+                               (synthesizeAnn (\(Const (a,d)) _ -> Const d) x)
 
-instance Arrow c => Arrow (AG ki codes c) where
-  arr f = AG $ inherit (\r x -> mapRep (const (Const (arr f))) r) (Const (arr f))
-  first (AG a) = AG $ synthesizeAnn (\(Const f) _ -> Const (first f)) . a
+voidAnn :: Fix ki codes ix -> AnnFix ki codes (Const ()) ix
+voidAnn = synthesize (\_ -> Const ())
+
+runAG :: AG ki codes () r -> Fix ki codes ix -> AnnFix ki codes (Const r) ix
+runAG (AG ag) = ag . voidAnn
 
 zipAnn :: forall phi1 phi2 phi3 ki codes ix.
           (forall iy. phi1 iy -> phi2 iy -> phi3 iy)
@@ -134,6 +141,17 @@ synthesize f = cata alg
       -> AnnFix ki codes phi iy
     alg xs = AnnFix (f (mapRep getAnn xs)) xs
 
+syn :: forall ki codes a b.
+       (forall iy. Proxy iy -> a -> Rep ki (Const b) (Lkup iy codes) -> b)
+    -> AG ki codes a b
+syn f = AG $ synthesizeAnn go
+  where go :: forall iw. Const a iw -> Rep ki (Const b) (Lkup iw codes) -> Const b iw
+        go (Const a) r = Const $ f (Proxy :: Proxy iw) a r
+
+syn_ :: forall ki codes a b.
+        (forall iy. Proxy iy -> Rep ki (Const b) (Lkup iy codes) -> b)
+     -> AG ki codes a b
+syn_ f = syn (\p _ r -> f p r)
 
 monoidAlgebra :: Monoid m => Rep ki (Const m) xs -> Const m iy
 monoidAlgebra = elimRep mempty coerce fold
@@ -153,28 +171,14 @@ sizeAlgebra = (Const 1 <>) . monoidAlgebra
 sizeGeneric' :: Fix ki codes ix -> AnnFix ki codes (Const (Sum Int)) ix
 sizeGeneric' = synthesize sizeAlgebra
 
--- | sizeGeneric' as an AG
-sizeGeneric'' :: AG ki codes (->) () (Sum Int)
-sizeGeneric'' = AG $ synthesize sizeAlgebra''
-  where
-    sizeAlgebra'' = (Const (const (1 :: Sum Int)) <>) . monoidAlgebra''
-    monoidAlgebra'' :: Monoid m => Rep ki (Const (() -> m)) xs -> Const (() -> m) iy
-    monoidAlgebra'' t = Const $ \() -> elimRep mempty coerce (foldMap ($ ())) t
+sizeGeneric'' :: AG ki codes a (Sum Int)
+sizeGeneric'' = syn_ sizeAlgebra''
+  where sizeAlgebra'' :: p -> Rep ki (Const (Sum Int)) xs -> Sum Int
+        sizeAlgebra'' _ = (1 <>) . getConst . elimRep mempty coerce fold
 
-doubleSize :: AG ki codes (->) () (Sum Int)
-doubleSize = proc () -> do r <- sizeGeneric'' -< ()
-                           returnA -< (r + r)
-
-synthesizeAttrib ::
-     (forall iy. Rep ki (Const output) (Lkup iy codes) -> Const input iy -> Const output iy)
-  -- forall iy. Rep ki phi (Lkup iy codes) -> phi iy
-  -> AG ki codes (->) input output
-synthesizeAttrib f = AG $ synthesizeAnn (\(Const (_,o)) _ -> Const o) 
-                            -- Here we synthesize (i, i -> o)
-                          . synthesize (\r -> Const $ \input ->
-                              let Const output = f (mapRep (\(Const (x,f) -> Const f x))) (Const input)
-                               in 
-                            )
+sizeTwice :: AG ki codes a (Sum Int)
+sizeTwice = proc x -> do r <- sizeGeneric'' -< x
+                         returnA -< r + r
 
 -- | Count the number of nodes
 sizeGeneric :: Fix ki codes ix -> Const (Sum Int) ix
