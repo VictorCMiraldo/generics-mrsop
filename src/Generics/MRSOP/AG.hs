@@ -1,6 +1,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE GADTs #-}
@@ -59,6 +60,20 @@ inherit f start (Fix rep) =
 --
 -- | Synthesized attributes
 
+synthesizeAnn ::
+     forall ki codes chi phi ix.
+     (forall iy. chi iy -> Rep ki phi (Lkup iy codes) -> phi iy)
+  -> AnnFix ki codes chi ix
+  -> AnnFix ki codes phi ix
+synthesizeAnn f = annCata alg
+  where
+    alg ::
+         forall iy.
+         chi iy
+      -> Rep ki (AnnFix ki codes phi) (Lkup iy codes)
+      -> AnnFix ki codes phi iy
+    alg ann rep = AnnFix (f ann (mapRep getAnn rep)) rep
+    
 
 synthesize ::
      forall ki phi codes ix.
@@ -95,4 +110,5 @@ sizeGeneric' = synthesize sizeAlgebra
 -- | Count the number of nodes
 sizeGeneric :: Fix ki codes ix -> Const (Sum Int) ix
 sizeGeneric = cata sizeAlgebra
+
 
