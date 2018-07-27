@@ -12,6 +12,7 @@ module Generics.MRSOP.AG where
 import Data.Coerce
 import Data.Foldable (fold)
 import Data.Functor.Const
+import Data.Functor.Product
 import Data.Monoid (Sum(..), (<>))
 import Generics.MRSOP.Base
 import Generics.MRSOP.Util
@@ -50,6 +51,9 @@ mapAnn f = synthesizeAnn (\x _ -> f x)
 
 instance Show k => Show1 (Const k) where
   show1 (Const x) = "(Const " ++ show x ++ ")"
+
+instance (Show1 f, Show1 g) => Show1 (Product f g) where
+  show1 (Pair x y) = "(" ++ show1 x ++ ", " ++ show1 y ++ ")"
 
 -- | Inherited attributes
 

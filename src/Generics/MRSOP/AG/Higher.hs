@@ -3,16 +3,23 @@
 {-# LANGUAGE TypeOperators    #-}
 {-# LANGUAGE PolyKinds        #-}
 {-# LANGUAGE Arrows           #-}
+{-# LANGUAGE GADTs            #-}
+{-# LANGUAGE PatternSynonyms  #-}
+{-# LANGUAGE TypeApplications #-}
 module Generics.MRSOP.AG.Higher where
 
 import Prelude
+import Data.Coerce
 import Data.Functor.Const
 import Data.Functor.Product
 import Data.Monoid (Sum(..), (<>))
 
 import Generics.MRSOP.Base
 import Generics.MRSOP.Util
+import Generics.MRSOP.Opaque
 import Generics.MRSOP.AG hiding (AG(..))
+
+import Generics.MRSOP.Examples.LambdaAlphaEqTH
 
 type f :~>: g = forall x. f x -> g x
 
@@ -23,6 +30,7 @@ overConst :: (a -> b) -> Const a t -> Const b t
 overConst f (Const x) = Const (f x)
 
 type f :&: g = Product f g
+type a :&&: b = Const a :&: Const b
 
 -- From 'Arrow'
 -- arr :: (a -> b) -> AG ki codes (Const a) (Const b)
@@ -61,6 +69,10 @@ unitAnn = synthesize (\_ -> Unit)
 runAG :: AG ki codes Unit r -> Fix ki codes :~>: AnnFix ki codes r
 runAG (AG ag) = ag . unitAnn
 
+runAG_ :: (Family ki fam codes, ix ~ Idx ty fam, Lkup ix fam ~ ty, IsNat ix)
+       => AG ki codes Unit r -> ty -> AnnFix ki codes r ix
+runAG_ ag = runAG ag . deep
+
 sizeGenericAG :: AG ki codes a (Const (Sum Int))
 sizeGenericAG = AG $ synthesizeAnn (\_ -> sizeAlgebra)
 
@@ -74,3 +86,80 @@ sizeTwiceDepth = proc x -> do Const r <- sizeGenericAG -< x
                               d <- depthGenericAG -< x
                               returnA -< Pair (Const (r + r)) d
 -}
+
+duplicate :: x :~>: (x :&: x)
+duplicate x = Pair x x
+
+swap :: (x :&: y) :~>: (y :&: x)
+swap (Pair x y) = Pair y x
+
+sizeTwiceDepth :: AG ki codes a (Sum Int :&&: Int)
+sizeTwiceDepth = arr duplicate
+                 >>> first sizeGenericAG
+                 >>> arr swap
+                 >>> first depthGenericAG
+                 >>> arr (\(Pair d (Const r)) -> Pair (Const $ r + r) d)
+
+-- Example over lambda-terms
+
+data Type = TyVar String | Arrow Type Type deriving (Show)
+data TyEq = Type :=: Type deriving (Show)
+
+type Context = [(String, Type)]
+
+pattern Pair_ x y = Pair (Const x) (Const y)
+
+copy :: (forall ix. f ix)
+     -> Rep ki g c
+     -> Rep ki f c
+copy x = mapRep (const x)
+
+type InhDefn ki codes a b
+  = forall ix. a ix
+               -> Rep ki (Const ()) (Lkup ix codes)
+               -> b ix
+               -> Rep ki b (Lkup ix codes)
+
+type SynDefn ki codes a b
+  = forall ix. a ix
+               -> Rep ki b (Lkup ix codes)
+               -> b ix
+
+unique :: AG Singl CodesTerm a (Const String)
+unique = AG $ inheritAnn go (Const "x")
+  where go :: InhDefn Singl CodesTerm a (Const String)
+        go _ x (Const u) = case sop x of
+          Abs_ v _ -> fromView $ Abs_ v (Const ('x':u))
+          App_ f e -> fromView $ App_ (Const ('f':u)) (Const ('e':u))
+          Var_ v   -> fromView $ Var_ v
+
+context :: AG Singl CodesTerm (Const String) (Const Context)
+context = AG $ inheritAnn go (Const [])
+  where go :: InhDefn Singl CodesTerm (Const String) (Const Context)
+        go (Const u) x (Const ctx) = case sop x of
+          Abs_ (SString v) _ -> fromView $ Abs_ (SString v) (Const $ (v, TyVar u) : ctx)
+          _ -> copy (Const ctx) x
+
+typing :: AG Singl CodesTerm (String :&&: Context) (Type :&&: [TyEq])
+typing = AG $ synthesizeAnn go
+  where go :: SynDefn Singl CodesTerm (String :&&: Context) (Type :&&: [TyEq])
+        go (Pair_ u ctx) x = case sop x of
+          Abs_ (SString v) (Pair_ ty cs)
+            -> Pair_ (Arrow (TyVar u) ty) cs
+          App_ (Pair_ ty1 cs1) (Pair_ ty2 cs2)
+            -> let newEq = ty1 :=: Arrow ty2 (TyVar u)
+                   newCs = newEq : cs1 ++ cs2
+               in Pair_ (TyVar u) newCs
+          Var_ (SString v)
+            -> let Just ty = lookup v ctx
+               in Pair_ ty []
+
+checker :: AG Singl CodesTerm a (Type :&&: [TyEq])
+checker = unique
+          >>> arr duplicate
+          >>> first context
+          >>> arr swap
+          >>> typing
+
+lambdaT1 = t1 "a" "b"
+lambdaT2 = t2 "a" "b" "c" 'd'

@@ -253,6 +253,10 @@ sop = go . unRep
     go (There s)   = case go s of
                         Tag c poa -> Tag (CS c) poa
 
+-- |Wraps a 'View' into a 'Rep'
+fromView :: View ki fam sum -> Rep ki fam sum
+fromView (Tag c x) = inj c x
+
 -- * Least Fixpoints
 --
 -- $leastFixpoints
