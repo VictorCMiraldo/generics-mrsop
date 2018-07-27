@@ -22,26 +22,6 @@ import Control.Category
 import Control.Arrow
 import Data.Proxy
 
-newtype AG ki codes a b
-  = AG { unAG :: forall ix. AnnFix ki codes (Const a) ix -> AnnFix ki codes (Const b) ix }
-
-instance Category (AG ki codes) where
-  id = AG id
-  (AG a) . (AG b) = AG (a . b)
-
-instance Arrow (AG ki codes) where
-  arr f = AG $ synthesizeAnn (\(Const x) _ -> Const (f x))
-  first (AG ag) = AG $ \x ->
-                        zipAnn (\(Const b) (Const d) -> Const (b,d))
-                               (ag (synthesizeAnn (\(Const (a,d)) _ -> Const a) x))
-                               (synthesizeAnn (\(Const (a,d)) _ -> Const d) x)
-
-voidAnn :: Fix ki codes ix -> AnnFix ki codes (Const ()) ix
-voidAnn = synthesize (\_ -> Const ())
-
-runAG :: AG ki codes () r -> Fix ki codes ix -> AnnFix ki codes (Const r) ix
-runAG (AG ag) = ag . voidAnn
-
 zipAnn :: forall phi1 phi2 phi3 ki codes ix.
           (forall iy. phi1 iy -> phi2 iy -> phi3 iy)
        -> AnnFix ki codes phi1 ix
@@ -69,8 +49,48 @@ zipAnn f (AnnFix a1 t1) (AnnFix a2 t2) = AnnFix (f a1 a2) (zipWithRep t1 t2)
     zipWithNA (NA_I t1) (NA_I t2) = NA_I (zipAnn f t1 t2)
     zipWithNA (NA_K i1) (NA_K i2) = NA_K i1  -- Should be the same!
 
+mapAnn :: (forall iy. chi iy -> phi iy)
+       -> AnnFix ki codes chi ix
+       -> AnnFix ki codes phi ix
+mapAnn f = synthesizeAnn (\x _ -> f x)
+
 instance Show k => Show1 (Const k) where
   show1 (Const x) = "(Const " ++ show x ++ ")"
+
+-- | Inherited attributes
+
+inheritAnn ::
+     forall ki codes chi phi ix.
+     (forall iy. chi iy -> Rep ki (Const ()) (Lkup iy codes) -> phi iy -> Rep ki phi (Lkup iy codes))
+  -> phi ix
+  -> AnnFix ki codes chi ix
+  -> AnnFix ki codes phi ix
+inheritAnn f start (AnnFix ann rep) =
+  let newFix = f ann (mapRep (const (Const ())) rep) start
+      zipWithRep ::
+           Rep ki (AnnFix ki codes chi) xs
+        -> Rep ki phi xs
+        -> Rep ki (AnnFix ki codes phi) xs
+      zipWithRep (Rep x) (Rep y) = Rep $ zipWithNS x y
+      zipWithNS ::
+           NS (PoA ki (AnnFix ki codes chi)) ys
+        -> NS (PoA ki phi) ys
+        -> NS (PoA ki (AnnFix ki codes phi)) ys
+      zipWithNS (Here x) (Here y) = Here $ zipWithNP x y
+      zipWithNS (There x) (There y) = There $ zipWithNS x y
+      zipWithNP ::
+           PoA ki (AnnFix ki codes chi) zs
+        -> PoA ki phi zs
+        -> PoA ki (AnnFix ki codes phi) zs
+      zipWithNP NP0 NP0 = NP0
+      zipWithNP (a :* as) (b :* bs) = zipWithNA a b :* zipWithNP as bs
+      zipWithNA ::
+           NA ki (AnnFix ki codes chi) ws
+        -> NA ki phi ws
+        -> NA ki (AnnFix ki codes phi) ws
+      zipWithNA (NA_I i1) (NA_I i2) = NA_I (inheritAnn f i2 i1)
+      zipWithNA (NA_K i1) (NA_K i2) = NA_K i1
+   in AnnFix start (zipWithRep rep newFix)
 
 inherit ::
      forall ki phi codes ix.
@@ -105,12 +125,6 @@ inherit f start (Fix rep) =
       zipWithNA (NA_K i1) (NA_K i2) = NA_K i1
    in AnnFix start (zipWithRep rep newFix)
 
--- inh   ~ syn a -> a
-
--- AG ki codes phi = forall ix. Fix ki codes ix -> AnnFix ki codes phi ix
---
--- (forall y. phi1 y -> phi2 y -> phi3 y) -> AG ki codes phi1 -> AG ki codes phi2 -> AG ki codes phi3
---
 -- | Synthesized attributes
 
 synthesizeAnn ::
@@ -141,18 +155,6 @@ synthesize f = cata alg
       -> AnnFix ki codes phi iy
     alg xs = AnnFix (f (mapRep getAnn xs)) xs
 
-syn :: forall ki codes a b.
-       (forall iy. Proxy iy -> a -> Rep ki (Const b) (Lkup iy codes) -> b)
-    -> AG ki codes a b
-syn f = AG $ synthesizeAnn go
-  where go :: forall iw. Const a iw -> Rep ki (Const b) (Lkup iw codes) -> Const b iw
-        go (Const a) r = Const $ f (Proxy :: Proxy iw) a r
-
-syn_ :: forall ki codes a b.
-        (forall iy. Proxy iy -> Rep ki (Const b) (Lkup iy codes) -> b)
-     -> AG ki codes a b
-syn_ f = syn (\p _ r -> f p r)
-
 monoidAlgebra :: Monoid m => Rep ki (Const m) xs -> Const m iy
 monoidAlgebra = elimRep mempty coerce fold
 
@@ -171,17 +173,85 @@ sizeAlgebra = (Const 1 <>) . monoidAlgebra
 sizeGeneric' :: Fix ki codes ix -> AnnFix ki codes (Const (Sum Int)) ix
 sizeGeneric' = synthesize sizeAlgebra
 
-sizeGeneric'' :: AG ki codes a (Sum Int)
-sizeGeneric'' = syn_ sizeAlgebra''
-  where sizeAlgebra'' :: p -> Rep ki (Const (Sum Int)) xs -> Sum Int
-        sizeAlgebra'' _ = (1 <>) . getConst . elimRep mempty coerce fold
-
-sizeTwice :: AG ki codes a (Sum Int)
-sizeTwice = proc x -> do r <- sizeGeneric'' -< x
-                         returnA -< r + r
-
 -- | Count the number of nodes
 sizeGeneric :: Fix ki codes ix -> Const (Sum Int) ix
 sizeGeneric = cata sizeAlgebra
 
 
+-- ATTRIBUTE GRAMMARS
+-- ==================
+
+newtype AG ki codes a b
+  = AG { unAG :: forall ix. AnnFix ki codes (Const a) ix -> AnnFix ki codes (Const b) ix }
+
+instance Category (AG ki codes) where
+  id = AG id
+  (AG a) . (AG b) = AG (a . b)
+
+overConst :: (a -> b) -> Const a t -> Const b t
+overConst f (Const x) = Const (f x)
+
+overConst2 :: (a -> b -> c) -> Const a t -> Const b t -> Const c t
+overConst2 f (Const x) (Const y) = Const (f x y)
+
+instance Arrow (AG ki codes) where
+  arr f = AG $ mapAnn (overConst f)
+  first (AG ag) = AG $ \x ->
+                        zipAnn (overConst2 (,))
+                               (ag (mapAnn (overConst fst) x))
+                                   (mapAnn (overConst snd) x)
+
+instance ArrowLoop (AG ki codes) where
+  loop (AG ag) = AG $ \b -> let bd = zipAnn (overConst2 (,)) b d
+                                cd = ag bd
+                                c = mapAnn (overConst fst) cd
+                                d = mapAnn (overConst snd) cd
+                             in c
+
+voidAnn :: Fix ki codes ix -> AnnFix ki codes (Const ()) ix
+voidAnn = synthesize (\_ -> Const ())
+
+runAG :: AG ki codes () r -> Fix ki codes ix -> AnnFix ki codes (Const r) ix
+runAG (AG ag) = ag . voidAnn
+
+inh :: forall ki codes a b.
+       (forall iy. Proxy iy -> a -> Rep ki (Const ()) (Lkup iy codes) -> b
+                   -> Rep ki (Const b) (Lkup iy codes))
+    -> b
+    -> AG ki codes a b
+inh f b = AG $ inheritAnn go (Const b)
+  where go :: forall iw. Const a iw -> Rep ki (Const ()) (Lkup iw codes) -> Const b iw
+           -> Rep ki (Const b) (Lkup iw codes)
+        go (Const a) skeleton (Const b) = f (Proxy :: Proxy iw) a skeleton b
+
+inh_ :: forall ki codes a b.
+       (forall iy. Proxy iy -> Rep ki (Const ()) (Lkup iy codes) -> b
+                   -> Rep ki (Const b) (Lkup iy codes))
+    -> b
+    -> AG ki codes a b
+inh_ f = inh (\p _ -> f p)
+
+syn :: forall ki codes a b.
+       (forall iy. Proxy iy -> a -> Rep ki (Const b) (Lkup iy codes) -> b)
+    -> AG ki codes a b
+syn f = AG $ synthesizeAnn go
+  where go :: forall iw. Const a iw -> Rep ki (Const b) (Lkup iw codes) -> Const b iw
+        go (Const a) r = Const $ f (Proxy :: Proxy iw) a r
+
+syn_ :: forall ki codes a b.
+        (forall iy. Proxy iy -> Rep ki (Const b) (Lkup iy codes) -> b)
+     -> AG ki codes a b
+syn_ f = syn (\p _ -> f p)
+
+sizeGenericAG :: AG ki codes a (Sum Int)
+sizeGenericAG = syn_ sizeAlgebraAG
+  where sizeAlgebraAG :: p -> Rep ki (Const (Sum Int)) xs -> Sum Int
+        sizeAlgebraAG _ = (1 <>) . getConst . elimRep mempty coerce fold
+
+depthGenericAG :: AG ki codes a Int
+depthGenericAG = inh_ (\_ r n -> mapRep (const (Const (n+1))) r) 0
+
+sizeTwiceDepth :: AG ki codes a (Sum Int, Int)
+sizeTwiceDepth = proc x -> do r <- sizeGenericAG -< x
+                              d <- depthGenericAG -< x
+                              returnA -< (r + r, d)
