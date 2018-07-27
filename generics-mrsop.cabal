@@ -44,7 +44,9 @@ library
     Generics.MRSOP.Examples.RoseTreeTH,
     Generics.MRSOP.Examples.LambdaAlphaEqTH,
     Generics.MRSOP.Examples.SimpTH,
-    Generics.MRSOP.AG
+    Generics.MRSOP.AG,
+    Generics.MRSOP.AG.First,
+    Generics.MRSOP.AG.Higher
 
   other-extensions: 
     MultiParamTypeClasses,
