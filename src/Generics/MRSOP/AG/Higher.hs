@@ -161,5 +161,11 @@ checker = unique
           >>> arr swap
           >>> typing
 
+{-
+checker = proc x -> do unique <- unique -< x
+                       ctx <- context -< u
+                       typing -< Pair u ctx
+-}
+
 lambdaT1 = t1 "a" "b"
 lambdaT2 = t2 "a" "b" "c" 'd'
