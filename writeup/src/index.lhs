@@ -1,5 +1,5 @@
 \documentclass[screen,sigplan]{acmart}%
-\settopmatter{printfolios=true,printccs=true,printacmref=true}
+%\settopmatter{printfolios=false,printccs=true,printacmref=true}
 
 %%%%%%%%%%%%%%
 %%%%%%%%%%%%%%

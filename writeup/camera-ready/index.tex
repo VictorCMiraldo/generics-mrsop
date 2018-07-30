@@ -1,0 +1,3693 @@
+\documentclass[screen,sigplan]{acmart}%
+%\settopmatter{printfolios=false,printccs=true,printacmref=true}
+
+%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%
+%% Template 
+
+%%% The following is specific to TyDe '18 and the paper
+%%% 'Sums of Products for Mutually Recursive Datatypes'
+%%% by Victor Cacciari Miraldo and Alejandro Serrano.
+%%%
+\setcopyright{acmlicensed}
+\acmPrice{15.00}
+\acmDOI{10.1145/3240719.3241786}
+\acmYear{2018}
+\copyrightyear{2018}
+\acmISBN{978-1-4503-5825-5/18/09}
+\acmConference[TyDe '18]{Proceedings of the 3rd ACM SIGPLAN International Workshop on Type-Driven Development}{September 27, 2018}{St. Louis, MO, USA}
+\acmBooktitle{Proceedings of the 3rd ACM SIGPLAN International Workshop on Type-Driven Development (TyDe '18), September 27, 2018, St. Louis, MO, USA}
+
+%% Bibliography style
+\bibliographystyle{acmart/ACM-Reference-Format}
+%% Citation style
+%\citestyle{acmauthoryear}  %% For author/year citations
+%\citestyle{acmnumeric}     %% For numeric citations
+%\setcitestyle{nosort}      %% With 'acmnumeric', to disable automatic
+                            %% sorting of references within a single citation;
+                            %% e.g., \cite{Smith99,Carpenter05,Baker12}
+                            %% rendered as [14,5,2] rather than [2,5,14].
+%\setcitesyle{nocompress}   %% With 'acmnumeric', to disable automatic
+                            %% compression of sequential references within a
+                            %% single citation;
+                            %% e.g., \cite{Baker12,Baker14,Baker16}
+                            %% rendered as [2,3,4] rather than [2-4].
+
+
+%% END TEMPLATE
+%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%
+%
+% Our formatting rules and included packages.
+%
+%% ODER: format ==         = "\mathrel{==}"
+%% ODER: format /=         = "\neq "
+%
+%
+\makeatletter
+\@ifundefined{lhs2tex.lhs2tex.sty.read}%
+  {\@namedef{lhs2tex.lhs2tex.sty.read}{}%
+   \newcommand\SkipToFmtEnd{}%
+   \newcommand\EndFmtInput{}%
+   \long\def\SkipToFmtEnd#1\EndFmtInput{}%
+  }\SkipToFmtEnd
+
+\newcommand\ReadOnlyOnce[1]{\@ifundefined{#1}{\@namedef{#1}{}}\SkipToFmtEnd}
+\usepackage{amstext}
+\usepackage{amssymb}
+\usepackage{stmaryrd}
+\DeclareFontFamily{OT1}{cmtex}{}
+\DeclareFontShape{OT1}{cmtex}{m}{n}
+  {<5><6><7><8>cmtex8
+   <9>cmtex9
+   <10><10.95><12><14.4><17.28><20.74><24.88>cmtex10}{}
+\DeclareFontShape{OT1}{cmtex}{m}{it}
+  {<-> ssub * cmtt/m/it}{}
+\newcommand{\texfamily}{\fontfamily{cmtex}\selectfont}
+\DeclareFontShape{OT1}{cmtt}{bx}{n}
+  {<5><6><7><8>cmtt8
+   <9>cmbtt9
+   <10><10.95><12><14.4><17.28><20.74><24.88>cmbtt10}{}
+\DeclareFontShape{OT1}{cmtex}{bx}{n}
+  {<-> ssub * cmtt/bx/n}{}
+\newcommand{\tex}[1]{\text{\texfamily#1}}	% NEU
+
+\newcommand{\Sp}{\hskip.33334em\relax}
+
+
+\newcommand{\Conid}[1]{\mathit{#1}}
+\newcommand{\Varid}[1]{\mathit{#1}}
+\newcommand{\anonymous}{\kern0.06em \vbox{\hrule\@width.5em}}
+\newcommand{\plus}{\mathbin{+\!\!\!+}}
+\newcommand{\bind}{\mathbin{>\!\!\!>\mkern-6.7mu=}}
+\newcommand{\rbind}{\mathbin{=\mkern-6.7mu<\!\!\!<}}% suggested by Neil Mitchell
+\newcommand{\sequ}{\mathbin{>\!\!\!>}}
+\renewcommand{\leq}{\leqslant}
+\renewcommand{\geq}{\geqslant}
+\usepackage{polytable}
+
+%mathindent has to be defined
+\@ifundefined{mathindent}%
+  {\newdimen\mathindent\mathindent\leftmargini}%
+  {}%
+
+\def\resethooks{%
+  \global\let\SaveRestoreHook\empty
+  \global\let\ColumnHook\empty}
+\newcommand*{\savecolumns}[1][default]%
+  {\g@addto@macro\SaveRestoreHook{\savecolumns[#1]}}
+\newcommand*{\restorecolumns}[1][default]%
+  {\g@addto@macro\SaveRestoreHook{\restorecolumns[#1]}}
+\newcommand*{\aligncolumn}[2]%
+  {\g@addto@macro\ColumnHook{\column{#1}{#2}}}
+
+\resethooks
+
+\newcommand{\onelinecommentchars}{\quad-{}- }
+\newcommand{\commentbeginchars}{\enskip\{-}
+\newcommand{\commentendchars}{-\}\enskip}
+
+\newcommand{\visiblecomments}{%
+  \let\onelinecomment=\onelinecommentchars
+  \let\commentbegin=\commentbeginchars
+  \let\commentend=\commentendchars}
+
+\newcommand{\invisiblecomments}{%
+  \let\onelinecomment=\empty
+  \let\commentbegin=\empty
+  \let\commentend=\empty}
+
+\visiblecomments
+
+\newlength{\blanklineskip}
+\setlength{\blanklineskip}{0.66084ex}
+
+\newcommand{\hsindent}[1]{\quad}% default is fixed indentation
+\let\hspre\empty
+\let\hspost\empty
+\newcommand{\NB}{\textbf{NB}}
+\newcommand{\Todo}[1]{$\langle$\textbf{To do:}~#1$\rangle$}
+
+\EndFmtInput
+\makeatother
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%
+%% Recommended by the ACM ppl
+\usepackage{booktabs}
+\usepackage{subcaption}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%
+%% Our packages
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{forest}
+
+%% Cleveref must be the last loaded package
+%% since it modifies the cross-ref system.
+\usepackage{cleveref}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%
+%% Our defs
+
+%% More space between rows
+\newcommand{\ra}[1]{\renewcommand{\arraystretch}{#1}}
+
+\newcommand{\hide}[1]{}
+
+%% Logistic Stuff
+
+\definecolor{C1}{RGB}{0,153,204}
+\definecolor{C2}{RGB}{89,0,179}
+
+\newcounter{commentctr}[section]
+\setcounter{commentctr}{0}
+\renewcommand{\thecommentctr}{%
+\arabic{section}.\arabic{commentctr}}
+
+\newcommand{\warnme}[1]{%
+{\color{red} \textbf{$[$} #1 \textbf{$]$}}}
+
+\newcommand{\TODO}[1]{%
+{\color{purple} \textbf{$[$ TODO: } #1 \textbf{$]$}}}
+
+\newcommand{\tmp}[1]{%
+{\color{gray} \textit{#1} }}
+
+\newenvironment{temp}{\bgroup \color{gray} \textit}{\egroup}
+
+\newcommand{\alejandro}[2][nolabel]{%
+{\color{C1} \refstepcounter{commentctr}\label{#1} \textbf{$[$ (\thecommentctr) Alejandro: } #2 \textbf{$]$}}}
+\newcommand{\victor}[2][nolabel]{%
+{\color{C2} \refstepcounter{commentctr}\label{#1} \textbf{$[$ (\thecommentctr) Victor: } #2 \textbf{$]$}}}
+
+%% LaTeX stuff
+
+\newenvironment{myhs}{\par\vspace{0.15cm}\begin{minipage}{\textwidth}\small}{\end{minipage}\vspace{0.15cm}}
+
+
+\newcommand{\nameofourlibrary}{generics-mrsop}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%
+%% lhs2TeX Formatting Rules
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% 
+%% Haskell Styling
+%%
+%% TODO: Figure out spacing!
+
+%% Colors (from duo-tone light syntax)
+\definecolor{hsblack}{RGB}{45,32,3}
+\definecolor{hsgold1}{RGB}{179,169,149}
+\definecolor{hsgold2}{RGB}{177,149,90}
+\definecolor{hsgold3}{RGB}{190,106,13}%{192,96,4}%{132,97,19}
+\definecolor{hsblue1}{RGB}{173,176,182}
+\definecolor{hsblue2}{RGB}{113,142,205}
+\definecolor{hsblue3}{RGB}{0,33,132}
+\definecolor{hsblue4}{RGB}{97,108,132}
+\definecolor{hsblue5}{RGB}{34,50,68}
+\definecolor{hsred2}{RGB}{191,121,103}
+\definecolor{hsred3}{RGB}{171,72,46}
+
+%% LaTeX Kerning nastiness. By using curly braces to delimit color group,
+%% it breaks spacing. The following seems to work:
+%%
+%% https://tex.stackexchange.com/questions/85033/colored-symbols/85035#85035
+%%
+\newcommand*{\mathcolor}{}
+\def\mathcolor#1#{\mathcoloraux{#1}}
+\newcommand*{\mathcoloraux}[3]{%
+  \protect\leavevmode
+  \begingroup
+    \color#1{#2}#3%
+  \endgroup
+}
+\newcommand{\HSKeyword}[1]{\mathcolor{hsgold3}{\textbf{#1}}}
+\newcommand{\HSNumeral}[1]{\mathcolor{hsred3}{#1}}
+\newcommand{\HSChar}[1]{\mathcolor{hsred2}{#1}}
+\newcommand{\HSString}[1]{\mathcolor{hsred2}{#1}}
+\newcommand{\HSSpecial}[1]{\mathcolor{hsblue4}{#1}}
+\newcommand{\HSSym}[1]{\mathcolor{hsblue4}{#1}}
+\newcommand{\HSCon}[1]{\mathcolor{hsblue3}{\mathit{#1}}}
+\newcommand{\HSVar}[1]{\mathcolor{hsblue5}{\mathit{#1}}}
+\newcommand{\HSComment}[1]{\mathcolor{hsgold2}{\textit{#1}}}
+
+
+%%% lhs2TeX parser does not recognize '*' 
+%%% in kind annotations, it thinks it is a multiplication.
+
+
+%%
+
+% Easy to typeset Haskell types using the \HSCon
+% command from stylish.lhs (if it's defined!)
+\newcommand{\HT}[1]{\ifdefined\HSCon\HSCon{#1}\else#1\fi}
+\newcommand{\HS}[1]{\ifdefined\HSSym\HSSym{#1}\else#1\fi}
+\newcommand{\HV}[1]{\ifdefined\HSVar\HSVar{#1}\else#1\fi}
+
+%%% Datatype Promotion
+
+%%% Pattern Synonyms
+\newcommand{\overbar}[1]{\mkern 1.5mu\overline{\mkern-1.5mu#1\mkern-1.5mu}\mkern 1.5mu}
+
+%%% Usefull Notation
+
+%%% Types
+
+
+%%% Functions
+
+
+
+%
+%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%
+
+\usepackage{multirow}
+\usepackage{balance}
+
+\begin{document}
+
+%% Title information
+\title[Sums of Products for Mutually Recursive Datatypes]{Sums of Products for Mutually Recursive Datatypes}
+%\titlenote{with title note}
+\subtitle{The Appropriationist's View on Generic Programming}
+%\subtitlenote{with subtitle note}
+
+
+%% Author information
+%% Contents and number of authors suppressed with 'anonymous'.
+%% Each author should be introduced by \author, followed by
+%% \authornote (optional), \orcid (optional), \affiliation, and
+%% \email.
+%% An author may have multiple affiliations and/or emails; repeat the
+%% appropriate command.
+%% Many elements are not rendered, but should be provided for metadata
+%% extraction tools.
+
+\author{Victor Cacciari Miraldo}
+\orcid{nnnn-nnnn-nnnn-nnnn}             %% \orcid is optional
+\affiliation{
+  %\position{PhD candidate}
+  \department{Information and Computing Sciences}
+  \institution{Utrecht University}
+  \streetaddress{Princetonplein, 5}
+  \city{Utrecht}
+  %\state{Utrecht}
+  \postcode{3584 CC}
+  \country{The Netherlands} 
+}
+\email{V.CacciariMiraldo@uu.nl}
+
+\author{Alejandro Serrano}
+\affiliation{
+  %\position{Junior lecturer}
+  \department{Information and Computing Sciences}
+  \institution{Utrecht University}
+  \streetaddress{Princetonplein, 5}
+  \city{Utrecht}
+  %\state{Utrecht}
+  \postcode{3584 CC}
+  \country{The Netherlands} 
+}
+\email{A.SerranoMena@uu.nl}
+
+
+%% Abstract
+%% Note: \begin{abstract}...\end{abstract} environment must come
+%% before \maketitle command
+\begin{abstract} 
+  Generic programming for mutually recursive families
+of datatypes is hard.
+On the other hand, most interesting abstract syntax trees
+are described by a mutually recursive family of datatypes.
+We could give up on using that mutually
+recursive structure, but then we lose the ability to use
+those generic operations which take advantage of that
+same structure. We present a new approach to generic programming that uses
+modern Haskell features to handle mutually recursive families with
+explicit \emph{sum-of-products} structure. This additional structure allows
+us to remove much of the complexity previously associated with generic
+programming over these types.
+\end{abstract}
+
+
+%% 2012 ACM Computing Classification System (CSS) concepts
+%% Generate at 'http://dl.acm.org/ccs/ccs.cfm'.
+\begin{CCSXML}\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSVar{ccs2012}\HSSym{>}{}\<[E]%
+\\
+\>[B]{}\HSVar{concept}\HSSym{>}{}\<[E]%
+\\
+\>[B]{}\HSVar{concept\char95 id}\HSSym{>}\HSNumeral{10011007.10011006}\HSSym{\mathbin{\circ}}\HSNumeral{10011008.10011009}\HSSym{\mathbin{\circ}}\HSNumeral{10011012}\HSSym{</}\HSVar{concept\char95 id}\HSSym{>}{}\<[E]%
+\\
+\>[B]{}\HSVar{concept\char95 desc}\HSSym{>}\HSCon{Software}\;\HSVar{and}\;\HSVar{its}\;\HSVar{engineering}\HSSym{\mathrel{\sim}}\HSCon{Functional}\;\HSVar{languages}\HSSym{</}\HSVar{concept\char95 desc}\HSSym{>}{}\<[E]%
+\\
+\>[B]{}\HSVar{concept\char95 significance}\HSSym{>}\HSNumeral{500}\HSSym{</}\HSVar{concept\char95 significance}\HSSym{>}{}\<[E]%
+\\
+\>[B]{}\HSSym{\mathbin{/}}\HSVar{concept}\HSSym{>}{}\<[E]%
+\\
+\>[B]{}\HSVar{concept}\HSSym{>}{}\<[E]%
+\\
+\>[B]{}\HSVar{concept\char95 id}\HSSym{>}\HSNumeral{10011007.10011006}\HSSym{\mathbin{\circ}}\HSNumeral{10011008.10011024}\HSSym{\mathbin{\circ}}\HSNumeral{10011028}\HSSym{</}\HSVar{concept\char95 id}\HSSym{>}{}\<[E]%
+\\
+\>[B]{}\HSVar{concept\char95 desc}\HSSym{>}\HSCon{Software}\;\HSVar{and}\;\HSVar{its}\;\HSVar{engineering}\HSSym{\mathrel{\sim}}\HSCon{Data}\;\HSVar{types}\;\HSVar{and}\;\HSVar{structures}\HSSym{</}\HSVar{concept\char95 desc}\HSSym{>}{}\<[E]%
+\\
+\>[B]{}\HSVar{concept\char95 significance}\HSSym{>}\HSNumeral{500}\HSSym{</}\HSVar{concept\char95 significance}\HSSym{>}{}\<[E]%
+\\
+\>[B]{}\HSSym{\mathbin{/}}\HSVar{concept}\HSSym{>}{}\<[E]%
+\\
+\>[B]{}\HSSym{\mathbin{/}}\HSVar{ccs2012}\HSSym{>}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{CCSXML}
+
+\ccsdesc[500]{Software and its engineering~Functional languages}
+\ccsdesc[500]{Software and its engineering~Data types and structures}
+%% End of generated code
+
+
+%% Keywords
+%% comma separated list
+\keywords{Generic Programming, Datatype, Haskell}
+
+
+%% \maketitle
+%% Note: \maketitle command must come after title commands, author
+%% commands, abstract environment, Computing Classification System
+%% environment and commands, and keywords command.
+\maketitle
+
+\balance
+%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Body
+%
+\newcommand{\mycaption}[1]{\vspace{-1em}\caption{#1}}
+
+\section{Introduction}
+\label{sec:introduction}
+
+\emph{(Datatype-)generic programming} provides a mechanism to write functions
+by induction on the structure of algebraic datatypes~\cite{Gibbons2006}. 
+A well-known example is the \ensuremath{\HSKeyword{deriving}} mechanism
+in Haskell, which frees the programmer from writing repetitive functions such as
+equality~\cite{haskell2010}. A vast range of approaches are available as
+preprocessors, language extensions, or libraries for Haskell~\cite{Rodriguez2008,Magalhaes2012}.
+In \Cref{fig:gplibraries} we outline the main design differences between a few
+of those libraries.
+
+The core idea underlying generic programming is the fact that a great
+number of datatypes can be described in a uniform fashion.
+Consider the following datatype representing binary trees with data stored in their
+leaves:
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{data}\;\HSCon{Bin}\;\HSVar{a}\HSSym{\mathrel{=}}\HSCon{Leaf}\;\HSVar{a}\HSSym{\mid} \HSCon{Bin}\;\HSSpecial{(}\HSCon{Bin}\;\HSVar{a}\HSSpecial{)}\;\HSSpecial{(}\HSCon{Bin}\;\HSVar{a}\HSSpecial{)}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+A value of type \ensuremath{\HSCon{Bin}\;\HSVar{a}} consists of a choice between two constructors.
+For the first choice, it also contains a value of type \ensuremath{\HSVar{a}} whereas 
+for the second it contains two subtrees as children. This means that the \ensuremath{\HSCon{Bin}\;\HSVar{a}} type
+is isomorphic to \ensuremath{\HSCon{Either}\;\HSVar{a}\;\HSSpecial{(}\HSCon{Bin}\;\HSVar{a}\HSSpecial{,}\HSCon{Bin}\;\HSVar{a}\HSSpecial{)}}. 
+
+Different libraries differ on how they define their underlying generic descriptions. 
+For example,
+\texttt{GHC.Generics}~\cite{Magalhaes2010} defines the representation of \ensuremath{\HSCon{Bin}}
+as the following datatype:
+
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSCon{Rep}\;\HSSpecial{(}\HSCon{Bin}\;\HSVar{a}\HSSpecial{)}\HSSym{\mathrel{=}}\HSCon{K1}\;\HSCon{R}\;\HSVar{a}\mathrel{\HT{:\!+\!:}}\HSSpecial{(}\HSCon{K1}\;\HSCon{R}\;\HSSpecial{(}\HSCon{Bin}\;\HSVar{a}\HSSpecial{)}\mathrel{\HT{:\!*\!:}}\HSCon{K1}\;\HSCon{R}\;\HSSpecial{(}\HSCon{Bin}\;\HSVar{a}\HSSpecial{)}\HSSpecial{)}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+which is a direct translation of \ensuremath{\HSCon{Either}\;\HSVar{a}\;\HSSpecial{(}\HSCon{Bin}\;\HSVar{a}\HSSpecial{,}\HSCon{Bin}\;\HSVar{a}\HSSpecial{)}}, but using
+the combinators provided by \texttt{GHC.Generics}, namely \ensuremath{\mathrel{\HT{:\!+\!:}}} and
+\ensuremath{\mathrel{\HT{:\!*\!:}}}. In addition, we need two conversion functions \ensuremath{\HV{\textit{from}}\HSSym{::}\HSVar{a}\HSSym{\to} \HSCon{Rep}\;\HSVar{a}} and \ensuremath{\HSVar{to}\HSSym{::}\HSCon{Rep}\;\HSVar{a}\HSSym{\to} \HSVar{a}} which form an isomorphism between \ensuremath{\HSCon{Bin}\;\HSVar{a}}
+and \ensuremath{\HSCon{Rep}\;\HSSpecial{(}\HSCon{Bin}\;\HSVar{a}\HSSpecial{)}}.  All this information is tied to the original
+datatype using a type class:
+
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{3}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{9}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{19}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{class}\;\HSCon{Generic}\;\HSVar{a}\;\HSKeyword{where}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSKeyword{type}\;\HSCon{Rep}\;\HSVar{a}\HSSym{::}\HSCon{*}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HV{\textit{from}}{}\<[9]%
+\>[9]{}\HSSym{::}\HSVar{a}{}\<[19]%
+\>[19]{}\HSSym{\to} \HSCon{Rep}\;\HSVar{a}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSVar{to}{}\<[9]%
+\>[9]{}\HSSym{::}\HSCon{Rep}\;\HSVar{a}{}\<[19]%
+\>[19]{}\HSSym{\to} \HSVar{a}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+  Most generic programming libraries follow a similar pattern of
+defining the \emph{description} of a datatype in the provided uniform
+language by some type level information, and two functions witnessing
+an isomorphism. A important feature of such library is how this
+description is encoded and which are the primitive operations for
+constructing such encodings, as we shall explore in
+\Cref{sec:designspace}. Some libraries, mainly deriving from the \texttt{SYB}
+approach~\cite{Lammel2003,Mitchell2007}, use the \ensuremath{\HSCon{Data}} and \ensuremath{\HSCon{Typeable}} type classes
+instead of static type level information to provide generic functionality. 
+These are a completely different strand of work from ours.
+
+  \Cref{fig:gplibraries} shows the main libraries relying on type
+level representations. In the \emph{pattern functor} approach we have
+\texttt{GHC.Generics}~\cite{Magalhaes2010}, being the most commonly
+used one, that effectively replaced \texttt{regular}~\cite{Noort2008}.
+The former does not account for recursion explicitly, allowing only
+for a \emph{shallow} representation, whereas the later allows for both
+\emph{deep} and \emph{shallow} representations by maintaining
+information about the recursive occurrences of a type. Maintaining
+this information is central to some generic functions, such as the
+generic \ensuremath{\HSVar{map}} and \ensuremath{\HSCon{Zipper}}, for instance.  Oftentimes though, one
+actually needs more than just one recursive type, justifying the need
+to \texttt{multirec}~\cite{Yakushev2009}.
+
+These libraries are too permissive though, for instance, \ensuremath{\HSCon{K1}\;\HSCon{R}\;\HSCon{Int}\mathrel{\HT{:\!*\!:}}\HSCon{Maybe}}
+is a perfectly valid \texttt{GHC.Generics} \emph{pattern functor} but
+will break generic functions, i.e., \ensuremath{\HSCon{Maybe}} is not a combinator. 
+The way to fix this is to ensure that the
+\emph{pattern functors} abide by a certain format, by defining them
+by induction on some \emph{code} that can be
+inspected and matched on. This is the approach of
+\texttt{generics-sop}~\cite{deVries2014}. The more restrictive
+code approach allows one to write concise, combinator-based,
+generic programs. The novelty in our work is in the intersection of
+both the expressivity of \texttt{multirec}, allowing the encoding of
+mutually recursive families, with the convenience of the more modern
+\texttt{generics-sop} style. In fact, it is worth noting that neither 
+of the aforementioned libraries \emph{compete} with out work. We 
+extend both in orthogonal directions, resulting in a new design altogether,
+that takes advantage of some modern Haskell extensions that the authors of
+the previous work could not enjoy.
+
+\begin{figure}\centering
+\ra{1.3}
+\begin{tabular}{@{}lll@{}}\toprule
+                        & Pattern Functors       & Codes                 \\ \midrule
+  No Explicit Recursion & \texttt{GHC.Generics}  & \texttt{generics-sop} \\
+  Simple Recursion      &  \texttt{regular}      &  \multirow{2}{*}{\textbf{\texttt{\nameofourlibrary}}} \\
+  Mutual Recursion      &  \texttt{multirec}     &   \\
+\bottomrule
+\end{tabular}
+\mycaption{Spectrum of static generic programming libraries}
+\label{fig:gplibraries}
+\end{figure}
+
+\subsection{Contributions}
+
+In this paper we make the following contributions:
+\begin{itemize}
+\item We extend the sum-of-products approach of \citet{deVries2014} to 
+care for recursion (\Cref{sec:explicitfix}), allowing for \emph{shallow} and
+\emph{deep} representations. We proceed generalizing even further to mutually 
+recursive families of datatypes (\Cref{sec:family}).
+\item We illustrate the use of our library on familiar examples
+such as equality, $\alpha$-equivalence (\Cref{sec:alphaequivalence}) 
+and the zipper (\Cref{sec:mrecexamples}),
+illustrating how it subsumes the features of the previous approaches.
+\item We provide Template Haskell functionality to derive all the
+boilerplate code needed to use our library (in \Cref{sec:templatehaskell},
+due to space restrictions).
+The novelty lies in our handling of instantiated type constructors.
+\end{itemize}
+We have packaged our results as a Haskell library. 
+This library, \texttt{\nameofourlibrary}, fills the hole in \Cref{fig:gplibraries} for a code-based
+approach with support for mutual recursion.
+
+\subsection{Design Space}
+\label{sec:designspace}
+
+The availability of several libraries for generic programming witnesses
+the fact that there are trade-offs between expressivity,
+ease of use, and underlying techniques in the design of such a library.
+In this section we describe some of these trade-offs, especially those
+to consider when using the static approach.
+
+\paragraph{Explicit Recursion.}
+There are two ways to define the representation of values. Those
+that have information about which fields of the constructors of 
+the datatype in question are recursive versus those that do not. 
+
+If we do not mark recursion explicitly, \emph{shallow} encodings are
+our sole option, where only one layer of the value is turned into a
+generic form by a call to \ensuremath{\HV{\textit{from}}}.  This is the kind of representation
+we get from \texttt{GHC.Generics}, among others.  The other side of
+the spectrum would be the \emph{deep} representation, in which the
+entire value is turned into the representation that the generic
+library provides in one go.
+
+Marking the recursion explicitly, like in \texttt{regular}~\cite{Noort2008},
+allows one to choose between \emph{shallow} and \emph{deep} encodings
+at will. These representations are usually more involved as they
+need an extra mechanism to represent recursion. 
+In the \ensuremath{\HSCon{Bin}} example, the description of the \ensuremath{\HSCon{Bin}}
+constructor changes from ``this constructor has two fields of the
+\ensuremath{\HSCon{Bin}\;\HSVar{a}} type'' to ``this constructor has two fields in which you
+recurse''. Therefore, a \emph{deep} encoding requires some explicit
+\emph{least fixpoint} combinator -- usually called \ensuremath{\HSCon{Fix}} in Haskell.
+
+Depending on the use case, a shallow representation might be more efficient if only
+part of the value needs to be inspected. On the other hand, deep
+representations are sometimes easier to use, since the conversion is
+performed in one go, and afterwards one only has to work with
+the constructs from the generic library.
+
+The fact that we mark explicitly when recursion takes place in a
+datatype gives some additional insight into the description.
+Some functions really need the information
+about which fields of a constructor are recursive and which are not,
+like the generic \ensuremath{\HSVar{map}} and the generic \ensuremath{\HSCon{Zipper}} -- we describe
+the latter in \Cref{sec:mrecexamples}.
+This additional power has also been used to define regular
+expressions over Haskell datatypes~\cite{Serrano2016}. 
+
+\paragraph{Sum of Products}
+
+Most generic programming libraries build their type level descriptions out of three basic
+combinators: (1) \emph{constants}, which indicate a type is atomic and should not
+be expanded further; (2) \emph{products} (usually written as \ensuremath{\mathrel{\HT{:\!*\!:}}}) which are used to
+build tuples; and (3) \emph{sums} (usually written as \ensuremath{\mathrel{\HT{:\!+\!:}}}) which
+encode the choice between constructors. \ensuremath{\HSCon{Rep}\;\HSSpecial{(}\HSCon{Bin}\;\HSVar{a}\HSSpecial{)}} above is expressed in
+this form. Note, however, that there is no restriction on \emph{how} these
+can be combined. 
+
+In practice, one can always use a sum of products to represent a datatype -- a sum
+to express the choice of constructor, and within each constructor a product to
+declare which fields you have. The \texttt{generic-sop} library~\cite{deVries2014}
+explicitly uses a list of lists of types, the outer one representing the sum
+and each inner one thought of as products. The $\HS{'}$ sign in the code below marks the
+list as operating at the type level, as opposed to term-level lists which exist
+at run-time. This is an example of Haskell's \emph{datatype} promotion~
+\cite{Yorgey2012}.
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HT{\textit{Code}_{\mathsf{sop}}}\;\HSSpecial{(}\HSCon{Bin}\;\HSVar{a}\HSSpecial{)}\HSSym{\mathrel{=}}\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSVar{a}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{,}\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{Bin}\;\HSVar{a}\HSSpecial{,}\HSCon{Bin}\;\HSVar{a}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{\HSSym{\mskip1.5mu]}}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+The shape of this description follows more closely the shape of Haskell datatypes, and
+make it easier to implement generic functionality.
+
+  Note how the \emph{codes} are different than the \emph{representation}.
+The latter being defined by induction on the former.
+This is quite a subtle point and it is common to see both
+terms being used interchangeably.  Here, the \emph{representation} is
+mapping the \emph{codes}, of kind \ensuremath{\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{*}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{\HSSym{\mskip1.5mu]}}}, into \ensuremath{\HSCon{*}}. The
+\emph{code} can be seen as the format that the \emph{representation}
+must adhere to. Previously, in the pattern functor approach, the
+\emph{representation} was not guaranteed to have a certain
+structure. The expressivity of the language of \emph{codes} is
+proportional to the expressivity of the combinators the library can
+provide. 
+
+\paragraph{Mutually recursive datatypes.}
+
+We have described several axes taken by different approaches to generic
+programming in Haskell. Unfortunately, most of the approaches restrict themselves
+to \emph{regular} types, in which recursion always goes into the \emph{same}
+datatype, which is the one being defined. Sometimes one would like to have the
+mutually recursive structure handy, though. 
+The syntax of many programming languages, for instance, is expressed naturally using
+a mutually recursive family. Consider Haskell itself, one of the 
+possibilities of an expression is to be a \ensuremath{\HSKeyword{do}} block, while a \ensuremath{\HSKeyword{do}} block itself is
+composed by a list of statements which may include expressions.
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{12}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{data}\;\HSCon{Expr}{}\<[12]%
+\>[12]{}\HSSym{\mathrel{=}}\HSSym{...}\HSSym{\mid} \HSCon{Do}\;\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{Stmt}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSym{\mid} \HSSym{...}{}\<[E]%
+\\
+\>[B]{}\HSKeyword{data}\;\HSCon{Stmt}{}\<[12]%
+\>[12]{}\HSSym{\mathrel{=}}\HSCon{Assign}\;\HSCon{Var}\;\HSCon{Expr}\HSSym{\mid} \HSCon{Let}\;\HSCon{Var}\;\HSCon{Expr}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+Another example is found in HTML and XML documents. 
+They are better described by a Rose tree, 
+which can be described by this family of datatypes:
+%% \footnote{%
+%% It can actually be proved that |Rose a| is isomorphic to a regular
+%% datatype.}:
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{12}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{15}{@{}>{\hspre}c<{\hspost}@{}}%
+\column{15E}{@{}l@{}}%
+\column{18}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{data}\;\HSCon{Rose}\;{}\<[12]%
+\>[12]{}\HSVar{a}{}\<[15]%
+\>[15]{}\HSSym{\mathrel{=}}{}\<[15E]%
+\>[18]{}\HSCon{Fork}\;\HSVar{a}\;\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{Rose}\;\HSVar{a}\HSSpecial{\HSSym{\mskip1.5mu]}}{}\<[E]%
+\\
+\>[B]{}\HSKeyword{data}\;\HSSpecial{\HSSym{[\mskip1.5mu} }\HSSpecial{\HSSym{\mskip1.5mu]}}\;{}\<[12]%
+\>[12]{}\HSVar{a}{}\<[15]%
+\>[15]{}\HSSym{\mathrel{=}}{}\<[15E]%
+\>[18]{}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSym{\mid} \HSVar{a}\HSCon{\mathbin{:}}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSVar{a}\HSSpecial{\HSSym{\mskip1.5mu]}}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+The mutual recursion becomes apparent once one instantiaties \ensuremath{\HSVar{a}} to some
+ground type, for instance:
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{13}{@{}>{\hspre}c<{\hspost}@{}}%
+\column{13E}{@{}l@{}}%
+\column{16}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{data}\;\HSCon{RoseI}{}\<[13]%
+\>[13]{}\HSSym{\mathrel{=}}{}\<[13E]%
+\>[16]{}\HSCon{Fork}\;\HSCon{Int}\;\HSCon{ListI}{}\<[E]%
+\\
+\>[B]{}\HSKeyword{data}\;\HSCon{ListI}{}\<[13]%
+\>[13]{}\HSSym{\mathrel{=}}{}\<[13E]%
+\>[16]{}\HSCon{Nil}\HSSym{\mid} \HSCon{RoseI}\HSCon{\mathbin{:}}\HSCon{ListI}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+The \texttt{multirec} library~\cite{Yakushev2009} is a generalization of
+\texttt{regular} which handles mutually recursive families using this very technique. 
+The mutual recursion is central to some applications such as generic 
+diffing~\cite{CacciariMiraldo2017} of abstract syntax trees.
+
+The motivation of our work stems from the desire of having the concise structure
+that \emph{codes} give to the \emph{representations}, together with the 
+information for recursive positions in a mutually recursive setting.
+
+\paragraph{Deriving the representation.}
+
+Generic programming alleviates the problem of repetitively writing operations
+such as equality or pretty-printing, which depend on the structure of the
+datatype. But in order to do so, they still require the programmer to figure
+out the right description and write conversion functions \ensuremath{\HV{\textit{from}}} and \ensuremath{\HSVar{to}} that type. This is
+tedious, and also follows the shape of the type!
+
+For that reason, most generic programming libraries also include some
+automatic way of generating this boilerplate code. \texttt{GHC.Generics} is
+embedded in the compiler; most others use Template Haskell~\cite{Sheard2002},
+the meta-programming facility found in GHC. In the former case, programmers
+write:
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{data}\;\HSCon{Bin}\;\HSVar{a}\HSSym{\mathrel{=}}\HSSym{...}\HSKeyword{deriving}\;\HSCon{Generic}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+to open the doors to generic functionality.
+
+There is an interesting problem that arises when we have mutually recursive
+datatypes and want to automatically generate descriptions.
+The definition of \ensuremath{\HSCon{Rose}\;\HSVar{a}} above uses the list type, but not
+simply \ensuremath{\HSSpecial{\HSSym{[\mskip1.5mu} }\HSVar{a}\HSSpecial{\HSSym{\mskip1.5mu]}}} for any element type \ensuremath{\HSVar{a}}, but the specific instance \ensuremath{\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{Rose}\;\HSVar{a}\HSSpecial{\HSSym{\mskip1.5mu]}}}. This means that the
+procedure to derive the code must take this fact into account.
+Shallow descriptions do not suffer too much from this problem. For deep
+approaches, though, how to solve this problem is key to derive a useful
+description of the datatype.
+
+\section{Background}
+\label{sec:genericprog}
+
+  Before diving head first into our generic programming framework,
+let us take a tour of the existing generic programming libraries. For that,
+will be looking at a generic \ensuremath{\HSVar{size}} function from a few different angles,
+illustrating how different techniques relate and the nuances between them.
+This will let us gradually build up to our framework, that borrows 
+pieces of each of the different approaches, and combines them without compromise.
+
+\subsection{GHC Generics}
+\label{sec:patternfunctors}
+
+  Since version $7.2$, GHC supports some off the shelf generic
+programming using \texttt{GHC.Generics}~\cite{Magalhaes2010}, 
+which exposes the \emph{pattern functor} of a datatype. This
+allows one to define a function for a datatype by induction
+on the structure of its (shallow) representation using \emph{pattern functors}.
+
+  These \emph{pattern functors} are parametrized versions of tuples,
+sum types (\ensuremath{\HSCon{Either}} in Haskell lingo), and unit, empty and constant
+functors. These provide a unified view over data: the generic
+\emph{representation} of values.  The values of a suitable type \ensuremath{\HSVar{a}}
+are translated to this representation by means of the function
+\ensuremath{\HV{\textit{from}_{\mathsf{gen}}}\HSSym{::}\HSVar{a}\HSSym{\to} \HT{\textit{Rep}_{\mathsf{gen}}}\;\HSVar{a}}. Note that the subscripts are there 
+solely to disambiguate names that appear in many libraries. Hence,
+\ensuremath{\HV{\textit{from}_{\mathsf{gen}}}} is, in fact, the \ensuremath{\HV{\textit{from}}} in module \ensuremath{\HSCon{\HSCon{GHC}.Generics}}.
+
+  Defining a generic function is done in two
+steps. First, we define a class that exposes the function
+for arbitrary types, in our case, \ensuremath{\HSVar{size}}, which we implement
+for any type via \ensuremath{\HSVar{gsize}}:
+
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{3}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{class}\;\HSCon{Size}\;\HSSpecial{(}\HSVar{a}\HSSym{::}\HSCon{*}\HSSpecial{)}\;\HSKeyword{where}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSVar{size}\HSSym{::}\HSVar{a}\HSSym{\to} \HSCon{Int}{}\<[E]%
+\\[\blanklineskip]%
+\>[B]{}\HSKeyword{instance}\;\HSSpecial{(}\HSCon{Size}\;\HSVar{a}\HSSpecial{)}\HSSym{\Rightarrow} \HSCon{Size}\;\HSSpecial{(}\HSCon{Bin}\;\HSVar{a}\HSSpecial{)}\;\HSKeyword{where}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSVar{size}\HSSym{\mathrel{=}}\HSVar{gsize}\HSSym{\mathbin{\circ}}\HV{\textit{from}_{\mathsf{gen}}}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+  Next we define the \ensuremath{\HSVar{gsize}} function that operates on the level of the 
+representation of datatypes. We have to use another class
+and the instance mechanism to encode a definition by induction on
+representations:
+
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{3}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{class}\;\HSCon{GSize}\;\HSSpecial{(}\HSVar{rep}\HSSym{::}\HSCon{*}\HSSym{\to} \HSCon{*}\HSSpecial{)}\;\HSKeyword{where}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSVar{gsize}\HSSym{::}\HSVar{rep}\;\HSVar{x}\HSSym{\to} \HSCon{Int}{}\<[E]%
+\\
+\>[B]{}\HSKeyword{instance}\;\HSSpecial{(}\HSCon{GSize}\;\HSVar{f}\HSSpecial{,}\HSCon{GSize}\;\HSVar{g}\HSSpecial{)}\HSSym{\Rightarrow} \HSCon{GSize}\;\HSSpecial{(}\HSVar{f}\mathrel{\HT{:\!*\!:}}\HSVar{g}\HSSpecial{)}\;\HSKeyword{where}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSVar{gsize}\;\HSSpecial{(}\HSVar{f}\mathrel{\HT{:\!*\!:}}\HSVar{g}\HSSpecial{)}\HSSym{\mathrel{=}}\HSVar{gsize}\;\HSVar{f}\HSSym{+}\HSVar{gsize}\;\HSVar{g}{}\<[E]%
+\\
+\>[B]{}\HSKeyword{instance}\;\HSSpecial{(}\HSCon{GSize}\;\HSVar{f}\HSSpecial{,}\HSCon{GSize}\;\HSVar{g}\HSSpecial{)}\HSSym{\Rightarrow} \HSCon{GSize}\;\HSSpecial{(}\HSVar{f}\mathrel{\HT{:\!+\!:}}\HSVar{g}\HSSpecial{)}\;\HSKeyword{where}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSVar{gsize}\;\HSSpecial{(}\HSCon{L1}\;\HSVar{f}\HSSpecial{)}\HSSym{\mathrel{=}}\HSVar{gsize}\;\HSVar{f}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSVar{gsize}\;\HSSpecial{(}\HSCon{R1}\;\HSVar{g}\HSSpecial{)}\HSSym{\mathrel{=}}\HSVar{gsize}\;\HSVar{g}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+  We still have to handle the cases where 
+we might have an arbitrary type in a position, modeled by the
+constant functor \ensuremath{\HSCon{K1}}. We require an instance of \ensuremath{\HSCon{Size}}
+so we can successfully tie the recursive knot.
+
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{3}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{instance}\;\HSSpecial{(}\HSCon{Size}\;\HSVar{x}\HSSpecial{)}\HSSym{\Rightarrow} \HSCon{GSize}\;\HSSpecial{(}\HSCon{K1}\;\HSCon{R}\;\HSVar{x}\HSSpecial{)}\;\HSKeyword{where}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSVar{gsize}\;\HSSpecial{(}\HSCon{K1}\;\HSVar{x}\HSSpecial{)}\HSSym{\mathrel{=}}\HSVar{size}\;\HSVar{x}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+\begin{figure}\centering
+{\small
+$\begin{array}{l}
+  \ensuremath{\HSVar{size}\;\HSSpecial{(}\HSCon{Bin}\;\HSSpecial{(}\HSCon{Leaf}\;\HSNumeral{1}\HSSpecial{)}\;\HSSpecial{(}\HSCon{Leaf}\;\HSNumeral{2}\HSSpecial{)}\HSSpecial{)}} \\
+  \;  = \ensuremath{\HSVar{gsize}\;\HSSpecial{(}\HV{\textit{from}_{\mathsf{gen}}}\;\HSSpecial{(}\HSCon{Bin}\;\HSSpecial{(}\HSCon{Leaf}\;\HSNumeral{1}\HSSpecial{)}\;\HSSpecial{(}\HSCon{Leaf}\;\HSNumeral{2}\HSSpecial{)}\HSSpecial{)}\HSSpecial{)}} \\
+  \; = \ensuremath{\HSVar{gsize}\;\HSSpecial{(}\HSCon{R1}\;\HSSpecial{(}\HSCon{K1}\;\HSSpecial{(}\HSCon{Leaf}\;\HSNumeral{1}\HSSpecial{)}\mathrel{\HT{:\!*\!:}}\HSCon{K1}\;\HSSpecial{(}\HSCon{Leaf}\;\HSNumeral{2}\HSSpecial{)}\HSSpecial{)}\HSSpecial{)}} \\
+  \;  = \ensuremath{\HSVar{gsize}\;\HSSpecial{(}\HSCon{K1}\;\HSSpecial{(}\HSCon{Leaf}\;\HSNumeral{1}\HSSpecial{)}\HSSpecial{)}\HSSym{+}\HSVar{gsize}\;\HSSpecial{(}\HSCon{K1}\;\HSSpecial{(}\HSCon{Leaf}\;\HSNumeral{2}\HSSpecial{)}\HSSpecial{)}} \\
+  \;  \overset{\dagger}{=} \ensuremath{\HSVar{size}\;\HSSpecial{(}\HSCon{Leaf}\;\HSNumeral{1}\HSSpecial{)}\HSSym{+}\HSVar{size}\;\HSSpecial{(}\HSCon{Leaf}\;\HSNumeral{2}\HSSpecial{)}} \\
+  \;  = \ensuremath{\HSVar{gsize}\;\HSSpecial{(}\HV{\textit{from}_{\mathsf{gen}}}\;\HSSpecial{(}\HSCon{Leaf}\;\HSNumeral{1}\HSSpecial{)}\HSSpecial{)}\HSSym{+}\HSVar{gsize}\;\HSSpecial{(}\HV{\textit{from}_{\mathsf{gen}}}\;\HSSpecial{(}\HSCon{Leaf}\;\HSNumeral{2}\HSSpecial{)}\HSSpecial{)}}\\
+  \;  = \ensuremath{\HSVar{gsize}\;\HSSpecial{(}\HSCon{L1}\;\HSSpecial{(}\HSCon{K1}\;\HSNumeral{1}\HSSpecial{)}\HSSpecial{)}\HSSym{+}\HSVar{gsize}\;\HSSpecial{(}\HSCon{L1}\;\HSSpecial{(}\HSCon{K1}\;\HSNumeral{2}\HSSpecial{)}\HSSpecial{)}}\\
+  \;  = \ensuremath{\HSVar{size}\;\HSSpecial{(}\HSNumeral{1}\HSSym{::}\HSCon{Int}\HSSpecial{)}\HSSym{+}\HSVar{size}\;\HSSpecial{(}\HSNumeral{2}\HSSym{::}\HSCon{Int}\HSSpecial{)}}   
+\end{array}$}
+\caption{Reduction of \ensuremath{\HSVar{size}\;\HSSpecial{(}\HSCon{Bin}\;\HSSpecial{(}\HSCon{Leaf}\;\HSNumeral{1}\HSSpecial{)}\;\HSSpecial{(}\HSCon{Leaf}\;\HSNumeral{2}\HSSpecial{)}\HSSpecial{)}}}
+\label{fig:sizederiv}
+\end{figure}
+
+  To finish the description of the generic \ensuremath{\HSVar{size}},
+we also need instances for the
+\emph{unit}, \emph{void} and \emph{metadata} pattern functors,
+called \ensuremath{\HSCon{U1}}, \ensuremath{\HSCon{V1}}, and \ensuremath{\HSCon{M1}} respectively. Their \ensuremath{\HSCon{GSize}} is
+rather uninteresting, so we omit them for the sake of conciseness.
+
+  This technique of \emph{mutually recursive classes} is quite 
+specific to \texttt{GHC.Generics} flavor of generic programming.
+\Cref{fig:sizederiv} illustrates how the compiler goes about choosing
+instances for computing \ensuremath{\HSVar{size}\;\HSSpecial{(}\HSCon{Bin}\;\HSSpecial{(}\HSCon{Leaf}\;\HSNumeral{1}\HSSpecial{)}\;\HSSpecial{(}\HSCon{Leaf}\;\HSNumeral{2}\HSSpecial{)}\HSSpecial{)}}. 
+In the end, we just need an instance for \ensuremath{\HSCon{Size}\;\HSCon{Int}} to compute
+the final result. Literals of type \ensuremath{\HSCon{Int}} illustrate
+what we call \emph{opaque types}: those types that constitute the base
+of the universe and are \emph{opaque} to the representation language.
+
+%%   In practice, one usually applies yet another maneuver to make this
+%% process more convenient. Note that the implementation of |size| for
+%% |Bin a| relies on the implementation of |gsize|, after converting a |Bin a|
+%% to its generic representation. We can instruct GHC to do this automatically
+%% using \emph{default method signatures}~\cite[section 9.8.1.4]{ghcUsersGuide} and modifying the |Size| class to:
+%% 
+%% \begin{myhs}
+%% \begin{code}
+%% class Size (a :: Star) where
+%%   size :: a -> Int
+%%   default size  :: (GenericGen a , GSize (RepGen a))
+%%                 => a -> Int
+%%   size = gsize . fromGen
+%% \end{code}
+%% \end{myhs}
+%% 
+%%   The |default| keyword instructs Haskell to use the provided
+%% implementation whenever none is provided and the constraint |(GenericGen a , GSize (RepGen a))| 
+%% can be satisfied when declaring an instance for |Size a|. 
+
+  One interesting aspect we should note here is the clearly
+\emph{shallow} encoding that \ensuremath{\HV{\textit{from}}} provides. That is, we only
+represent \emph{one layer} at a time. For example, take the step
+marked as $(\dagger)$ in \Cref{fig:sizederiv}: after unwrapping the calculation
+of the first \emph{layer}, we are back to having to calculate \ensuremath{\HSVar{size}}
+for \ensuremath{\HSCon{Bin}\;\HSCon{Int}}, not their generic representation.
+
+  Upon reflecting on the generic \ensuremath{\HSVar{size}} function above, we see a
+number of issues. Most notably is the amount of boilerplate to achieve
+a conceptually simple task: sum up all the sizes of the fields of
+whichever constructors make up the value. This is a direct consequence
+of not having access to the \emph{sum-of-products} structure that
+Haskell's \ensuremath{\HSKeyword{data}} declarations follow.  A second issue is that the
+generic representation does not carry any information about the
+recursive structure of the type. 
+%% Instead, we are relying on the
+%% instance search mechanism to figure out that the recursive arguments
+%% can be consumed with the |default size| function. 
+The \texttt{regular}~\cite{Noort2008} library addresses this issue by
+having a specific \emph{pattern functor} for recursive positions.
+
+  Perhaps even more subtle, but also more worrying, is that we have no
+guarantees that the \ensuremath{\HT{\textit{Rep}_{\mathsf{gen}}}\;\HSVar{a}} of a type \ensuremath{\HSVar{a}} will be defined using
+only the supported \emph{pattern functors}. Fixing this would require
+one to pin down a single language for representations, that is,
+the \emph{code} of the datatype. Besides correctness issues, 
+having \emph{codes} greatly improves the definition of \emph{ad-hoc} 
+generic combinators. Every generic function has to follow the
+\emph{mutually recursive classes} technique we shown.
+
+\subsection{Explicit Sums of Products}
+\label{sec:explicitsop}
+
+  We will now examine the approach used by \citet{deVries2014}.
+  The main difference is in the introduction of \emph{Codes},
+that limit the structure of representations.
+
+  Had we had access to a representation of the \emph{sum-of-products}
+structure of \ensuremath{\HSCon{Bin}}, we could have defined our \ensuremath{\HSVar{gsize}} function following
+an informal description: sum up the sizes of the fields inside a value,
+ignoring the constructor.
+
+  Unlike \texttt{GHC.Generics}, the representation of values is
+defined by induction on the \emph{code} of a datatype, this \emph{code}
+is a type level list of lists of kind \ensuremath{\HSCon{*}}, whose semantics is
+consonant to a formula in disjunctive normal form.  The outer list is
+interpreted as a sum and each of the inner lists as a product.
+This section provides an overview of \texttt{generic-sop} as required
+to understand our techniques, we refer the reader to the original
+paper~\cite{deVries2014} for a more comprehensive explanation.
+
+  Using a \emph{sum-of-products} approach one could write the \ensuremath{\HSVar{gsize}}
+function as easily as:
+
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{8}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSVar{gsize}\HSSym{::}\HSSpecial{(}\HT{\textit{Generic}_{\mathsf{sop}}}\;\HSVar{a}\HSSpecial{)}\HSSym{\Rightarrow} \HSVar{a}\HSSym{\to} \HSCon{Int}{}\<[E]%
+\\
+\>[B]{}\HSVar{gsize}{}\<[8]%
+\>[8]{}\HSSym{\mathrel{=}}\HSVar{sum}\HSSym{\mathbin{\circ}}\HSVar{elim}\;\HSSpecial{(}\HSVar{map}\;\HSVar{size}\HSSpecial{)}\HSSym{\mathbin{\circ}}\HV{\textit{from}_{\mathsf{sop}}}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+  Ignoring the details of \ensuremath{\HSVar{gsize}} for a moment, let us focus just on
+its high level structure. Remembering that \ensuremath{\HV{\textit{from}}} now returns a
+\emph{sum-of-products} view over the data, we are using an eliminator,
+\ensuremath{\HSVar{elim}}, to apply a function to the fields of the constructor used to
+create a value of type \ensuremath{\HSVar{a}}. This eliminator then applies \ensuremath{\HSVar{map}\;\HSVar{size}} to
+the fields of the constructor, returning something akin to a
+\ensuremath{\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{Int}\HSSpecial{\HSSym{\mskip1.5mu]}}}. We then \ensuremath{\HSVar{sum}} them up to obtain the final size.
+
+  Codes consist of a type level list of lists. The outer
+list represents the constructors of a type, and will be interpreted as
+a sum, whereas the inner lists are interpreted as the fields of the
+respective constructors, interpreted as products.
+
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{16}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{type}\;\HSKeyword{family}\;{}\<[16]%
+\>[16]{}\HT{\textit{Code}_{\mathsf{sop}}}\;\HSSpecial{(}\HSVar{a}\HSSym{::}\HSCon{*}\HSSpecial{)}\HSSym{::}\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{*}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{\HSSym{\mskip1.5mu]}}{}\<[E]%
+\\[\blanklineskip]%
+\>[B]{}\HSKeyword{type}\;\HSKeyword{instance}\;{}\<[16]%
+\>[16]{}\HT{\textit{Code}_{\mathsf{sop}}}\;\HSSpecial{(}\HSCon{Bin}\;\HSVar{a}\HSSpecial{)}\HSSym{\mathrel{=}}\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSVar{a}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{,}\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{Bin}\;\HSVar{a}\HSSpecial{,}\HSCon{Bin}\;\HSVar{a}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{\HSSym{\mskip1.5mu]}}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+  The \emph{representation} is then defined by induction on
+\ensuremath{\HT{\textit{Code}_{\mathsf{sop}}}} by the means of generalized $n$-ary sums, \ensuremath{\HSCon{NS}}, and $n$-ary products,
+\ensuremath{\HSCon{NP}}. With a slight abuse of notation, one can view \ensuremath{\HSCon{NS}} and \ensuremath{\HSCon{NP}}
+through the lens of the following type isomorphisms:
+
+\vspace{-0.4cm}
+{\small
+\begin{align*}
+  \ensuremath{\HSCon{NS}\;\HSVar{f}\;\HSSpecial{\HSSym{[\mskip1.5mu} }\HSVar{k\char95 1}\HSSpecial{,}\HSVar{k\char95 2}\HSSpecial{,}\HS{\dots}\HSSpecial{\HSSym{\mskip1.5mu]}}} &\equiv \ensuremath{\HSVar{f}\;\HSVar{k\char95 1}\mathrel{\HT{:\!+\!:}}\HSSpecial{(}\HSVar{f}\;\HSVar{k\char95 2}\mathrel{\HT{:\!+\!:}}\HS{\dots}\HSSpecial{)}} \\
+  \ensuremath{\HSCon{NP}\;\HSVar{f}\;\HSSpecial{\HSSym{[\mskip1.5mu} }\HSVar{k\char95 1}\HSSpecial{,}\HSVar{k\char95 2}\HSSpecial{,}\HS{\dots}\HSSpecial{\HSSym{\mskip1.5mu]}}} &\equiv \ensuremath{\HSVar{f}\;\HSVar{k\char95 1}\mathrel{\HT{:\!*\!:}}\HSSpecial{(}\HSVar{f}\;\HSVar{k\char95 2}\mathrel{\HT{:\!*\!:}}\HS{\dots}\HSSpecial{)}} 
+\end{align*}}
+\vspace{-0.4cm}
+
+  We could then define \ensuremath{\HT{\textit{Rep}_{\mathsf{sop}}}} to be
+\ensuremath{\HSCon{NS}\;\HSSpecial{(}\HSCon{NP}\;\HSSpecial{(}\HSCon{K1}\;\HSCon{R}\HSSpecial{)}\HSSpecial{)}}, echoing the isomorphisms above, where \ensuremath{\HSKeyword{data}\;\HSCon{K1}\;\HSCon{R}\;\HSVar{a}\HSSym{\mathrel{=}}\HSCon{K1}\;\HSVar{a}} 
+is borrowed from \texttt{GHC.Generics}. Note that we already
+need the parameter \ensuremath{\HSVar{f}} to pass \ensuremath{\HSCon{NP}} to \ensuremath{\HSCon{NS}} here. 
+This is exactly the representation we get
+from \texttt{GHC.Generics}.
+
+\vspace{-0.4cm}
+{\small
+\begin{align*}
+  \ensuremath{\HT{\textit{Rep}_{\mathsf{sop}}}\;\HSSpecial{(}\HSCon{Bin}\;\HSVar{a}\HSSpecial{)}}
+  &\equiv \ensuremath{\HSCon{NS}\;\HSSpecial{(}\HSCon{NP}\;\HSSpecial{(}\HSCon{K1}\;\HSCon{R}\HSSpecial{)}\HSSpecial{)}\;\HSSpecial{(}\HT{\textit{Code}_{\mathsf{sop}}}\;\HSSpecial{(}\HSCon{Bin}\;\HSVar{a}\HSSpecial{)}\HSSpecial{)}} \\
+  &\equiv \ensuremath{\HSCon{K1}\;\HSCon{R}\;\HSVar{a}\mathrel{\HT{:\!+\!:}}\HSSpecial{(}\HSCon{K1}\;\HSCon{R}\;\HSSpecial{(}\HSCon{Bin}\;\HSVar{a}\HSSpecial{)}\mathrel{\HT{:\!*\!:}}\HSCon{K1}\;\HSCon{R}\;\HSSpecial{(}\HSCon{Bin}\;\HSVar{a}\HSSpecial{)}\HSSpecial{)}} \\
+  &\equiv \ensuremath{\HT{\textit{Rep}_{\mathsf{gen}}}\;\HSSpecial{(}\HSCon{Bin}\;\HSVar{a}\HSSpecial{)}}
+\end{align*}
+}
+\vspace{-0.4cm}
+
+  It makes no sense to go through all the trouble of adding the
+explicit \emph{sums-of-products} structure to forget this
+information in the representation. Instead of
+piggybacking on \emph{pattern functors}, we define \ensuremath{\HSCon{NS}} and \ensuremath{\HSCon{NP}} from
+scratch using \emph{GADTs}~\cite{Xi2003}.
+By pattern matching on the values of \ensuremath{\HSCon{NS}} and \ensuremath{\HSCon{NP}} we
+inform the type checker of the structure of \ensuremath{\HT{\textit{Code}_{\mathsf{sop}}}}.
+
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{3}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{9}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{10}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{22}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{31}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{data}\;\HSCon{NS}\HSSym{::}\HSSpecial{(}\HSVar{k}\HSSym{\to} \HSCon{*}\HSSpecial{)}\HSSym{\to} \HSSpecial{\HSSym{[\mskip1.5mu} }\HSVar{k}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSym{\to} \HSCon{*}\;\HSKeyword{where}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSCon{Here}{}\<[10]%
+\>[10]{}\HSSym{::}\HSVar{f}\;\HSVar{k}{}\<[22]%
+\>[22]{}\HSSym{\to} \HSCon{NS}\;\HSVar{f}\;\HSSpecial{(}\HSVar{k}\;\HS{'}\HSCon{\mathbin{:}}\;\HSVar{ks}\HSSpecial{)}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSCon{There}{}\<[10]%
+\>[10]{}\HSSym{::}\HSCon{NS}\;\HSVar{f}\;\HSVar{ks}{}\<[22]%
+\>[22]{}\HSSym{\to} \HSCon{NS}\;\HSVar{f}\;\HSSpecial{(}\HSVar{k}\;\HS{'}\HSCon{\mathbin{:}}\;\HSVar{ks}\HSSpecial{)}{}\<[E]%
+\\[\blanklineskip]%
+\>[B]{}\HSKeyword{data}\;\HSCon{NP}\HSSym{::}\HSSpecial{(}\HSVar{k}\HSSym{\to} \HSCon{*}\HSSpecial{)}\HSSym{\to} \HSSpecial{\HSSym{[\mskip1.5mu} }\HSVar{k}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSym{\to} \HSCon{*}\;\HSKeyword{where}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSCon{NP0}{}\<[9]%
+\>[9]{}\HSSym{::}{}\<[31]%
+\>[31]{}\HSCon{NP}\;\HSVar{f}\;\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSSpecial{\HSSym{\mskip1.5mu]}}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSSpecial{(}\mathrel{\HT{\times}}\HSSpecial{)}{}\<[9]%
+\>[9]{}\HSSym{::}\HSVar{f}\;\HSVar{x}\HSSym{\to} \HSCon{NP}\;\HSVar{f}\;\HSVar{xs}\HSSym{\to} {}\<[31]%
+\>[31]{}\HSCon{NP}\;\HSVar{f}\;\HSSpecial{(}\HSVar{x}\;\HS{'}\HSCon{\mathbin{:}}\;\HSVar{xs}\HSSpecial{)}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+  Finally, since our atoms are of kind \ensuremath{\HSCon{*}}, we can use the identity
+functor, \ensuremath{\HSCon{I}}, to interpret those and define the final representation
+of values of a type \ensuremath{\HSVar{a}} under the \emph{SOP} view:
+
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{type}\;\HT{\textit{Rep}_{\mathsf{sop}}}\;\HSVar{a}\HSSym{\mathrel{=}}\HSCon{NS}\;\HSSpecial{(}\HSCon{NP}\;\HSCon{I}\HSSpecial{)}\;\HSSpecial{(}\HT{\textit{Code}_{\mathsf{sop}}}\;\HSVar{a}\HSSpecial{)}{}\<[E]%
+\\[\blanklineskip]%
+\>[B]{}\HSKeyword{newtype}\;\HSCon{I}\;\HSSpecial{(}\HSVar{a}\HSSym{::}\HSCon{*}\HSSpecial{)}\HSSym{\mathrel{=}}\HSCon{I}\;\HSSpecial{\HSSym{\{\mskip1.5mu} }\HSVar{unI}\HSSym{::}\HSVar{a}\HSSpecial{\HSSym{\mskip1.5mu\}}}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+  To support the claim that one can define general combinators for
+working with these representations, let us look at \ensuremath{\HSVar{elim}} and \ensuremath{\HSVar{map}},
+used to implement the \ensuremath{\HSVar{gsize}} function in the beginning of the section.
+The \ensuremath{\HSVar{elim}} function just drops the constructor index and applies \ensuremath{\HSVar{f}},
+whereas the \ensuremath{\HSVar{map}} applies \ensuremath{\HSVar{f}} to all elements of a product.
+
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{8}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{16}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{19}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{20}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSVar{elim}\HSSym{::}\HSSpecial{(}\HS{\forall}\;\HSVar{k}\;\HS{.}\;\HSVar{f}\;\HSVar{k}\HSSym{\to} \HSVar{a}\HSSpecial{)}\HSSym{\to} \HSCon{NS}\;\HSVar{f}\;\HSVar{ks}\HSSym{\to} \HSVar{a}{}\<[E]%
+\\
+\>[B]{}\HSVar{elim}\;\HSVar{f}\;\HSSpecial{(}\HSCon{Here}\;{}\<[16]%
+\>[16]{}\HSVar{x}\HSSpecial{)}{}\<[20]%
+\>[20]{}\HSSym{\mathrel{=}}\HSVar{f}\;\HSVar{x}{}\<[E]%
+\\
+\>[B]{}\HSVar{elim}\;\HSVar{f}\;\HSSpecial{(}\HSCon{There}\;{}\<[16]%
+\>[16]{}\HSVar{x}\HSSpecial{)}{}\<[20]%
+\>[20]{}\HSSym{\mathrel{=}}\HSVar{elim}\;\HSVar{f}\;\HSVar{x}{}\<[E]%
+\\[\blanklineskip]%
+\>[B]{}\HSVar{map}\HSSym{::}\HSSpecial{(}\HS{\forall}\;\HSVar{k}\;\HS{.}\;\HSVar{f}\;\HSVar{k}\HSSym{\to} \HSVar{a}\HSSpecial{)}\HSSym{\to} \HSCon{NP}\;\HSVar{f}\;\HSVar{ks}\HSSym{\to} \HSSpecial{\HSSym{[\mskip1.5mu} }\HSVar{a}\HSSpecial{\HSSym{\mskip1.5mu]}}{}\<[E]%
+\\
+\>[B]{}\HSVar{map}\;\HSVar{f}\;{}\<[8]%
+\>[8]{}\HSCon{NP0}{}\<[19]%
+\>[19]{}\HSSym{\mathrel{=}}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSSpecial{\HSSym{\mskip1.5mu]}}{}\<[E]%
+\\
+\>[B]{}\HSVar{map}\;\HSVar{f}\;{}\<[8]%
+\>[8]{}\HSSpecial{(}\HSVar{x}\mathrel{\HT{\times}}\HSVar{xs}\HSSpecial{)}{}\<[19]%
+\>[19]{}\HSSym{\mathrel{=}}\HSVar{f}\;\HSVar{x}\HSCon{\mathbin{:}}\HSVar{map}\;\HSVar{f}\;\HSVar{xs}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+  Reflecting on the current definition of \ensuremath{\HSVar{size}}, especially in
+comparison to the \texttt{GHC.Generics} implementation of \ensuremath{\HSVar{size}}, we
+see two improvements: (A) we need one fewer type class, namely \ensuremath{\HSCon{GSize}},
+and, (B) the definition is combinator-based. Considering that the
+generated \emph{pattern functor} representation of a Haskell datatype
+will already be in a \emph{sums-of-products}, we do not lose anything
+by enforcing this structure.
+
+  There are still downsides to this approach. A notable
+one is the need to carry constraints around: the actual \ensuremath{\HSVar{gsize}}
+written with the \texttt{generics-sop} library and no sugar
+reads as follows.
+
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{8}{@{}>{\hspre}c<{\hspost}@{}}%
+\column{8E}{@{}l@{}}%
+\column{11}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{16}{@{}>{\hspre}c<{\hspost}@{}}%
+\column{16E}{@{}l@{}}%
+\column{19}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{55}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSVar{gsize}\HSSym{::}\HSSpecial{(}\HT{\textit{Generic}_{\mathsf{sop}}}\;\HSVar{a}\HSSpecial{,}\HSCon{All2}\;\HSCon{Size}\;\HSSpecial{(}\HT{\textit{Code}_{\mathsf{sop}}}\;\HSVar{a}\HSSpecial{)}\HSSpecial{)}\HSSym{\Rightarrow} \HSVar{a}\HSSym{\to} \HSCon{Int}{}\<[E]%
+\\
+\>[B]{}\HSVar{gsize}{}\<[8]%
+\>[8]{}\HSSym{\mathrel{=}}{}\<[8E]%
+\>[11]{}\HSVar{sum}{}\<[16]%
+\>[16]{}\HSSym{\mathbin{\circ}}{}\<[16E]%
+\>[19]{}\HSVar{hcollapse}{}\<[E]%
+\\
+\>[8]{}\HSSym{\mathbin{\circ}}{}\<[8E]%
+\>[11]{}\HSVar{hcmap}\;\HSSpecial{(}\HSCon{Proxy}\HSSym{::}\HSCon{Proxy}\;\HSCon{Size}\HSSpecial{)}\;\HSSpecial{(}\HSVar{mapIK}\;\HSVar{size}\HSSpecial{)}\HSSym{\mathbin{\circ}}{}\<[55]%
+\>[55]{}\HV{\textit{from}_{\mathsf{sop}}}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+  Where \ensuremath{\HSVar{hcollapse}} and \ensuremath{\HSVar{hcmap}} are analogous to the \ensuremath{\HSVar{elim}} and \ensuremath{\HSVar{map}}
+combinators we defined above. The \ensuremath{\HSCon{All2}\;\HSCon{Size}\;\HSSpecial{(}\HT{\textit{Code}_{\mathsf{sop}}}\;\HSVar{a}\HSSpecial{)}} constraint
+tells the compiler that all of the types serving as atoms for \ensuremath{\HT{\textit{Code}_{\mathsf{sop}}}\;\HSVar{a}} are an instance of \ensuremath{\HSCon{Size}}.  In our case, \ensuremath{\HSCon{All2}\;\HSCon{Size}\;\HSSpecial{(}\HT{\textit{Code}_{\mathsf{sop}}}\;\HSSpecial{(}\HSCon{Bin}\;\HSVar{a}\HSSpecial{)}\HSSpecial{)}} expands to \ensuremath{\HSSpecial{(}\HSCon{Size}\;\HSVar{a}\HSSpecial{,}\HSCon{Size}\;\HSSpecial{(}\HSCon{Bin}\;\HSVar{a}\HSSpecial{)}\HSSpecial{)}}.  The \ensuremath{\HSCon{Size}} constraint also
+has to be passed around with a \ensuremath{\HSCon{Proxy}} for the eliminator of the
+$n$-ary sum. This is a direct consequence of a \emph{shallow}
+encoding: since we only unfold one layer of recursion at a time, we
+have to carry proofs that the recursive arguments can also be
+translated to a generic representation. We can relieve this burden by
+recording, explicitly, which fields of a constructor are recursive or
+not.
+
+\section{Explicit Fix: Diving Deep and Shallow}
+\label{sec:explicitfix}
+
+  In this section we will start to look at our approach, essentially
+combining the techniques from the \texttt{regular} and \texttt{generics-sop}
+libraries. Later we extend the constructions to handle mutually recursive
+families instead of simple recursion. As we discussed in the introduction,
+a fixpoint view over generic functionality is required
+to implement some functionality like the \ensuremath{\HSCon{Zipper}} generically.
+In other words, we need an explicit description of which fields of
+a constructor are recursive and which are not.
+
+  Introducing information about the recursive positions in a type
+requires more expressive codes than in \Cref{sec:explicitsop}, where
+our \emph{codes} were a list of lists of types, which could be
+anything. Instead, we will now have a list of lists of \ensuremath{\HSCon{Atom}} to be
+our codes:
+
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{16}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{35}{@{}>{\hspre}c<{\hspost}@{}}%
+\column{35E}{@{}l@{}}%
+\column{38}{@{}>{\hspre}c<{\hspost}@{}}%
+\column{38E}{@{}l@{}}%
+\column{39}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{42}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{data}\;\HSCon{Atom}\HSSym{\mathrel{=}}\HSCon{I}\HSSym{\mid} \HSCon{KInt}\HSSym{\mid} \HS{\dots}{}\<[E]%
+\\[\blanklineskip]%
+\>[B]{}\HSKeyword{type}\;\HSKeyword{family}\;{}\<[16]%
+\>[16]{}\HT{\textit{Code}_{\mathsf{fix}}}\;\HSSpecial{(}\HSVar{a}\HSSym{::}\HSCon{*}\HSSpecial{)}{}\<[38]%
+\>[38]{}\HSSym{::}{}\<[38E]%
+\>[42]{}\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{Atom}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{\HSSym{\mskip1.5mu]}}{}\<[E]%
+\\[\blanklineskip]%
+\>[B]{}\HSKeyword{type}\;\HSKeyword{instance}\;{}\<[16]%
+\>[16]{}\HT{\textit{Code}_{\mathsf{fix}}}\;\HSSpecial{(}\HSCon{Bin}\;\HSCon{Int}\HSSpecial{)}{}\<[35]%
+\>[35]{}\HSSym{\mathrel{=}}{}\<[35E]%
+\>[39]{}\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{KInt}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{,}\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{I}\HSSpecial{,}\HSCon{I}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{\HSSym{\mskip1.5mu]}}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+  Where \ensuremath{\HSCon{I}} is used to mark the recursive positions and \ensuremath{\HSCon{KInt}\HSSpecial{,}\HS{\dots}}
+are codes for a predetermined selection of primitive types, which we
+refer to as \emph{opaque types}.
+Favoring the simplicity of the presentation, we will stick with only
+hard coded \ensuremath{\HSCon{Int}} as the only opaque type in the universe. Later on,
+in \Cref{sec:konparameter}, we parametrize the whole development
+by the choice of opaque types.
+
+  We can no longer represent polymorphic types in this universe
+-- the \emph{codes} themselves are not polymorphic.  Back in
+\Cref{sec:explicitsop} we have defined \ensuremath{\HT{\textit{Code}_{\mathsf{sop}}}\;\HSSpecial{(}\HSCon{Bin}\;\HSVar{a}\HSSpecial{)}}, and this
+would work for any \ensuremath{\HSVar{a}}. This might seem like a disadvantage at first,
+but it is in fact the opposite. This allows us to provide a deep
+conversion for free and drops the need to carry constraints
+around. Beyond doubt one needs to have access to the \ensuremath{\HT{\textit{Code}_{\mathsf{sop}}}\;\HSVar{a}} when
+converting a \ensuremath{\HSCon{Bin}\;\HSVar{a}} to its deep representation. By specifying the
+types involved beforehand, we are able to get by without having to
+carry all of the constraints we needed, for instance, for \ensuremath{\HSVar{gsize}} at
+the end of \Cref{sec:explicitsop}.  We can benefit the most from this
+in the simplicity of combinators we are able to write, as shown in
+\Cref{sec:combinators}.
+
+  Wrapping our \ensuremath{\HV{\textit{to}_{\mathsf{fix}}}} and \ensuremath{\HV{\textit{from}_{\mathsf{fix}}}} isomorphism into a type class and writing the
+instance that witnesses that \ensuremath{\HSCon{Bin}\;\HSCon{Int}} has a \ensuremath{\HT{\textit{Code}_{\mathsf{fix}}}} is straightforward. We ommit
+the \ensuremath{\HV{\textit{to}_{\mathsf{fix}}}} function as it is the opposite of \ensuremath{\HV{\textit{from}_{\mathsf{fix}}}}:
+
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{3}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{5}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{12}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{21}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{27}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{36}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{class}\;\HT{\textit{Generic}_{\mathsf{fix}}}\;\HSVar{a}\;\HSKeyword{where}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HV{\textit{from}_{\mathsf{fix}}}{}\<[12]%
+\>[12]{}\HSSym{::}\HSVar{a}\HSSym{\to} \HT{\textit{Rep}_{\mathsf{fix}}}\;\HSVar{a}\;\HSVar{a}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HV{\textit{to}_{\mathsf{fix}}}{}\<[12]%
+\>[12]{}\HSSym{::}\HT{\textit{Rep}_{\mathsf{fix}}}\;\HSVar{a}\;\HSVar{a}\HSSym{\to} \HSVar{a}{}\<[E]%
+\\[\blanklineskip]%
+\>[B]{}\HSKeyword{instance}\;\HT{\textit{Generic}_{\mathsf{fix}}}\;\HSSpecial{(}\HSCon{Bin}\;\HSCon{Int}\HSSpecial{)}\;\HSKeyword{where}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HV{\textit{from}_{\mathsf{fix}}}\;\HSSpecial{(}\HSCon{Leaf}\;\HSVar{x}\HSSpecial{)}{}\<[E]%
+\\
+\>[3]{}\hsindent{2}{}\<[5]%
+\>[5]{}\HSSym{\mathrel{=}}\HSCon{Rep}\;\HSSpecial{(}{}\<[21]%
+\>[21]{}\HSCon{Here}\;{}\<[27]%
+\>[27]{}\HSSpecial{(}\HSCon{NA\char95 K}\;\HSVar{x}{}\<[36]%
+\>[36]{}\mathrel{\HT{\times}}\HSCon{NP0}\HSSpecial{)}\HSSpecial{)}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HV{\textit{from}_{\mathsf{fix}}}\;\HSSpecial{(}\HSCon{Bin}\;\HSVar{l}\;\HSVar{r}\HSSpecial{)}{}\<[E]%
+\\
+\>[3]{}\hsindent{2}{}\<[5]%
+\>[5]{}\HSSym{\mathrel{=}}\HSCon{Rep}\;\HSSpecial{(}\HSCon{There}\;\HSSpecial{(}{}\<[21]%
+\>[21]{}\HSCon{Here}\;{}\<[27]%
+\>[27]{}\HSSpecial{(}\HSCon{NA\char95 I}\;\HSVar{l}{}\<[36]%
+\>[36]{}\mathrel{\HT{\times}}\HSCon{NA\char95 I}\;\HSVar{r}\mathrel{\HT{\times}}\HSCon{NP0}\HSSpecial{)}\HSSpecial{)}\HSSpecial{)}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+  In order to define \ensuremath{\HT{\textit{Rep}_{\mathsf{fix}}}} we just need a way to map an \ensuremath{\HSCon{Atom}} into \ensuremath{\HSCon{*}}.
+Since an atom can be either an opaque type, known statically, or some other
+type that will be used as a recursive position later on, we simply receive
+it as another parameter. The \ensuremath{\HSCon{NA}} datatype relates an \ensuremath{\HSCon{Atom}} to its semantics:
+
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{3}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{9}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{10}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{17}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{data}\;\HSCon{NA}\HSSym{::}\HSCon{*}\HSSym{\to} \HSCon{Atom}\HSSym{\to} \HSCon{*}\;\HSKeyword{where}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSCon{NA\char95 I}{}\<[9]%
+\>[9]{}\HSSym{::}\HSVar{x}{}\<[17]%
+\>[17]{}\HSSym{\to} \HSCon{NA}\;\HSVar{x}\;\HSCon{I}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSCon{NA\char95 K}{}\<[9]%
+\>[9]{}\HSSym{::}\HSCon{Int}{}\<[17]%
+\>[17]{}\HSSym{\to} \HSCon{NA}\;\HSVar{x}\;\HSCon{KInt}{}\<[E]%
+\\[\blanklineskip]%
+\>[B]{}\HSKeyword{newtype}\;{}\<[10]%
+\>[10]{}\HT{\textit{Rep}_{\mathsf{fix}}}\;\HSVar{a}\;\HSVar{x}{}\<[E]%
+\\
+\>[10]{}\HSSym{\mathrel{=}}\HSCon{Rep}\;\HSSpecial{\HSSym{\{\mskip1.5mu} }\HSVar{unRep}\HSSym{::}\HSCon{NS}\;\HSSpecial{(}\HSCon{NP}\;\HSSpecial{(}\HSCon{NA}\;\HSVar{x}\HSSpecial{)}\HSSpecial{)}\;\HSSpecial{(}\HT{\textit{Code}_{\mathsf{fix}}}\;\HSVar{a}\HSSpecial{)}\HSSpecial{\HSSym{\mskip1.5mu\}}}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+  It is an interesting exercise to implement the \ensuremath{\HSCon{Functor}} instance for \ensuremath{\HSSpecial{(}\HT{\textit{Rep}_{\mathsf{fix}}}\;\HSVar{a}\HSSpecial{)}}.
+We were only able to lift it to a functor by recording the information about
+the recursive positions. Otherwise, there would be no way to know where to apply \ensuremath{\HSVar{f}}
+when defining \ensuremath{\HV{\textit{fmap}}\;\HSVar{f}}.
+
+  Nevertheless, working directly with \ensuremath{\HT{\textit{Rep}_{\mathsf{fix}}}} is hard -- we need to
+pattern match on \ensuremath{\HSCon{There}} and \ensuremath{\HSCon{Here}}, whereas we actually want to have
+the notion of \emph{constructor} for the generic setting too!  The
+main advantage of the \emph{sum-of-products} structure is to allow a
+user to pattern match on generic representations just like they would
+on values of the original type, contrasting with
+\texttt{GHC.Generics}. One can precisely state that a value of a
+representation is composed by a choice of constructor and its
+respective product of fields by the \ensuremath{\HSCon{View}} type. 
+
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{3}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{8}{@{}>{\hspre}c<{\hspost}@{}}%
+\column{8E}{@{}l@{}}%
+\column{12}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{51}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{data}\;\HSCon{Nat}\HSSym{\mathrel{=}}\HSCon{Z}\HSSym{\mid} \HSCon{S}\;\HSCon{Nat}{}\<[E]%
+\\[\blanklineskip]%
+\>[B]{}\HSKeyword{data}\;\HSCon{View}\HSSym{::}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{Atom}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSym{\to} \HSCon{*}\HSSym{\to} \HSCon{*}\;\HSKeyword{where}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HT{\textit{Tag}}{}\<[8]%
+\>[8]{}\HSSym{::}{}\<[8E]%
+\>[12]{}\HSCon{Constr}\;\HSVar{n}\;\HSVar{t}\HSSym{\to} \HSCon{NP}\;\HSSpecial{(}\HSCon{NA}\;\HSVar{x}\HSSpecial{)}\;\HSSpecial{(}\HSCon{Lkup}\;\HSVar{t}\;\HSVar{n}\HSSpecial{)}\HSSym{\to} {}\<[51]%
+\>[51]{}\HSCon{View}\;\HSVar{t}\;\HSVar{x}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+\noindent A value of \ensuremath{\HSCon{Constr}\;\HSVar{n}\;\HSVar{sum}} is a proof that \ensuremath{\HSVar{n}} is a valid constructor for \ensuremath{\HSVar{sum}},
+stating that \ensuremath{\HSVar{n}\HSSym{<}\HSVar{length}\;\HSVar{sum}}. \ensuremath{\HSCon{Lkup}} performs list lookup at the type level.
+In order to improve type error messages, we generate a \ensuremath{\HSCon{TypeError}} whenever we
+reach a given index \ensuremath{\HSVar{n}} that is out of bounds. Interestingly, our design
+guarantees that this case is never reached by \ensuremath{\HSCon{Constr}}.
+
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{3}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{7}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{18}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{23}{@{}>{\hspre}c<{\hspost}@{}}%
+\column{23E}{@{}l@{}}%
+\column{27}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{29}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{41}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{data}\;\HSCon{Constr}\HSSym{::}\HSCon{Nat}\HSSym{\to} \HSSpecial{\HSSym{[\mskip1.5mu} }\HSVar{k}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSym{\to} \HSCon{*}\;\HSKeyword{where}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSCon{CZ}{}\<[7]%
+\>[7]{}\HSSym{::}{}\<[27]%
+\>[27]{}\HSCon{Constr}\;\HSCon{Z}\;{}\<[41]%
+\>[41]{}\HSSpecial{(}\HSVar{x}\HSCon{\mathbin{:}}\HSVar{xs}\HSSpecial{)}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSCon{CS}{}\<[7]%
+\>[7]{}\HSSym{::}\HSCon{Constr}\;\HSVar{n}\;\HSVar{xs}{}\<[23]%
+\>[23]{}\HSSym{\to} {}\<[23E]%
+\>[27]{}\HSCon{Constr}\;\HSSpecial{(}\HSCon{S}\;\HSVar{n}\HSSpecial{)}\;{}\<[41]%
+\>[41]{}\HSSpecial{(}\HSVar{x}\HSCon{\mathbin{:}}\HSVar{xs}\HSSpecial{)}{}\<[E]%
+\\[\blanklineskip]%
+\>[B]{}\HSKeyword{type}\;\HSKeyword{family}\;\HSCon{Lkup}\;\HSSpecial{(}\HSVar{ls}\HSSym{::}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSVar{k}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{)}\;\HSSpecial{(}\HSVar{n}\HSSym{::}\HSCon{Nat}\HSSpecial{)}\HSSym{::}\HSVar{k}\;\HSKeyword{where}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSCon{Lkup}\;\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSSpecial{\HSSym{\mskip1.5mu]}}\;{}\<[18]%
+\>[18]{}\HSSym{\anonymous} {}\<[29]%
+\>[29]{}\HSSym{\mathrel{=}}\HSCon{TypeError}\;\HSString{``Index~out~of~bounds\char34 }{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSCon{Lkup}\;\HSSpecial{(}\HSVar{x}\HSCon{\mathbin{:}}\HSVar{xs}\HSSpecial{)}\;{}\<[18]%
+\>[18]{}\HS{'}\HSCon{Z}{}\<[29]%
+\>[29]{}\HSSym{\mathrel{=}}\HSVar{x}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSCon{Lkup}\;\HSSpecial{(}\HSVar{x}\HSCon{\mathbin{:}}\HSVar{xs}\HSSpecial{)}\;{}\<[18]%
+\>[18]{}\HSSpecial{(}\HS{'}\HSCon{S}\;\HSVar{n}\HSSpecial{)}{}\<[29]%
+\>[29]{}\HSSym{\mathrel{=}}\HSCon{Lkup}\;\HSVar{xs}\;\HSVar{n}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+  Now we are able to easily pattern match and inject into and from
+generic values.  Unfortunately, matching on \ensuremath{\HT{\textit{Tag}}} requires describing
+in full detail the shape of the generic value using the elements of
+\ensuremath{\HSCon{Constr}}. Using pattern synonyms~\cite{Pickering2016} we can define
+those patterns once and for all, and give them more descriptive names.
+For example, here are the synonyms describing the constructors \ensuremath{\HSCon{Bin}}
+and \ensuremath{\HSCon{Leaf}}. \footnote{Throughout this
+paper we use the syntax \ensuremath{\HT{\overbar{\HSCon{C}}}} to refer to the pattern describing a
+view for constructor \ensuremath{\HSCon{C}}.}
+
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{21}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{26}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{41}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{pattern}\;\HT{\overbar{\HSCon{Leaf}}}\;{}\<[21]%
+\>[21]{}\HSVar{x}{}\<[26]%
+\>[26]{}\HSSym{\mathrel{=}}\HT{\textit{Tag}}\;\HSCon{CZ}\;{}\<[41]%
+\>[41]{}\HSSpecial{(}\HSCon{NA\char95 K}\;\HSVar{x}\mathrel{\HT{\times}}\HSCon{NP0}\HSSpecial{)}{}\<[E]%
+\\
+\>[B]{}\HSKeyword{pattern}\;\HT{\overbar{\HSCon{Bin}}}\;{}\<[21]%
+\>[21]{}\HSVar{l}\;\HSVar{r}{}\<[26]%
+\>[26]{}\HSSym{\mathrel{=}}\HT{\textit{Tag}}\;\HSSpecial{(}\HSCon{CS}\;\HSCon{CZ}\HSSpecial{)}\;{}\<[41]%
+\>[41]{}\HSSpecial{(}\HSCon{NA\char95 I}\;\HSVar{l}\mathrel{\HT{\times}}\HSCon{NA\char95 I}\;\HSVar{r}\mathrel{\HT{\times}}\HSCon{NP0}\HSSpecial{)}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+The functions that perform the pattern matching and injection are the
+\ensuremath{\HSVar{inj}} and \ensuremath{\HSVar{sop}} below.
+
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{6}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{17}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{22}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{25}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{36}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{41}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSVar{inj}{}\<[6]%
+\>[6]{}\HSSym{::}\HSCon{View}\;{}\<[17]%
+\>[17]{}\HSVar{sop}\;{}\<[22]%
+\>[22]{}\HSVar{x}{}\<[25]%
+\>[25]{}\HSSym{\to} \HT{\textit{Rep}_{\mathsf{fix}}}\;{}\<[36]%
+\>[36]{}\HSVar{sop}\;{}\<[41]%
+\>[41]{}\HSVar{x}{}\<[E]%
+\\
+\>[B]{}\HSVar{sop}{}\<[6]%
+\>[6]{}\HSSym{::}\HT{\textit{Rep}_{\mathsf{fix}}}\;{}\<[17]%
+\>[17]{}\HSVar{sop}\;{}\<[22]%
+\>[22]{}\HSVar{x}{}\<[25]%
+\>[25]{}\HSSym{\to} \HSCon{View}\;{}\<[36]%
+\>[36]{}\HSVar{sop}\;{}\<[41]%
+\>[41]{}\HSVar{x}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+  The \ensuremath{\HSCon{View}} type and the hability to split a value into a choice
+of constructor and its fields is very handy for writing generic functions,
+as we can see in \Cref{sec:alphaequivalence}.
+
+%%   We illustrate the use of |sop| and |inj| by the |mirror| function,
+%% that behaves as the identity on leaves but swaps the left and right subtree
+%% of every |Bin| node.
+%%
+%% 
+%% \begin{myhs}
+%% \begin{code}
+%% mirror x = case sop x of
+%%              (Pat Bin) l r -> inj $ (Pat Bin) (mirror (from l)) (mirror (from r))
+%%              (Pat Leaf) x  -> inj $ (Pat Leaf) x
+%% \end{code}
+%% \end{myhs}
+%% 
+%%   As we have seen, patterns for every constructor of a datatype as a |View|
+%% are very useful for the style of generic programming using sums-of-products.
+%% The Template Haskell functionality in \texttt{\nameofourlibrary} generates
+%% them as part of the derivation of generic functionality.
+
+  Having the core of the \emph{sums-of-products} universe defined,
+we can turn our attention to writing the combinators that the programmer
+will use. These will be defined by induction on the \ensuremath{\HT{\textit{Code}_{\mathsf{fix}}}} instead of
+having to rely on instances, like in \Cref{sec:patternfunctors}. 
+For instance, lets look at \ensuremath{\HSVar{compos}}, which applies a function \ensuremath{\HSVar{f}} everywhere 
+on the recursive structure.
+
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSVar{compos}\HSSym{::}\HSSpecial{(}\HT{\textit{Generic}_{\mathsf{fix}}}\;\HSVar{a}\HSSpecial{)}\HSSym{\Rightarrow} \HSSpecial{(}\HSVar{a}\HSSym{\to} \HSVar{a}\HSSpecial{)}\HSSym{\to} \HSVar{a}\HSSym{\to} \HSVar{a}{}\<[E]%
+\\
+\>[B]{}\HSVar{compos}\;\HSVar{f}\HSSym{\mathrel{=}}\HV{\textit{to}_{\mathsf{fix}}}\HSSym{\mathbin{\circ}}\HV{\textit{fmap}}\;\HSVar{f}\HSSym{\mathbin{\circ}}\HV{\textit{from}_{\mathsf{fix}}}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+  Although more interesting in the mutually recursive setting,
+\Cref{sec:family}, we can illustrate its use for traversing a
+tree and adding one to its leaves. This example is a bit convoluted,
+since one could get the same result by simply writing 
+\ensuremath{\HV{\textit{fmap}}\;\HSSpecial{(}\HSSym{+}\HSNumeral{1}\HSSpecial{)}\HSSym{::}\HSCon{Bin}\;\HSCon{Int}\HSSym{\to} \HSCon{Bin}\;\HSCon{Int}}, but shows the intended usage
+of the \ensuremath{\HSVar{compos}} combinator just defined.
+
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{19}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSVar{example}\HSSym{::}\HSCon{Bin}\;\HSCon{Int}\HSSym{\to} \HSCon{Bin}\;\HSCon{Int}{}\<[E]%
+\\
+\>[B]{}\HSVar{example}\;\HSSpecial{(}\HSCon{Leaf}\;\HSVar{n}\HSSpecial{)}{}\<[19]%
+\>[19]{}\HSSym{\mathrel{=}}\HSCon{Leaf}\;\HSSpecial{(}\HSVar{n}\HSSym{+}\HSNumeral{1}\HSSpecial{)}{}\<[E]%
+\\
+\>[B]{}\HSVar{example}\;\HSVar{x}{}\<[19]%
+\>[19]{}\HSSym{\mathrel{=}}\HSVar{compos}\;\HSVar{example}\;\HSVar{x}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+  It is worth noting the \emph{catch-all} case, allowing one to
+focus only on the interesting patterns and using a default implementation
+everywhere else.
+  
+\paragraph{Converting to a deep representation.}  The \ensuremath{\HV{\textit{from}_{\mathsf{fix}}}} function
+returns a shallow representation. But by constructing the least
+fixpoint of \ensuremath{\HT{\textit{Rep}_{\mathsf{fix}}}\;\HSVar{a}} we can easily obtain the deep encoding for
+free, by simply recursively translating each layer of the shallow
+encoding.
+
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{newtype}\;\HSCon{Fix}\;\HSVar{f}\HSSym{\mathrel{=}}\HSCon{Fix}\;\HSSpecial{\HSSym{\{\mskip1.5mu} }\HSVar{unFix}\HSSym{::}\HSVar{f}\;\HSSpecial{(}\HSCon{Fix}\;\HSVar{f}\HSSpecial{)}\HSSpecial{\HSSym{\mskip1.5mu\}}}{}\<[E]%
+\\[\blanklineskip]%
+\>[B]{}\HSVar{deepFrom}\HSSym{::}\HSSpecial{(}\HT{\textit{Generic}_{\mathsf{fix}}}\;\HSVar{a}\HSSpecial{)}\HSSym{\Rightarrow} \HSVar{a}\HSSym{\to} \HSCon{Fix}\;\HSSpecial{(}\HT{\textit{Rep}_{\mathsf{fix}}}\;\HSVar{a}\HSSpecial{)}{}\<[E]%
+\\
+\>[B]{}\HSVar{deepFrom}\HSSym{\mathrel{=}}\HSCon{Fix}\HSSym{\mathbin{\circ}}\HV{\textit{fmap}}\;\HSVar{deepFrom}\HSSym{\mathbin{\circ}}\HV{\textit{from}_{\mathsf{fix}}}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+  So far, we handle the same class of types
+as the \texttt{regular}~\cite{Noort2008} library, but we are imposing 
+the representation to follow a \emph{sum-of-products} structure
+by the means of \ensuremath{\HT{\textit{Code}_{\mathsf{fix}}}}. Those types are guaranteed to have an
+initial algebra, and indeed, the generic fold is defined
+as expected: 
+
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HV{\textit{fold}}\HSSym{::}\HSSpecial{(}\HT{\textit{Rep}_{\mathsf{fix}}}\;\HSVar{a}\;\HSVar{b}\HSSym{\to} \HSVar{b}\HSSpecial{)}\HSSym{\to} \HSCon{Fix}\;\HSSpecial{(}\HT{\textit{Rep}_{\mathsf{fix}}}\;\HSVar{a}\HSSpecial{)}\HSSym{\to} \HSVar{b}{}\<[E]%
+\\
+\>[B]{}\HV{\textit{fold}}\;\HSVar{f}\HSSym{\mathrel{=}}\HSVar{f}\HSSym{\mathbin{\circ}}\HV{\textit{fmap}}\;\HSSpecial{(}\HV{\textit{fold}}\;\HSVar{f}\HSSpecial{)}\HSSym{\mathbin{\circ}}\HSVar{unFix}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+\begin{figure}
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{3}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{5}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{8}{@{}>{\hspre}c<{\hspost}@{}}%
+\column{8E}{@{}l@{}}%
+\column{12}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSVar{crush}{}\<[8]%
+\>[8]{}\HSSym{::}{}\<[8E]%
+\>[12]{}\HSSpecial{(}\HT{\textit{Generic}_{\mathsf{fix}}}\;\HSVar{a}\HSSpecial{)}{}\<[E]%
+\\
+\>[8]{}\HSSym{\Rightarrow} {}\<[8E]%
+\>[12]{}\HSSpecial{(}\HS{\forall}\;\HSVar{x}\;\HS{.}\;\HSCon{Int}\HSSym{\to} \HSVar{b}\HSSpecial{)}\HSSym{\to} \HSSpecial{(}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSVar{b}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSym{\to} \HSVar{b}\HSSpecial{)}{}\<[E]%
+\\
+\>[8]{}\HSSym{\to} {}\<[8E]%
+\>[12]{}\HSVar{a}\HSSym{\to} \HSVar{b}{}\<[E]%
+\\
+\>[B]{}\HSVar{crush}\;\HSVar{k}\;\HSVar{cat}\HSSym{\mathrel{=}}\HSVar{crushFix}\HSSym{\mathbin{\circ}}\HSVar{deepFrom}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSKeyword{where}{}\<[E]%
+\\
+\>[3]{}\hsindent{2}{}\<[5]%
+\>[5]{}\HSVar{crushFix}\HSSym{::}\HSCon{Fix}\;\HSSpecial{(}\HT{\textit{Rep}_{\mathsf{fix}}}\;\HSVar{a}\HSSpecial{)}\HSSym{\to} \HSVar{b}{}\<[E]%
+\\
+\>[3]{}\hsindent{2}{}\<[5]%
+\>[5]{}\HSVar{crushFix}\HSSym{\mathrel{=}}\HSVar{cat}\HSSym{\mathbin{\circ}}\HSVar{elimNS}\;\HSSpecial{(}\HSVar{elimNP}\;\HSVar{go}\HSSpecial{)}\HSSym{\mathbin{\circ}}\HSVar{unFix}{}\<[E]%
+\\[\blanklineskip]%
+\>[3]{}\hsindent{2}{}\<[5]%
+\>[5]{}\HSVar{go}\;\HSSpecial{(}\HSCon{NA\char95 I}\;\HSVar{x}\HSSpecial{)}\HSSym{\mathrel{=}}\HSVar{crushFix}\;\HSVar{x}{}\<[E]%
+\\
+\>[3]{}\hsindent{2}{}\<[5]%
+\>[5]{}\HSVar{go}\;\HSSpecial{(}\HSCon{NA\char95 K}\;\HSVar{i}\HSSpecial{)}\HSSym{\mathrel{=}}\HSVar{k}\;\HSVar{i}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+\mycaption{Generic \ensuremath{\HSVar{crush}} combinator}
+\label{fig:crush}
+\end{figure}
+
+  Sometimes we actually want to consume a value and produce
+a single value, but do not need the full expressivity of \ensuremath{\HV{\textit{fold}}}. 
+Instead, if we know how to consume the opaque types and combine
+those results, we can consume any \ensuremath{\HT{\textit{Generic}_{\mathsf{fix}}}} type using \ensuremath{\HSVar{crush}},
+which is defined in \cref{fig:crush}. The behavior of \ensuremath{\HSVar{crush}}
+is defined by (1) how to turn atoms into the output
+type \ensuremath{\HSVar{b}} -- in this case we only have integer atoms, and thus
+we require an \ensuremath{\HSCon{Int}\HSSym{\to} \HSVar{b}} function -- and (2) how to combine
+the values bubbling up from each member of a product.   
+Finally, we come full circle to our running \ensuremath{\HSVar{gsize}} example
+as it was promised in the introduction. This is noticeably the smallest
+implementation so far, and very straight to the point.
+
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSVar{gsize}\HSSym{::}\HSSpecial{(}\HT{\textit{Generic}_{\mathsf{fix}}}\;\HSVar{a}\HSSpecial{)}\HSSym{\Rightarrow} \HSVar{a}\HSSym{\to} \HSCon{Int}{}\<[E]%
+\\
+\>[B]{}\HSVar{gsize}\HSSym{\mathrel{=}}\HSVar{crush}\;\HSSpecial{(}\HSVar{const}\;\HSNumeral{1}\HSSpecial{)}\;\HSVar{sum}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+  Let us take a step back and reflect upon what we have achieved
+so far. We have combined the insight from
+the \texttt{regular} library of keeping track of recursive positions
+with the convenience of the \texttt{generics-sop} for enforcing a
+specific \emph{normal form} on representations. By doing so, we were
+able to provide a \emph{deep} encoding for free. This essentially frees
+us from the burden of maintaining complicated constraints needed for
+handling the types within the topmost constructor. The information
+about the recursive position allows us to write neat combinators like
+\ensuremath{\HSVar{crush}} and \ensuremath{\HSVar{compos}} together with a convenient \ensuremath{\HSCon{View}} type for
+easy generic pattern matching. The only thing keeping us from
+handling real life applications is the limited form of recursion. When
+a user requires a generic programming library, chances are they need
+to traverse and consume mutually recursive structures.
+
+\section{Mutual Recursion}
+\label{sec:family}
+
+  Conceptually, going from regular types (\Cref{sec:explicitfix}) to
+mutually recursive families is simple. We just need to be able to reference
+not only one type variable, but one for each element in the family.
+This is usually~\cite{Loh2011,Altenkirch2015} done by adding an index to the
+recursive positions that represents which member of the family we are recursing over.
+As a running example, we use the \emph{rose tree} family from the
+introduction.
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{12}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{15}{@{}>{\hspre}c<{\hspost}@{}}%
+\column{15E}{@{}l@{}}%
+\column{18}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{data}\;\HSCon{Rose}\;{}\<[12]%
+\>[12]{}\HSVar{a}{}\<[15]%
+\>[15]{}\HSSym{\mathrel{=}}{}\<[15E]%
+\>[18]{}\HSCon{Fork}\;\HSVar{a}\;\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{Rose}\;\HSVar{a}\HSSpecial{\HSSym{\mskip1.5mu]}}{}\<[E]%
+\\
+\>[B]{}\HSKeyword{data}\;\HSSpecial{\HSSym{[\mskip1.5mu} }\HSSpecial{\HSSym{\mskip1.5mu]}}\;{}\<[12]%
+\>[12]{}\HSVar{a}{}\<[15]%
+\>[15]{}\HSSym{\mathrel{=}}{}\<[15E]%
+\>[18]{}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSym{\mid} \HSVar{a}\HSCon{\mathbin{:}}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSVar{a}\HSSpecial{\HSSym{\mskip1.5mu]}}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+The previously introduced \ensuremath{\HT{\textit{Code}_{\mathsf{fix}}}} is not expressive enough to
+describe this datatype. In particular, when we try to write
+\ensuremath{\HT{\textit{Code}_{\mathsf{fix}}}\;\HSSpecial{(}\HSCon{Rose}\;\HSCon{Int}\HSSpecial{)}}, there is no immediately recursive appearance of
+\ensuremath{\HSCon{Rose}} itself, so we cannot use the atom \ensuremath{\HSCon{I}} in that position. Furthermore
+\ensuremath{\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{Rose}\;\HSVar{a}\HSSpecial{\HSSym{\mskip1.5mu]}}} is not an opaque type either, so we cannot
+use any of the other combinators provided by \ensuremath{\HSCon{Atom}}. We would
+like to record information about \ensuremath{\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{Rose}\;\HSCon{Int}\HSSpecial{\HSSym{\mskip1.5mu]}}} referring to itself via another datatype.
+
+Our solution is to move from codes of datatypes to \emph{codes for families of
+datatypes}. We no longer talk about \ensuremath{\HT{\textit{Code}_{\mathsf{fix}}}\;\HSSpecial{(}\HSCon{Rose}\;\HSCon{Int}\HSSpecial{)}} or
+\ensuremath{\HT{\textit{Code}_{\mathsf{fix}}}\;\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{Rose}\;\HSCon{Int}\HSSpecial{\HSSym{\mskip1.5mu]}}} in isolation. Codes only make sense
+within a family, that is, a list of types. Hence, we talk about
+\ensuremath{\HT{\textit{Code}_{\mathsf{mrec}}}\;\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{Rose}\;\HSCon{Int}\HSSpecial{,}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{Rose}\;\HSCon{Int}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{\HSSym{\mskip1.5mu]}}}. That is, the codes of the
+two types in the family. Then we extend the language
+of \ensuremath{\HSCon{Atom}}s by appending to \ensuremath{\HSCon{I}} a natural number which specifies 
+the member of the family to recurse into:
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{12}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{data}\;\HSCon{Atom}{}\<[12]%
+\>[12]{}\HSSym{\mathrel{=}}\HSCon{I}\;\HSCon{Nat}\HSSym{\mid} \HSCon{KInt}\HSSym{\mid} \HS{\dots}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+The code of this recursive family of datatypes can finally be described as:
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{24}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{30}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{type}\;\HSCon{FamRose}{}\<[24]%
+\>[24]{}\HSSym{\mathrel{=}}\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{Rose}\;\HSCon{Int}\HSSpecial{,}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{Rose}\;\HSCon{Int}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{\HSSym{\mskip1.5mu]}}{}\<[E]%
+\\[\blanklineskip]%
+\>[B]{}\HSKeyword{type}\;\HT{\textit{Code}_{\mathsf{mrec}}}\;\HSCon{FamRose}{}\<[24]%
+\>[24]{}\HSSym{\mathrel{=}}\HS{'}{}\<[30]%
+\>[30]{}\HSSpecial{\HSSym{[\mskip1.5mu} }\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{KInt}\HSSpecial{,}\HSCon{I}\;\HSSpecial{(}\HSCon{S}\;\HSCon{Z}\HSSpecial{)}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{\HSSym{\mskip1.5mu]}}{}\<[E]%
+\\
+\>[30]{}\HSSpecial{,}\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{,}\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{I}\;\HSCon{Z}\HSSpecial{,}\HSCon{I}\;\HSSpecial{(}\HSCon{S}\;\HSCon{Z}\HSSpecial{)}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{\HSSym{\mskip1.5mu]}}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+Let us have a closer look at the code for \ensuremath{\HSCon{Rose}\;\HSCon{Int}}, which appears in the
+first place in the list. There is only one constructor which has an \ensuremath{\HSCon{Int}} field,
+represented by \ensuremath{\HSCon{KInt}}, and another in which we recurse via the second member of 
+our family (since lists are 0-indexed, we represent this by \ensuremath{\HSCon{S}\;\HSCon{Z}}). Similarly,
+the second constructor of \ensuremath{\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{Rose}\;\HSCon{Int}\HSSpecial{\HSSym{\mskip1.5mu]}}} points back to both \ensuremath{\HSCon{Rose}\;\HSCon{Int}}
+using \ensuremath{\HSCon{I}\;\HSCon{Z}} and to \ensuremath{\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{Rose}\;\HSCon{Int}\HSSpecial{\HSSym{\mskip1.5mu]}}} itself via \ensuremath{\HSCon{I}\;\HSSpecial{(}\HSCon{S}\;\HSCon{Z}\HSSpecial{)}}.
+
+  Having settled on the definition of \ensuremath{\HSCon{Atom}}, we now need to adapt \ensuremath{\HSCon{NA}} to
+the new \ensuremath{\HSCon{Atom}}s. In order to interpret any \ensuremath{\HSCon{Atom}} into \ensuremath{\HSCon{*}}, we now need
+a way to interpret the different recursive positions. This information is given
+by an additional type parameter \ensuremath{\HV{\varphi}} that maps natural numbers into types.
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{3}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{9}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{19}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{data}\;\HSCon{NA}\HSSym{::}\HSSpecial{(}\HSCon{Nat}\HSSym{\to} \HSCon{*}\HSSpecial{)}\HSSym{\to} \HSCon{Atom}\HSSym{\to} \HSCon{*}\;\HSKeyword{where}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSCon{NA\char95 I}{}\<[9]%
+\>[9]{}\HSSym{::}\HV{\varphi}\;\HSVar{n}{}\<[19]%
+\>[19]{}\HSSym{\to} \HSCon{NA}\;\HV{\varphi}\;\HSSpecial{(}\HSCon{I}\;\HSVar{n}\HSSpecial{)}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSCon{NA\char95 K}{}\<[9]%
+\>[9]{}\HSSym{::}\HSCon{Int}{}\<[19]%
+\>[19]{}\HSSym{\to} \HSCon{NA}\;\HV{\varphi}\;\HSCon{KInt}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+This additional \ensuremath{\HV{\varphi}} naturally bubbles up to \ensuremath{\HT{\textit{Rep}_{\mathsf{mrec}}}}.
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{7}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{type}\;{}\<[7]%
+\>[7]{}\HT{\textit{Rep}_{\mathsf{mrec}}}\;\HSSpecial{(}\HV{\varphi}\HSSym{::}\HSCon{Nat}\HSSym{\to} \HSCon{*}\HSSpecial{)}\;\HSSpecial{(}\HSVar{c}\HSSym{::}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{Atom}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{)}{}\<[E]%
+\\
+\>[7]{}\HSSym{\mathrel{=}}\HSCon{NS}\;\HSSpecial{(}\HSCon{NP}\;\HSSpecial{(}\HSCon{NA}\;\HV{\varphi}\HSSpecial{)}\HSSpecial{)}\;\HSVar{c}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+The only piece missing here is tying the recursive knot. If we want our
+representation to describe a family of datatypes, the obvious choice
+for \ensuremath{\HV{\varphi}\;\HSVar{n}} is to look up the type at index \ensuremath{\HSVar{n}} in \ensuremath{\HSCon{FamRose}}. In fact,
+we are simply performing a type level lookup in the family,
+so we can reuse the \ensuremath{\HSCon{Lkup}} from \Cref{sec:explicitfix}.
+
+In principle, this is enough to provide a ground representation for the family
+of types. Let \ensuremath{\HV{\mathit{fam}}} be a family of types, like
+\ensuremath{\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{Rose}\;\HSCon{Int}\HSSpecial{,}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{Rose}\;\HSCon{Int}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{\HSSym{\mskip1.5mu]}}}, and \ensuremath{\HSVar{codes}} the corresponding list
+of codes. Then the representation of the type at index \ensuremath{\HSVar{ix}} in the list \ensuremath{\HV{\mathit{fam}}}
+is given by:
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HT{\textit{Rep}_{\mathsf{mrec}}}\;\HSSpecial{(}\HSCon{Lkup}\;\HV{\mathit{fam}}\HSSpecial{)}\;\HSSpecial{(}\HSCon{Lkup}\;\HSVar{codes}\;\HSVar{ix}\HSSpecial{)}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+This definition states that to obtain the representation of the type at index
+\ensuremath{\HSVar{ix}}, we first lookup its code. Then, in the recursive positions we interpret
+each \ensuremath{\HSCon{I}\;\HSVar{n}} by looking up the type at that index in the original family. This
+gives us a \emph{shallow} representation. As an example, below is the expansion
+for index 0 of the rose tree family. Note how it is isomorphic to the representation
+that \texttt{GHC.Generics} would have chosen for \ensuremath{\HSCon{Rose}\;\HSCon{Int}}:
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{3}{@{}>{\hspre}c<{\hspost}@{}}%
+\column{3E}{@{}l@{}}%
+\column{8}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{11}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{17}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{37}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HT{\textit{Rep}_{\mathsf{mrec}}}\;{}\<[11]%
+\>[11]{}\HSSpecial{(}\HSCon{Lkup}\;\HSCon{FamRose}\HSSpecial{)}\;\HSSpecial{(}\HSCon{Lkup}\;\HSSpecial{(}\HT{\textit{Code}_{\mathsf{mrec}}}\;\HSCon{FamRose}\HSSpecial{)}\;\HSCon{Z}\HSSpecial{)}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSSym{\mathrel{=}}{}\<[3E]%
+\>[8]{}\HT{\textit{Rep}_{\mathsf{mrec}}}\;{}\<[17]%
+\>[17]{}\HSSpecial{(}\HSCon{Lkup}\;\HSCon{FamRose}\HSSpecial{)}\;{}\<[37]%
+\>[37]{}\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{KInt}\HSSpecial{,}\HSCon{I}\;\HSSpecial{(}\HSCon{S}\;\HSCon{Z}\HSSpecial{)}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{\HSSym{\mskip1.5mu]}}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSSym{\mathrel{=}}{}\<[3E]%
+\>[8]{}\HSCon{NS}\;\HSSpecial{(}\HSCon{NP}\;\HSSpecial{(}\HSCon{NA}\;\HSSpecial{(}\HSCon{Lkup}\;\HSCon{FamRose}\HSSpecial{)}\HSSpecial{)}\HSSpecial{)}\;{}\<[37]%
+\>[37]{}\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{KInt}\HSSpecial{,}\HSCon{I}\;\HSSpecial{(}\HSCon{S}\;\HSCon{Z}\HSSpecial{)}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{\HSSym{\mskip1.5mu]}}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSSym{\equiv} {}\<[3E]%
+\>[8]{}\HSCon{K1}\;\HSCon{R}\;\HSCon{Int}\mathrel{\HT{:\!*\!:}}\HSCon{K1}\;\HSCon{R}\;\HSSpecial{(}\HSCon{Lkup}\;\HSCon{FamRose}\;\HSSpecial{(}\HSCon{S}\;\HSCon{Z}\HSSpecial{)}\HSSpecial{)}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSSym{\mathrel{=}}{}\<[3E]%
+\>[8]{}\HSCon{K1}\;\HSCon{R}\;\HSCon{Int}\mathrel{\HT{:\!*\!:}}\HSCon{K1}\;\HSCon{R}\;\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{Rose}\;\HSCon{Int}\HSSpecial{\HSSym{\mskip1.5mu]}}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSSym{\mathrel{=}}{}\<[3E]%
+\>[8]{}\HT{\textit{Rep}_{\mathsf{gen}}}\;\HSSpecial{(}\HSCon{Rose}\;\HSCon{Int}\HSSpecial{)}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+Unfortunately, Haskell only allows saturated, that is, fully-applied type
+families. Hence, we cannot partially apply \ensuremath{\HSCon{Lkup}} like we did it in the example above.
+As a result, we need to introduce an intermediate datatype \ensuremath{\HSCon{El}},
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{3}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{data}\;\HSCon{El}\HSSym{::}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{*}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSym{\to} \HSCon{Nat}\HSSym{\to} \HSCon{*}\;\HSKeyword{where}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSCon{El}\HSSym{::}\HSCon{Lkup}\;\HV{\mathit{fam}}\;\HSVar{ix}\HSSym{\to} \HSCon{El}\;\HV{\mathit{fam}}\;\HSVar{ix}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+The representation of the family \ensuremath{\HV{\mathit{fam}}} at index \ensuremath{\HSVar{ix}} is thus given by
+\ensuremath{\HT{\textit{Rep}_{\mathsf{mrec}}}\;\HSSpecial{(}\HSCon{El}\;\HV{\mathit{fam}}\HSSpecial{)}\;\HSSpecial{(}\HSCon{Lkup}\;\HSVar{codes}\;\HSVar{ix}\HSSpecial{)}}. We only need to use \ensuremath{\HSCon{El}} in the first
+argument, because that is the position in which we require partial application.
+The second position has \ensuremath{\HSCon{Lkup}} already fully-applied, and can stay as is.
+
+  We still have to relate a family of types to their respective codes.
+As in other generic programming approaches, we want to make their
+relation explicit. The \ensuremath{\HSCon{Family}} type class below realizes this
+relation, and introduces functions to perform the conversion between
+our representation and the actual types. Using \ensuremath{\HSCon{El}} here spares us from using
+a proxy for \ensuremath{\HV{\mathit{fam}}} in \ensuremath{\HV{\textit{from}_{\mathsf{mrec}}}} and \ensuremath{\HV{\textit{to}_{\mathsf{mrec}}}}:
+
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{3}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{13}{@{}>{\hspre}c<{\hspost}@{}}%
+\column{13E}{@{}l@{}}%
+\column{17}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{class}\;\HSCon{Family}\;\HSSpecial{(}\HV{\mathit{fam}}\HSSym{::}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{*}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{)}\;\HSSpecial{(}\HSVar{codes}\HSSym{::}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSSpecial{\HSSym{[\mskip1.5mu} }\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{Atom}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{)}\;\HSKeyword{where}{}\<[E]%
+\\[\blanklineskip]%
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HV{\textit{from}_{\mathsf{mrec}}}{}\<[13]%
+\>[13]{}\HSSym{::}{}\<[13E]%
+\>[17]{}\HSCon{SNat}\;\HSVar{ix}{}\<[E]%
+\\
+\>[13]{}\HSSym{\to} {}\<[13E]%
+\>[17]{}\HSCon{El}\;\HV{\mathit{fam}}\;\HSVar{ix}\HSSym{\to} \HT{\textit{Rep}_{\mathsf{mrec}}}\;\HSSpecial{(}\HSCon{El}\;\HV{\mathit{fam}}\HSSpecial{)}\;\HSSpecial{(}\HSCon{Lkup}\;\HSVar{codes}\;\HSVar{ix}\HSSpecial{)}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HV{\textit{to}_{\mathsf{mrec}}}{}\<[13]%
+\>[13]{}\HSSym{::}{}\<[13E]%
+\>[17]{}\HSCon{SNat}\;\HSVar{ix}{}\<[E]%
+\\
+\>[13]{}\HSSym{\to} {}\<[13E]%
+\>[17]{}\HT{\textit{Rep}_{\mathsf{mrec}}}\;\HSSpecial{(}\HSCon{El}\;\HV{\mathit{fam}}\HSSpecial{)}\;\HSSpecial{(}\HSCon{Lkup}\;\HSVar{codes}\;\HSVar{ix}\HSSpecial{)}\HSSym{\to} \HSCon{El}\;\HV{\mathit{fam}}\;\HSVar{ix}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+One of the differences between other approaches and ours is that we do not
+use an associated type to define the \ensuremath{\HSVar{codes}} for the family
+\ensuremath{\HV{\mathit{fam}}}. One of the reasons to choose this path is that it alleviates the
+burden of writing the longer \ensuremath{\HT{\textit{Code}_{\mathsf{mrec}}}\;\HV{\mathit{fam}}} every time we want to
+refer to \ensuremath{\HSVar{codes}}. Furthermore, there are types like lists which appear in
+many different families, and in that case it makes sense to speak about a
+relation instead of a function. In any case, we can choose the other point of
+the design space by moving \ensuremath{\HSVar{codes}} into an associated type or introduce a
+functional dependency \ensuremath{\HV{\mathit{fam}}\HSSym{\to} \HSVar{codes}}.
+
+Since now \ensuremath{\HV{\textit{from}_{\mathsf{mrec}}}} and \ensuremath{\HV{\textit{to}_{\mathsf{mrec}}}} operate on families, we have
+to specify how to translate \emph{each} of the members of the family back and
+forth the generic representation. This translation needs to know which is the
+index of the datatype we are converting between in each case,  hence the
+additional \ensuremath{\HSCon{SNat}\;\HSVar{ix}} parameter. Pattern matching on this singleton~\cite{Eisenberg2012} 
+type informs the compiler about the shape of the \ensuremath{\HSCon{Nat}} index. Its definition is:
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{3}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{7}{@{}>{\hspre}c<{\hspost}@{}}%
+\column{7E}{@{}l@{}}%
+\column{11}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{19}{@{}>{\hspre}c<{\hspost}@{}}%
+\column{19E}{@{}l@{}}%
+\column{23}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{data}\;\HSCon{SNat}\;\HSSpecial{(}\HSVar{n}\HSSym{::}\HSCon{Nat}\HSSpecial{)}\;\HSKeyword{where}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSCon{SZ}{}\<[7]%
+\>[7]{}\HSSym{::}{}\<[7E]%
+\>[23]{}\HSCon{SNat}\;\HS{'}\HSCon{Z}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSCon{SS}{}\<[7]%
+\>[7]{}\HSSym{::}{}\<[7E]%
+\>[11]{}\HSCon{SNat}\;\HSVar{n}{}\<[19]%
+\>[19]{}\HSSym{\to} {}\<[19E]%
+\>[23]{}\HSCon{SNat}\;\HSSpecial{(}\HS{'}\HSCon{S}\;\HSVar{n}\HSSpecial{)}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+For example, in the case of
+our family of rose trees, \ensuremath{\HV{\textit{from}_{\mathsf{mrec}}}} has the following shape:
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{3}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{19}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{20}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HV{\textit{from}_{\mathsf{mrec}}}\;\HSCon{SZ}\;{}\<[19]%
+\>[19]{}\HSSpecial{(}\HSCon{El}\;\HSSpecial{(}\HSCon{Fork}\;\HSVar{x}\;\HSVar{ch}\HSSpecial{)}\HSSpecial{)}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSSym{\mathrel{=}}\HSCon{Rep}\;\HSSpecial{(}{}\<[20]%
+\>[20]{}\HSCon{Here}\;\HSSpecial{(}\HSCon{NA\char95 K}\;\HSVar{x}\mathrel{\HT{\times}}\HSCon{NA\char95 I}\;\HSVar{ch}\mathrel{\HT{\times}}\HSCon{NP0}\HSSpecial{)}\HSSpecial{)}{}\<[E]%
+\\
+\>[B]{}\HV{\textit{from}_{\mathsf{mrec}}}\;\HSSpecial{(}\HSCon{SS}\;\HSCon{SZ}\HSSpecial{)}\;{}\<[19]%
+\>[19]{}\HSSpecial{(}\HSCon{El}\;\HSSpecial{\HSSym{[\mskip1.5mu} }\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{)}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSSym{\mathrel{=}}\HSCon{Rep}\;\HSSpecial{(}{}\<[20]%
+\>[20]{}\HSCon{Here}\;\HSCon{NP0}\HSSpecial{)}\HSSpecial{)}\;{}\<[E]%
+\\
+\>[B]{}\HV{\textit{from}_{\mathsf{mrec}}}\;\HSSpecial{(}\HSCon{SS}\;\HSCon{SZ}\HSSpecial{)}\;{}\<[19]%
+\>[19]{}\HSSpecial{(}\HSCon{El}\;\HSSpecial{(}\HSVar{x}\HSCon{\mathbin{:}}\HSVar{xs}\HSSpecial{)}\HSSpecial{)}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSSym{\mathrel{=}}\HSCon{Rep}\;\HSSpecial{(}\HSCon{There}\;\HSSpecial{(}{}\<[20]%
+\>[20]{}\HSCon{Here}\;\HSSpecial{(}\HSCon{NA\char95 I}\;\HSVar{x}\mathrel{\HT{\times}}\HSCon{NA\char95 I}\;\HSVar{xs}\mathrel{\HT{\times}}\HSCon{NP0}\HSSpecial{)}\HSSpecial{)}\HSSpecial{)}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+By pattern matching on the index, the compiler knows which family member
+to expect as a second argument. This then allows the pattern matching on
+the \ensuremath{\HSCon{El}} to typecheck.
+
+The limitations of the Haskell type system lead us to introduce \ensuremath{\HSCon{El}} as an
+intermediate datatype. Our \ensuremath{\HV{\textit{from}_{\mathsf{mrec}}}} function does not take a member of
+the family directly, but an \ensuremath{\HSCon{El}}-wrapped one. However, to construct that value,
+\ensuremath{\HSCon{El}} needs to know its parameters, which amounts to the family we are 
+embedding our type into and the index in that family. Those values are not
+immediately obvious, but we can use Haskell's visible type
+application~\cite{EisenbergWA16} to work around
+it. The \ensuremath{\HSVar{into}} function injects a value into the corresponding \ensuremath{\HSCon{El}}:
+
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{7}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSVar{into}{}\<[7]%
+\>[7]{}\HSSym{::}\HS{\forall}\;\HV{\mathit{fam}}\;\HSVar{ty}\;\HSVar{ix}\;\HS{.}\;\HSSpecial{(}\HSVar{ix}\HSSym{\mathrel{\sim}}\HSCon{Idx}\;\HSVar{ty}\;\HV{\mathit{fam}}\HSSpecial{,}\HSCon{Lkup}\;\HV{\mathit{fam}}\;\HSVar{ix}\HSSym{\mathrel{\sim}}\HSVar{ty}\HSSpecial{)}{}\<[E]%
+\\
+\>[7]{}\HSSym{\Rightarrow} \HSVar{ty}\HSSym{\to} \HSCon{El}\;\HV{\mathit{fam}}\;\HSVar{ix}{}\<[E]%
+\\
+\>[B]{}\HSVar{into}{}\<[7]%
+\>[7]{}\HSSym{\mathrel{=}}\HSCon{El}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+where \ensuremath{\HSCon{Idx}} is a closed type family implementing the inverse of \ensuremath{\HSCon{Lkup}}, that is,
+obtaining the index of the type \ensuremath{\HSVar{ty}} in the list \ensuremath{\HV{\mathit{fam}}}. Using this function
+we can turn a \ensuremath{\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{Rose}\;\HSCon{Int}\HSSpecial{\HSSym{\mskip1.5mu]}}} into its generic representation by writing
+\ensuremath{\HV{\textit{from}_{\mathsf{mrec}}}\HSSym{\mathbin{\circ}}\HSVar{into}\;\HS{@}\HSCon{FamRose}}. The type application \ensuremath{\HS{@}\HSCon{FamRose}} is responsible
+for fixing the mutually recursive family we are working with, which
+allows the type checker to reduce all the constraints and happily inject the element
+into \ensuremath{\HSCon{El}}.
+  
+\paragraph{Deep representation.} In \Cref{sec:explicitfix} we have described a
+technique to derive deep representations from shallow representations. We can
+play a very similar trick here. The main difference is the definition of the
+least fixpoint combinator, which receives an extra parameter of kind \ensuremath{\HSCon{Nat}} indicating
+which \ensuremath{\HSVar{code}} to use first:
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{3}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{newtype}\;\HSCon{Fix}\;\HSSpecial{(}\HSVar{codes}\HSSym{::}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSSpecial{\HSSym{[\mskip1.5mu} }\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{Atom}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{)}\;\HSSpecial{(}\HSVar{ix}\HSSym{::}\HSCon{Nat}\HSSpecial{)}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSSym{\mathrel{=}}\HSCon{Fix}\;\HSSpecial{\HSSym{\{\mskip1.5mu} }\HSVar{unFix}\HSSym{::}\HT{\textit{Rep}_{\mathsf{mrec}}}\;\HSSpecial{(}\HSCon{Fix}\;\HSVar{codes}\HSSpecial{)}\;\HSSpecial{(}\HSCon{Lkup}\;\HSVar{codes}\;\HSVar{ix}\HSSpecial{)}\HSSpecial{\HSSym{\mskip1.5mu\}}}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+Intuitively, since now we can recurse on different positions, we need to keep
+track of the representations for all those positions in the type. This is the
+job of the \ensuremath{\HSVar{codes}} argument. Furthermore, our \ensuremath{\HSCon{Fix}} does not represent a single
+datatype, but rather the \emph{whole} family. Thus, we need each value to have an
+additional index to declare on which element of the family it is working on.
+
+As in the previous section, we can obtain the deep representation by iteratively
+applying the shallow representation. Earlier we used \ensuremath{\HV{\textit{fmap}}} since the \ensuremath{\HT{\textit{Rep}_{\mathsf{fix}}}}
+type was a functor. \ensuremath{\HT{\textit{Rep}_{\mathsf{mrec}}}} on the other hand cannot be given a \ensuremath{\HSCon{Functor}}
+instance, but we can still define a similar function \ensuremath{\HSVar{mapRec}},
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{9}{@{}>{\hspre}c<{\hspost}@{}}%
+\column{9E}{@{}l@{}}%
+\column{13}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSVar{mapRep}{}\<[9]%
+\>[9]{}\HSSym{::}{}\<[9E]%
+\>[13]{}\HSSpecial{(}\HS{\forall}\;\HSVar{ix}\;\HS{.}\;\HV{\varphi_1}\;\HSVar{ix}\HSSym{\to} \HV{\varphi_2}\;\HSVar{ix}\HSSpecial{)}{}\<[E]%
+\\
+\>[9]{}\HSSym{\to} {}\<[9E]%
+\>[13]{}\HT{\textit{Rep}_{\mathsf{mrec}}}\;\HV{\varphi_1}\;\HSVar{c}\HSSym{\to} \HT{\textit{Rep}_{\mathsf{mrec}}}\;\HV{\varphi_2}\;\HSVar{c}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+This signature tells us that if we want to change the \ensuremath{\HV{\varphi_1}} argument in 
+the representation, we need to provide a natural transformation from
+\ensuremath{\HV{\varphi_1}} to \ensuremath{\HV{\varphi_2}}, that is, a function which works over each
+possible index this \ensuremath{\HV{\varphi_1}} can take and does not change this index. 
+This follows from \ensuremath{\HV{\varphi_1}} having kind \ensuremath{\HSCon{Nat}\HSSym{\to} \HSCon{*}}. 
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{11}{@{}>{\hspre}c<{\hspost}@{}}%
+\column{11E}{@{}l@{}}%
+\column{15}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSVar{deepFrom}{}\<[11]%
+\>[11]{}\HSSym{::}{}\<[11E]%
+\>[15]{}\HSCon{Family}\;\HV{\mathit{fam}}\;\HSVar{codes}{}\<[E]%
+\\
+\>[11]{}\HSSym{\Rightarrow} {}\<[11E]%
+\>[15]{}\HSCon{El}\;\HV{\mathit{fam}}\;\HSVar{ix}\HSSym{\to} \HSCon{Fix}\;\HSSpecial{(}\HT{\textit{Rep}_{\mathsf{mrec}}}\;\HSVar{codes}\;\HSVar{ix}\HSSpecial{)}{}\<[E]%
+\\
+\>[B]{}\HSVar{deepFrom}\HSSym{\mathrel{=}}\HSCon{Fix}\HSSym{\mathbin{\circ}}\HSVar{mapRec}\;\HSVar{deepFrom}\HSSym{\mathbin{\circ}}\HV{\textit{from}_{\mathsf{mrec}}}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+\paragraph{Only well-formed representations are accepted.}
+At first glance, it may seem like the \ensuremath{\HSCon{Atom}} datatype gives too much freedom:
+its \ensuremath{\HSCon{I}} constructor receives a natural number, but there is no apparent static check
+that this number refers to an actual member of the recursive family we
+are describing. For example, the list of codes
+\ensuremath{\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{KInt}\HSSpecial{,}\HSCon{I}\;\HSSpecial{(}\HSCon{S}\;\HSSpecial{(}\HSCon{S}\;\HSCon{Z}\HSSpecial{)}\HSSpecial{)}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{\HSSym{\mskip1.5mu]}}}  is accepted by the compiler
+although it does not represent any family of datatypes. 
+
+A direct solution to this problem is to introduce yet another index, this
+time in the \ensuremath{\HSCon{Atom}} datatype, which specifies which indices are allowed.
+The \ensuremath{\HSCon{I}} constructor is then refined to take not any natural number, but only
+those which lie in the range -- this is usually known as \ensuremath{\HSCon{Fin}\;\HSVar{n}}.
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{data}\;\HSCon{Atom}\;\HSSpecial{(}\HSVar{n}\HSSym{::}\HSCon{Nat}\HSSpecial{)}\HSSym{\mathrel{=}}\HSCon{I}\;\HSSpecial{(}\HSCon{Fin}\;\HSVar{n}\HSSpecial{)}\HSSym{\mid} \HSCon{KInt}\HSSym{\mid} \HS{\dots}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+The lack of dependent types makes this approach very hard, in Haskell.
+We would need to carry around the inhabitants \ensuremath{\HSCon{Fin}\;\HSVar{n}} and define functionality
+to manipulate them, which is more complex than what meets the eye. 
+This could greatly hinder the usability of the library.
+
+By looking a bit more closely, we find that we are not losing any type-safety
+by allowing codes which reference an arbitrary number of recursive positions.
+Users of our library are allowed to write the previous ill-defined code, but
+when trying to write \emph{values} of the representation of that code, the
+\ensuremath{\HSCon{Lkup}} function detects the out-of-bounds index, raising a type error and
+preventing the program from compiling.
+
+\subsection{Parametrized Opaque Types}
+\label{sec:konparameter}
+
+Up to this point we have considered \ensuremath{\HSCon{Atom}} to include a predetermined selection of
+\emph{opaque types}, such as \ensuremath{\HSCon{Int}}, each of them represented by one of the
+constructors other than \ensuremath{\HSCon{I}}. This is far from ideal, for two conflicting reasons:
+
+\begin{enumerate}
+\item The choice of opaque types might be too narrow. For example, the user
+of our library may decide to use \ensuremath{\HSCon{ByteString}} in their datatypes. Since that
+type is not covered by \ensuremath{\HSCon{Atom}}, nor by our generic approach, this implies that
+\texttt{\nameofourlibrary} becomes useless to them.
+\item The choice of opaque types might be too wide. If we try to encompass any
+possible situation, we end up with a huge \ensuremath{\HSCon{Atom}} type. But for a
+specific use case, we might be interested only in \ensuremath{\HSCon{Int}}s and \ensuremath{\HSCon{Float}}s, so why
+bother ourselves with possibly ill-formed representations and pattern matches
+which should never be reached?
+\end{enumerate}
+
+Our solution is to \emph{parametrize} \ensuremath{\HSCon{Atom}}, 
+giving programmers the choice of opaque types:
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{data}\;\HSCon{Atom}\;\HSVar{kon}\HSSym{\mathrel{=}}\HSCon{I}\;\HSCon{Nat}\HSSym{\mid} \HSCon{K}\;\HSVar{kon}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+For example, if we only want to deal with numeric opaque types, we can write:
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{data}\;\HSCon{NumericK}\HSSym{\mathrel{=}}\HSCon{KInt}\HSSym{\mid} \HSCon{KInteger}\HSSym{\mid} \HSCon{KFloat}{}\<[E]%
+\\
+\>[B]{}\HSKeyword{type}\;\HSCon{NumericAtom}\HSSym{\mathrel{=}}\HSCon{Atom}\;\HSCon{NumericK}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+The representation of codes must be updated to reflect the possibility of
+choosing different sets of opaque types. The \ensuremath{\HSCon{NA}} datatype in this
+final implementation provides two constructors, one per constructor in \ensuremath{\HSCon{Atom}}.
+The \ensuremath{\HSCon{NS}} and \ensuremath{\HSCon{NP}} datatypes do not require any change.
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{3}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{7}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{9}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{19}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{22}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{42}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{data}\;\HSCon{NA}\HSSym{::}\HSSpecial{(}\HSVar{kon}\HSSym{\to} \HSCon{*}\HSSpecial{)}\HSSym{\to} \HSSpecial{(}\HSCon{Nat}\HSSym{\to} \HSCon{*}\HSSpecial{)}\HSSym{\to} \HSCon{Atom}\;\HSVar{kon}\HSSym{\to} \HSCon{*}\;\HSKeyword{where}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSCon{NA\char95 I}{}\<[9]%
+\>[9]{}\HSSym{::}\HV{\varphi}\;{}\<[19]%
+\>[19]{}\HSVar{n}{}\<[22]%
+\>[22]{}\HSSym{\to} \HSCon{NA}\;\HV{\kappa}\;\HV{\varphi}\;\HSSpecial{(}\HSCon{I}\;{}\<[42]%
+\>[42]{}\HSVar{n}\HSSpecial{)}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSCon{NA\char95 K}{}\<[9]%
+\>[9]{}\HSSym{::}\HV{\kappa}\;{}\<[19]%
+\>[19]{}\HSVar{k}{}\<[22]%
+\>[22]{}\HSSym{\to} \HSCon{NA}\;\HV{\kappa}\;\HV{\varphi}\;\HSSpecial{(}\HSCon{K}\;{}\<[42]%
+\>[42]{}\HSVar{k}\HSSpecial{)}{}\<[E]%
+\\[\blanklineskip]%
+\>[B]{}\HSKeyword{type}\;{}\<[7]%
+\>[7]{}\HT{\textit{Rep}_{\mathsf{mrec}}}\;\HSSpecial{(}\HV{\kappa}\HSSym{::}\HSVar{kon}\HSSym{\to} \HSCon{*}\HSSpecial{)}\;\HSSpecial{(}\HV{\varphi}\HSSym{::}\HSCon{Nat}\HSSym{\to} \HSCon{*}\HSSpecial{)}\;\HSSpecial{(}\HSVar{c}\HSSym{::}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{Atom}\;\HSVar{kon}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{)}{}\<[E]%
+\\
+\>[7]{}\HSSym{\mathrel{=}}\HSCon{NS}\;\HSSpecial{(}\HSCon{NP}\;\HSSpecial{(}\HSCon{NA}\;\HV{\kappa}\;\HV{\varphi}\HSSpecial{)}\HSSpecial{)}\;\HSVar{c}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+The \ensuremath{\HSCon{NA\char95 K}} constructor in \ensuremath{\HSCon{NA}} makes use of an additional argument \ensuremath{\HV{\kappa}}.
+The problem is that we are defining the code for the set of opaque types by
+a specific kind, such as \ensuremath{\HSCon{Numeric}} above. On the other hand, values which
+appear in a field must have a type whose kind is \ensuremath{\HSCon{*}}. Thus, we require a mapping
+from each of the codes to the actual opaque type they represent, this
+is exactly the \emph{opaque type interpretation} \ensuremath{\HV{\kappa}}. Here is the
+datatype interpreting \ensuremath{\HSCon{NumericK}} into ground types:
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{3}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{13}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{25}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{data}\;\HSCon{NumericI}\HSSym{::}\HSCon{NumericK}\HSSym{\to} \HSCon{*}\;\HSKeyword{where}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSCon{IInt}{}\<[13]%
+\>[13]{}\HSSym{::}\HSCon{Int}{}\<[25]%
+\>[25]{}\HSSym{\to} \HSCon{NumericI}\;\HSCon{KInt}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSCon{IInteger}{}\<[13]%
+\>[13]{}\HSSym{::}\HSCon{Integer}{}\<[25]%
+\>[25]{}\HSSym{\to} \HSCon{NumericI}\;\HSCon{KInteger}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSCon{IFloat}{}\<[13]%
+\>[13]{}\HSSym{::}\HSCon{Float}{}\<[25]%
+\>[25]{}\HSSym{\to} \HSCon{NumericI}\;\HSCon{KFloat}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+The last piece of our framework which has to be updated to support different
+sets of opaque types is the \ensuremath{\HSCon{Family}} type class,
+as given in \Cref{fig:int}. This type class provides an
+interesting use case for the new dependent features in Haskell; both \ensuremath{\HV{\kappa}}
+and \ensuremath{\HSVar{codes}} are parametrized by an implicit argument \ensuremath{\HSVar{kon}} which represents
+the set of opaque types.
+\begin{figure*}
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{3}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{13}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{25}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{class}\;\HSCon{Family}\;\HSSpecial{(}\HV{\kappa}\HSSym{::}\HSVar{kon}\HSSym{\to} \HSCon{*}\HSSpecial{)}\;\HSSpecial{(}\HV{\mathit{fam}}\HSSym{::}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{*}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{)}\;\HSSpecial{(}\HSVar{codes}\HSSym{::}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSSpecial{\HSSym{[\mskip1.5mu} }\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{Atom}\;\HSVar{kon}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{)}\;\HSKeyword{where}{}\<[E]%
+\\[\blanklineskip]%
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HV{\textit{from}_{\mathsf{mrec}}}{}\<[13]%
+\>[13]{}\HSSym{::}\HSCon{SNat}\;\HSVar{ix}{}\<[25]%
+\>[25]{}\HSSym{\to} \HSCon{El}\;\HV{\mathit{fam}}\;\HSVar{ix}\HSSym{\to} \HT{\textit{Rep}_{\mathsf{mrec}}}\;\HV{\kappa}\;\HSSpecial{(}\HSCon{El}\;\HV{\mathit{fam}}\HSSpecial{)}\;\HSSpecial{(}\HSCon{Lkup}\;\HSVar{codes}\;\HSVar{ix}\HSSpecial{)}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HV{\textit{to}_{\mathsf{mrec}}}{}\<[13]%
+\>[13]{}\HSSym{::}\HSCon{SNat}\;\HSVar{ix}{}\<[25]%
+\>[25]{}\HSSym{\to} \HT{\textit{Rep}_{\mathsf{mrec}}}\;\HV{\kappa}\;\HSSpecial{(}\HSCon{El}\;\HV{\mathit{fam}}\HSSpecial{)}\;\HSSpecial{(}\HSCon{Lkup}\;\HSVar{codes}\;\HSVar{ix}\HSSpecial{)}\HSSym{\to} \HSCon{El}\;\HV{\mathit{fam}}\;\HSVar{ix}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+\mycaption{\ensuremath{\HSCon{Family}} type class with support for different opaque types}
+\label{fig:int}
+\end{figure*}
+
+We stress that the parametrization over opaque types does \emph{not}
+mean that we can use only closed universes of opaque types. It is possible
+to provide an \emph{open} representation by choosing \ensuremath{\HSSpecial{(}\HSCon{*}\HSSpecial{)}} -- the whole
+kind of Haskell's ground types -- as argument to \ensuremath{\HSCon{Atom}}. As a consequence,
+the interpretation ought to be of kind \ensuremath{\HSCon{*}\HSSym{\to} \HSCon{*}}, as follows:
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{3}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{data}\;\HSCon{Value}\HSSym{::}\HSCon{*}\HSSym{\to} \HSCon{*}\;\HSKeyword{where}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSCon{Value}\HSSym{::}\HSVar{t}\HSSym{\to} \HSCon{Value}\;\HSVar{t}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+In order to use \ensuremath{\HSSpecial{(}\HSSym{*}\HSSpecial{)}} as an argument to a type, we are required to enable
+the \texttt{TypeInType} language extension~\cite{Weirich2013,Weirich2017}.
+
+%  All the generic operations implemented use
+%parametrized version of |Atom|s and representations described in this section.
+%For convenience we also provide a basic set of opaque types which includes the
+%most common primitive datatypes.
+
+\subsection{Combinators}
+\label{sec:combinators}
+
+  In the remainder of this section we wish to showcase a selection of particularly
+powerful combinators that are simple to define by exploiting the
+\emph{sums-of-products} structure coupled with the mutual recursion information.
+Defining the same combinators in \texttt{multirec} would produce much more complicated
+code. In \texttt{GHC.Generics} these are even impossible to write due to the
+absence of recursion information.
+
+For the sake of fostering intuition instead of worrying about
+notational overhead, we write values of \ensuremath{\HT{\textit{Rep}_{\mathsf{mrec}}}\;\HV{\kappa}\;\HV{\varphi}\;\HSVar{c}} just like
+we would write normal Haskell values. They have the same \emph{sums-of-products} 
+structure anyway. Whenever a function is defined
+using the \ensuremath{\HS{\bumpeq}} symbol, \ensuremath{\HSCon{C}\;\HSVar{x\char95 1}\;\HS{\dots}\;\HSVar{x\char95 n}} will stand for a value of the corresponding
+\ensuremath{\HT{\textit{Rep}_{\mathsf{mrec}}}\;\HV{\kappa}\;\HV{\varphi}\;\HSVar{c}}, that is, \ensuremath{\HSCon{There}\;\HSSpecial{(}\HS{\dots}\;\HSSpecial{(}\HSCon{Here}\;\HSSpecial{(}\HSVar{x\char95 1}\mathrel{\HT{\times}}\HS{\dots}\mathrel{\HT{\times}}\HSVar{x\char95 n}\mathrel{\HT{\times}}\HSCon{NP0}\HSSpecial{)}\HSSpecial{)}\HSSpecial{)}}. 
+Since each of these \ensuremath{\HSVar{x\char95 1}\;\HS{\dots}\;\HSVar{x\char95 n}} might be a recursive type or an opaque type,
+whenever we have two functions \ensuremath{\HSVar{f\char95 I}} and \ensuremath{\HSVar{f\char95 K}} in scope, \ensuremath{\HV{f}\;\HSVar{x\char95 j}} will
+denote the application of the correct function for recursive positions, \ensuremath{\HSVar{f\char95 I}},
+or opaque types \ensuremath{\HSVar{f\char95 K}}. For example, here is the actual code of the function
+which maps over a \ensuremath{\HSCon{NA}} structure:
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{18}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{25}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{29}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{37}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{43}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSVar{bimapNA}\;\HSVar{f\char95 K}\;\HSVar{f\char95 I}\;{}\<[18]%
+\>[18]{}\HSSpecial{(}\HSCon{NA\char95 I}\;{}\<[25]%
+\>[25]{}\HSVar{i}\HSSpecial{)}{}\<[29]%
+\>[29]{}\HSSym{\mathrel{=}}\HSCon{NA\char95 I}\;{}\<[37]%
+\>[37]{}\HSSpecial{(}\HSVar{f\char95 I}\;{}\<[43]%
+\>[43]{}\HSVar{i}\HSSpecial{)}{}\<[E]%
+\\
+\>[B]{}\HSVar{bimapNA}\;\HSVar{f\char95 K}\;\HSVar{f\char95 I}\;{}\<[18]%
+\>[18]{}\HSSpecial{(}\HSCon{NA\char95 K}\;{}\<[25]%
+\>[25]{}\HSVar{k}\HSSpecial{)}{}\<[29]%
+\>[29]{}\HSSym{\mathrel{=}}\HSCon{NA\char95 K}\;{}\<[37]%
+\>[37]{}\HSSpecial{(}\HSVar{f\char95 K}\;{}\<[43]%
+\>[43]{}\HSVar{k}\HSSpecial{)}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+which following this convention becomes:
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSVar{bimapNA}\;\HSVar{f\char95 K}\;\HSVar{f\char95 I}\;\HSVar{x}\HS{\bumpeq}\HV{f}\;\HSVar{x}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+The first obvious combinator which we can write using the sum-of-products
+structure is \ensuremath{\HSVar{map}}. 
+Our \ensuremath{\HT{\textit{Rep}_{\mathsf{mrec}}}\;\HV{\kappa}\;\HV{\varphi}\;\HSVar{c}} is no longer a regular functor, but a higher
+bifunctor. In other words, it requires two functions, one for mapping over
+opaque types and another for mapping over \ensuremath{\HSCon{I}} positions.
+
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{11}{@{}>{\hspre}c<{\hspost}@{}}%
+\column{11E}{@{}l@{}}%
+\column{15}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{27}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{39}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{43}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{54}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{58}{@{}>{\hspre}c<{\hspost}@{}}%
+\column{58E}{@{}l@{}}%
+\column{62}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{74}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{86}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{90}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{101}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSVar{bimapRep}{}\<[11]%
+\>[11]{}\HSSym{::}{}\<[11E]%
+\>[15]{}\HSSpecial{(}\HS{\forall}\;\HSVar{k}\;{}\<[27]%
+\>[27]{}\HS{.}\;\HV{\kappa_1}\;{}\<[39]%
+\>[39]{}\HSVar{k}{}\<[43]%
+\>[43]{}\HSSym{\to} \HV{\kappa_2}\;{}\<[54]%
+\>[54]{}\HSVar{k}\HSSpecial{)}{}\<[58]%
+\>[58]{}\HSSym{\to} {}\<[58E]%
+\>[62]{}\HSSpecial{(}\HS{\forall}\;\HSVar{ix}\;{}\<[74]%
+\>[74]{}\HS{.}\;\HV{\varphi_1}\;{}\<[86]%
+\>[86]{}\HSVar{ix}{}\<[90]%
+\>[90]{}\HSSym{\to} \HV{\varphi_2}\;{}\<[101]%
+\>[101]{}\HSVar{ix}\HSSpecial{)}{}\<[E]%
+\\
+\>[11]{}\HSSym{\to} {}\<[11E]%
+\>[15]{}\HT{\textit{Rep}_{\mathsf{mrec}}}\;\HV{\kappa_1}\;\HV{\varphi_1}\;\HSVar{c}\HSSym{\to} \HT{\textit{Rep}_{\mathsf{mrec}}}\;\HV{\kappa_2}\;\HV{\varphi_2}\;\HSVar{c}{}\<[E]%
+\\
+\>[B]{}\HSVar{bimapRep}\;\HSVar{f\char95 K}\;\HSVar{f\char95 I}\;\HSSpecial{(}\HSCon{C}\;\HSVar{x\char95 1}\;\HS{\dots}\;\HSVar{x\char95 n}\HSSpecial{)}\HS{\bumpeq}\HSCon{C}\;\HSSpecial{(}\HV{f}\;\HSVar{x\char95 1}\HSSpecial{)}\;\HS{\dots}\;\HSSpecial{(}\HV{f}\;\HSVar{x\char95 n}\HSSpecial{)}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+  More interesting than a map perhaps is a general eliminator. In order to
+destruct a \ensuremath{\HT{\textit{Rep}_{\mathsf{mrec}}}\;\HV{\kappa}\;\HV{\varphi}\;\HSVar{c}} we need a way for eliminating every recursive position
+or opaque type inside the representation and a way of combining these results. 
+
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{10}{@{}>{\hspre}c<{\hspost}@{}}%
+\column{10E}{@{}l@{}}%
+\column{14}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{26}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{37}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{41}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{48}{@{}>{\hspre}c<{\hspost}@{}}%
+\column{48E}{@{}l@{}}%
+\column{52}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{64}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{75}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{79}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{86}{@{}>{\hspre}c<{\hspost}@{}}%
+\column{86E}{@{}l@{}}%
+\column{90}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSVar{elimRep}{}\<[10]%
+\>[10]{}\HSSym{::}{}\<[10E]%
+\>[14]{}\HSSpecial{(}\HS{\forall}\;\HSVar{k}\;{}\<[26]%
+\>[26]{}\HS{.}\;\HV{\kappa}\;{}\<[37]%
+\>[37]{}\HSVar{k}{}\<[41]%
+\>[41]{}\HSSym{\to} \HSVar{a}\HSSpecial{)}{}\<[48]%
+\>[48]{}\HSSym{\to} {}\<[48E]%
+\>[52]{}\HSSpecial{(}\HS{\forall}\;\HSVar{ix}\;{}\<[64]%
+\>[64]{}\HS{.}\;\HV{\varphi}\;{}\<[75]%
+\>[75]{}\HSVar{ix}{}\<[79]%
+\>[79]{}\HSSym{\to} \HSVar{a}\HSSpecial{)}{}\<[86]%
+\>[86]{}\HSSym{\to} {}\<[86E]%
+\>[90]{}\HSSpecial{(}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSVar{a}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSym{\to} \HSVar{b}\HSSpecial{)}{}\<[E]%
+\\
+\>[10]{}\HSSym{\to} {}\<[10E]%
+\>[14]{}\HT{\textit{Rep}_{\mathsf{mrec}}}\;\HV{\kappa}\;\HV{\varphi}\;\HSVar{c}\HSSym{\to} \HSVar{b}{}\<[E]%
+\\
+\>[B]{}\HSVar{elimRep}\;\HSVar{f\char95 K}\;\HSVar{f\char95 I}\;\HSVar{cat}\;\HSSpecial{(}\HSCon{C}\;\HSVar{x\char95 1}\;\HS{\dots}\;\HSVar{x\char95 n}\HSSpecial{)}\HS{\bumpeq}\HSVar{cat}\;\HSSpecial{\HSSym{[\mskip1.5mu} }\HV{f}\;\HSVar{x\char95 1}\HSSpecial{,}\HS{\dots}\HSSpecial{,}\HV{f}\;\HSVar{x\char95 n}\HSSpecial{\HSSym{\mskip1.5mu]}}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+  Being able to eliminate a representation is useful, but it becomes even
+more useful when we are able to combine the data in different values of
+the same representation with a \ensuremath{\HSVar{zip}} like combinator. Our \ensuremath{\HSVar{zipRep}}
+will attempt to put two values of a representation ``side-by-side'', as long
+as they are constructed with the same injection into the $n$-ary sum, \ensuremath{\HSCon{NS}}.
+
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{3}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{9}{@{}>{\hspre}c<{\hspost}@{}}%
+\column{9E}{@{}l@{}}%
+\column{13}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{16}{@{}>{\hspre}c<{\hspost}@{}}%
+\column{16E}{@{}l@{}}%
+\column{20}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSVar{zipRep}{}\<[9]%
+\>[9]{}\HSSym{::}{}\<[9E]%
+\>[13]{}\HT{\textit{Rep}_{\mathsf{mrec}}}\;\HV{\kappa_1}\;\HV{\varphi_1}\;\HSVar{c}\HSSym{\to} \HT{\textit{Rep}_{\mathsf{mrec}}}\;\HV{\kappa_2}\;\HV{\varphi_2}\;\HSVar{c}{}\<[E]%
+\\
+\>[9]{}\HSSym{\to} {}\<[9E]%
+\>[13]{}\HSCon{Maybe}\;\HSSpecial{(}\HT{\textit{Rep}_{\mathsf{mrec}}}\;\HSSpecial{(}\HV{\kappa_1}\mathrel{\HT{:\!*\!:}}\HV{\kappa_2}\HSSpecial{)}\;\HSSpecial{(}\HV{\varphi_1}\mathrel{\HT{:\!*\!:}}\HV{\varphi_2}\HSSpecial{)}\;\HSVar{c}\HSSpecial{)}{}\<[E]%
+\\
+\>[B]{}\HSVar{zipRep}\;\HSSpecial{(}\HSCon{C}\;\HSVar{x\char95 1}\;\HS{\dots}\;\HSVar{x\char95 n}\HSSpecial{)}\;\HSSpecial{(}\HSCon{D}\;\HSVar{y\char95 1}\;\HS{\dots}\;\HSVar{y\char95 m}\HSSpecial{)}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSSym{\mid} \HSCon{C}\HSSym{\equiv} \HSCon{D}{}\<[16]%
+\>[16]{}\HS{\bumpeq}{}\<[16E]%
+\>[20]{}\HSCon{Just}\;\HSSpecial{(}\HSCon{C}\;\HSSpecial{(}\HSVar{x\char95 1}\mathrel{\HT{:\!*\!:}}\HSVar{y\char95 1}\HSSpecial{)}\;\HS{\dots}\;\HSSpecial{(}\HSVar{x\char95 n}\mathrel{\HT{:\!*\!:}}\HSVar{y\char95 n}\HSSpecial{)}\HSSpecial{)}{}\<[E]%
+\\
+\>[20]{}\HSComment{ -\! - if C == D, then also n == m!}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSSym{\mid} \HSVar{otherwise}{}\<[16]%
+\>[16]{}\HS{\bumpeq}{}\<[16E]%
+\>[20]{}\HSCon{Nothing}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+  This definition \ensuremath{\HSVar{zipRep}} can be translated  to work with an arbitrary
+\ensuremath{\HSSpecial{(}\HSCon{Alternative}\;\HSVar{f}\HSSpecial{)}} instead of \ensuremath{\HSCon{Maybe}}. The \ensuremath{\HSVar{compos}}
+combinator, already introduced in \Cref{sec:explicitfix}, shows up in
+a yet more expressive form.  We are now able to change every subtree
+of whatever type we choose inside an arbitrary value of the mutually
+recursive family in question.
+
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{9}{@{}>{\hspre}c<{\hspost}@{}}%
+\column{9E}{@{}l@{}}%
+\column{13}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSVar{compos}{}\<[9]%
+\>[9]{}\HSSym{::}{}\<[9E]%
+\>[13]{}\HSSpecial{(}\HS{\forall}\;\HSVar{iy}\;\HS{.}\;\HSCon{El}\;\HV{\mathit{fam}}\;\HSVar{iy}\HSSym{\to} \HSCon{El}\;\HV{\mathit{fam}}\;\HSVar{iy}\HSSpecial{)}{}\<[E]%
+\\
+\>[9]{}\HSSym{\to} {}\<[9E]%
+\>[13]{}\HSCon{El}\;\HV{\mathit{fam}}\;\HSVar{ix}\HSSym{\to} \HSCon{El}\;\HV{\mathit{fam}}\;\HSVar{ix}{}\<[E]%
+\\
+\>[B]{}\HSVar{compos}\;\HSVar{f}\HSSym{\mathrel{=}}\HV{\textit{to}_{\mathsf{mrec}}}\HSSym{\mathbin{\circ}}\HSVar{bimapRep}\;\HSVar{id}\;\HSVar{f}\HSSym{\mathbin{\circ}}\HV{\textit{from}_{\mathsf{mrec}}}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+  Defining these combinators in \texttt{multirec} is not impossible,
+but involves a much bigger effort. Everything has to be implemented
+by the means of type classes and each supported combinator must
+have one instance. 
+
+  It is worth noting that although we presented pure versions
+of these combinators, \texttt{\nameofourlibrary} defines monadic
+variants of these and suffixes them with a \texttt{M}, following the
+standard Haskell naming convention. We will need these monadic
+combinators in \Cref{sec:alphaequivalence}.
+
+\section{Examples}
+\label{sec:mrecexamples}
+
+In this section we present two applications of our generic programming
+approach, namely equality and $\alpha$-equivalence. Our goal
+is to show that our approach is at least as powerful as any other comparable
+library, but brings in the union of their advantages. 
+Even though some examples use a single recursive
+datatype for the sake of conciseness, those can be readily generalized to
+mutually recursive families. Another common benchmark for the power of
+a generic library, zippers, is described in \Cref{sec:zipper} due to lack
+of space.
+
+There are many other applications for generic programming which
+greatly benefit from supporting mutual recursion, if not requiring it.
+One great source of examples consists of operations on abstract syntax
+trees of realistic languages, such as generic
+diffing~\cite{CacciariMiraldo2017} or
+pretty-printing~\cite{Magalhaes2010}.
+
+\subsection{Equality}
+
+\begin{figure}
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{3}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{6}{@{}>{\hspre}c<{\hspost}@{}}%
+\column{6E}{@{}l@{}}%
+\column{7}{@{}>{\hspre}c<{\hspost}@{}}%
+\column{7E}{@{}l@{}}%
+\column{10}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSVar{geq}{}\<[6]%
+\>[6]{}\HSSym{::}{}\<[6E]%
+\>[10]{}\HSSpecial{(}\HSCon{Family}\;\HV{\kappa}\;\HV{\mathit{fam}}\;\HSVar{codes}\HSSpecial{)}{}\<[E]%
+\\
+\>[6]{}\HSSym{\Rightarrow} {}\<[6E]%
+\>[10]{}\HSSpecial{(}\HS{\forall}\;\HSVar{k}\;\HS{.}\;\HV{\kappa}\;\HSVar{k}\HSSym{\to} \HV{\kappa}\;\HSVar{k}\HSSym{\to} \HSCon{Bool}\HSSpecial{)}{}\<[E]%
+\\
+\>[6]{}\HSSym{\to} {}\<[6E]%
+\>[10]{}\HSCon{El}\;\HV{\mathit{fam}}\;\HSVar{ix}\HSSym{\to} \HSCon{El}\;\HV{\mathit{fam}}\;\HSVar{ix}\HSSym{\to} \HSCon{Bool}{}\<[E]%
+\\
+\>[B]{}\HSVar{geq}\;\HSVar{eq\char95 K}\;\HSVar{x}\;\HSVar{y}\HSSym{\mathrel{=}}\HSVar{go}\;\HSSpecial{(}\HSVar{deepFrom}\;\HSVar{x}\HSSpecial{)}\;\HSSpecial{(}\HSVar{deepFrom}\;\HSVar{y}\HSSpecial{)}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSKeyword{where}\;\HSVar{go}\;\HSSpecial{(}\HSCon{Fix}\;\HSVar{x}\HSSpecial{)}\;\HSSpecial{(}\HSCon{Fix}\;\HSVar{y}\HSSpecial{)}{}\<[E]%
+\\
+\>[3]{}\hsindent{4}{}\<[7]%
+\>[7]{}\HSSym{\mathrel{=}}{}\<[7E]%
+\>[10]{}\HSVar{maybe}\;\HSCon{False}\;\HSSpecial{(}\HSVar{elimRep}\;\HSSpecial{(}\HSVar{uncurry}\;\HSVar{eq\char95 K}\HSSpecial{)}\;\HSSpecial{(}\HSVar{uncurry}\;\HSVar{go}\HSSpecial{)}\;\HSVar{and}\HSSpecial{)}{}\<[E]%
+\\
+\>[3]{}\hsindent{4}{}\<[7]%
+\>[7]{}\HSSym{\mathbin{\$}}{}\<[7E]%
+\>[10]{}\HSVar{zipRep}\;\HSVar{x}\;\HSVar{y}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+ %$
+\end{myhs}
+\mycaption{Generic equality}
+\label{fig:genericeq}
+\end{figure}
+
+  As usually done in generic programming papers,
+we should define generic equality in our own framework. 
+In fact, with \texttt{\nameofourlibrary} we can define a particularly
+elegant version of generic equality, given in \Cref{fig:genericeq}.
+
+  Reading through the code we see that we convert both
+arguments of \ensuremath{\HSVar{geq}} to their deep representation, then compare their
+top level constructor with \ensuremath{\HSVar{zipRep}}. If they agree
+we go through each of their fields calling either the equality on
+opaque types \ensuremath{\HSVar{eq\char95 K}} or recursing.
+
+\subsection{$\alpha$-Equivalence}
+\label{sec:alphaequivalence}
+
+A more involved exercise is the definition of
+\emph{$\alpha$-equivalence} for a language.
+In this section we start by
+showing a straightforward version for the $\lambda$-calculus and then move
+on to a more elaborate language. Although such problem has already been treated
+using generic programming~\cite{Weirich2011}, it provides a good
+example to illustrate our library. 
+
+  Regardless of the language, determining whether two programs are
+$\alpha$-equivalent requires one to focus on the constructors that
+introduce scoping, declare variables or reference variables. All the
+other constructors of the language should just
+combine the recursive results. Let us warm up with untyped
+$\lambda$-calculus:
+
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{18}{@{}>{\hspre}c<{\hspost}@{}}%
+\column{18E}{@{}l@{}}%
+\column{21}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{26}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{36}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{41}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{62}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{67}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{79}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{data}\;\HT{Term_{\lambda}}{}\<[18]%
+\>[18]{}\HSSym{\mathrel{=}}{}\<[18E]%
+\>[21]{}\HSCon{Var}\;{}\<[26]%
+\>[26]{}\HSCon{String}\HSSym{\mid} {}\<[36]%
+\>[36]{}\HSCon{Abs}\;{}\<[41]%
+\>[41]{}\HSCon{String}\;\HT{Term_{\lambda}}\HSSym{\mid} {}\<[62]%
+\>[62]{}\HSCon{App}\;{}\<[67]%
+\>[67]{}\HT{Term_{\lambda}}\;{}\<[79]%
+\>[79]{}\HT{Term_{\lambda}}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+  Let us explain the process step by step. First, for \ensuremath{\HSVar{t\char95 1}\HSSpecial{,}\HSVar{t\char95 2}\HSSym{::}\HT{Term_{\lambda}}}
+to be $\alpha$-equivalent, they have to have the constructors
+on the same positions. Otherwise, they cannot be
+$\alpha$-equivalent. Then we check the bound variables: we 
+traverse both terms at the same time and
+every time we go through a binder, in this case \ensuremath{\HSCon{Abs}}, we register a
+new \emph{rule} saying that the bound variable names are equivalent
+for the terms under that scope. Whenever we find a reference to a
+variable, \ensuremath{\HSCon{Var}}, we check if the referenced variable is 
+equivalent under the registered \emph{rules} so far.
+
+  Let us abstract away this book-keeping functionality by the means of
+a monad with a couple of associated functions. The idea is that monad \ensuremath{\HSVar{m}} will
+keep track of a stack of scopes, and each scope will register a list
+of \emph{name-equivalences}. Indeed, this is very close to how one
+should go about defining equality for \emph{nominal terms}~\cite{Calves2008}.
+
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{3}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{13}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{class}\;\HSCon{Monad}\;\HSVar{m}\HSSym{\Rightarrow} \HSCon{MonadAlphaEq}\;\HSVar{m}\;\HSKeyword{where}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSVar{scoped}{}\<[13]%
+\>[13]{}\HSSym{::}\HSVar{m}\;\HSVar{a}\HSSym{\to} \HSVar{m}\;\HSVar{a}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSVar{addRule}{}\<[13]%
+\>[13]{}\HSSym{::}\HSCon{String}\HSSym{\to} \HSCon{String}\HSSym{\to} \HSVar{m}\;\HSSpecial{(}\HSSpecial{)}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSSpecial{(}\HS{\approx}\HSSpecial{)}{}\<[13]%
+\>[13]{}\HSSym{::}\HSCon{String}\HSSym{\to} \HSCon{String}\HSSym{\to} \HSVar{m}\;\HSCon{Bool}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+\begin{figure}
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{3}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{5}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{7}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{10}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{16}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{23}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{43}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSVar{alphaEq}\HSSym{::}\HT{Term_{\lambda}}\HSSym{\to} \HT{Term_{\lambda}}\HSSym{\to} \HSCon{Bool}{}\<[E]%
+\\
+\>[B]{}\HSVar{alphaEq}\;\HSVar{x}\;\HSVar{y}\HSSym{\mathrel{=}}{}\<[16]%
+\>[16]{}\HSVar{flip}\;\HSVar{runState}\;\HSSpecial{\HSSym{[\mskip1.5mu} }\HSSpecial{\HSSym{[\mskip1.5mu} }\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{\HSSym{\mskip1.5mu]}}{}\<[E]%
+\\
+\>[16]{}\HSSpecial{(}\HSVar{galphaEq}\;\HSSpecial{(}\HSVar{deepFrom}\;\HSVar{x}\HSSpecial{)}\;\HSSpecial{(}\HSVar{deepFrom}\;\HSVar{y}\HSSpecial{)}\HSSpecial{)}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSKeyword{where}{}\<[E]%
+\\
+\>[3]{}\hsindent{2}{}\<[5]%
+\>[5]{}\HSVar{galphaEq}\;\HSVar{x}\;\HSVar{y}\HSSym{\mathrel{=}}\HSVar{maybe}\;\HSCon{False}\;\HSSpecial{(}\HSVar{go}\;\HT{\overbar{\HSCon{Term}}}\HSSpecial{)}\;\HSSpecial{(}\HSVar{zipRep}\;\HSVar{x}\;\HSVar{y}\HSSpecial{)}{}\<[E]%
+\\[\blanklineskip]%
+\>[3]{}\hsindent{2}{}\<[5]%
+\>[5]{}\HSVar{step}\HSSym{\mathrel{=}}\HSVar{elimRepM}\;{}\<[23]%
+\>[23]{}\HSSpecial{(}\HSVar{return}\HSSym{\mathbin{\circ}}\HSVar{uncurry}\;\HSSpecial{(}\HSSym{\equiv} \HSSpecial{)}\HSSpecial{)}\;{}\<[E]%
+\\
+\>[23]{}\HSComment{ -\! - opaque types have to be equal!}{}\<[E]%
+\\
+\>[23]{}\HSSpecial{(}\HSVar{uncurry}\;\HSVar{galphaEq}\HSSpecial{)}\;{}\<[43]%
+\>[43]{}\HSComment{ -\! - recursive step}{}\<[E]%
+\\
+\>[23]{}\HSSpecial{(}\HSVar{return}\HSSym{\mathbin{\circ}}\HSVar{and}\HSSpecial{)}{}\<[43]%
+\>[43]{}\HSComment{ -\! - combine}{}\<[E]%
+\\[\blanklineskip]%
+\>[3]{}\hsindent{2}{}\<[5]%
+\>[5]{}\HSVar{go}\;\HT{\overbar{\HT{Term_{\lambda}}}}\;\HSVar{x}\HSSym{\mathrel{=}}\HSKeyword{case}\;\HSVar{sop}\;\HSVar{x}\;\HSKeyword{of}{}\<[E]%
+\\
+\>[5]{}\hsindent{2}{}\<[7]%
+\>[7]{}\HT{\overbar{\HSCon{Var}}}\;\HSSpecial{(}\HSVar{v\char95 1}\mathrel{\HT{:\!*\!:}}\HSVar{v\char95 2}\HSSpecial{)}\HSSym{\to} \HSVar{v\char95 1}\HS{\approx}\HSVar{v\char95 2}{}\<[E]%
+\\
+\>[5]{}\hsindent{2}{}\<[7]%
+\>[7]{}\HT{\overbar{\HSCon{Abs}}}\;\HSSpecial{(}\HSVar{v\char95 1}\mathrel{\HT{:\!*\!:}}\HSVar{v\char95 2}\HSSpecial{)}\;\HSSpecial{(}\HSVar{t\char95 1}\mathrel{\HT{:\!*\!:}}\HSVar{t\char95 2}\HSSpecial{)}{}\<[E]%
+\\
+\>[7]{}\hsindent{3}{}\<[10]%
+\>[10]{}\HSSym{\to} \HSVar{scoped}\;\HSSpecial{(}\HSVar{addRule}\;\HSVar{v\char95 1}\;\HSVar{v\char95 2}\HSSym{\sequ} \HSVar{galphaEq}\;\HSVar{t\char95 1}\;\HSVar{t\char95 2}\HSSpecial{)}{}\<[E]%
+\\
+\>[5]{}\hsindent{2}{}\<[7]%
+\>[7]{}\HSSym{\anonymous} {}\<[10]%
+\>[10]{}\HSSym{\to} \HSVar{step}\;\HSVar{x}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+\mycaption{$\alpha$-equivalence for a $\lambda$-calculus}
+\label{fig:alphalambda}
+\end{figure}
+
+  Running a \ensuremath{\HSVar{scoped}\;\HSVar{f}} computation will push a new scope for running \ensuremath{\HSVar{f}}
+and pop it after \ensuremath{\HSVar{f}} is done. The \ensuremath{\HSVar{addRule}\;\HSVar{v\char95 1}\;\HSVar{v\char95 2}} function registers an equivalence
+of \ensuremath{\HSVar{v\char95 1}} and \ensuremath{\HSVar{v\char95 2}} in the top of the scope stack. Finally, \ensuremath{\HSVar{v\char95 1}\HS{\approx}\HSVar{v\char95 2}} is defined
+by pattern matching on the scope stack. If the stack is empty, then \ensuremath{\HSSpecial{(}\HS{\approx}\HSSpecial{)}\;\HSVar{v\char95 1}\;\HSVar{v\char95 2}\HSSym{\mathrel{=}}\HSSpecial{(}\HSVar{v\char95 1}\HSSym{\equiv} \HSVar{v\char95 2}\HSSpecial{)}}.
+Otherwise, let the stack be \ensuremath{\HSVar{s}\HSCon{\mathbin{:}}\HSVar{ss}}. We first traverse \ensuremath{\HSVar{s}} gathering the rules
+referencing either \ensuremath{\HSVar{v\char95 1}} or \ensuremath{\HSVar{v\char95 2}}. If there are none, we check if \ensuremath{\HSVar{v\char95 1}\HS{\approx}\HSVar{v\char95 2}} under \ensuremath{\HSVar{ss}}.
+If there are rules referencing either variable name in the topmost stack, we must
+ensure there is only one such rule, and it states a name equivalence between \ensuremath{\HSVar{v\char95 1}} and \ensuremath{\HSVar{v\char95 2}}.
+The implementation of these functions for \ensuremath{\HSCon{MonadAlphaEq}\;\HSSpecial{(}\HSCon{State}\;\HSSpecial{\HSSym{[\mskip1.5mu} }\HSSpecial{\HSSym{[\mskip1.5mu} }\HSSpecial{(}\HSCon{String}\HSSpecial{,}\HSCon{String}\HSSpecial{)}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{)}} is available as part of our library.
+
+  Returning to our main focus and leaving book-keeping functionality
+aside, we define in \Cref{fig:alphalambda} our alpha equivalence decision procedure by encoding what to do
+for \ensuremath{\HSCon{Var}} and \ensuremath{\HSCon{Abs}} constructors. The \ensuremath{\HSCon{App}} can be eliminated generically.
+
+\begin{figure*}
+\begin{minipage}[t]{.35\textwidth}
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{12}{@{}>{\hspre}c<{\hspost}@{}}%
+\column{12E}{@{}l@{}}%
+\column{15}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{22}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{24}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{30}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{32}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{data}\;\HSCon{Stmt}{}\<[12]%
+\>[12]{}\HSSym{\mathrel{=}}{}\<[12E]%
+\>[15]{}\HSCon{SAssign}\;{}\<[24]%
+\>[24]{}\HSCon{String}\;{}\<[32]%
+\>[32]{}\HSCon{Exp}{}\<[E]%
+\\
+\>[12]{}\HSSym{\mid} {}\<[12E]%
+\>[15]{}\HSCon{SIf}\;{}\<[24]%
+\>[24]{}\HSCon{Exp}\;{}\<[32]%
+\>[32]{}\HSCon{Stmt}\;\HSCon{Stmt}{}\<[E]%
+\\
+\>[12]{}\HSSym{\mid} {}\<[12E]%
+\>[15]{}\HSCon{SSeq}\;{}\<[24]%
+\>[24]{}\HSCon{Stmt}\;{}\<[32]%
+\>[32]{}\HSCon{Stmt}{}\<[E]%
+\\
+\>[12]{}\HSSym{\mid} {}\<[12E]%
+\>[15]{}\HSCon{SReturn}\;{}\<[24]%
+\>[24]{}\HSCon{Exp}{}\<[E]%
+\\
+\>[12]{}\HSSym{\mid} {}\<[12E]%
+\>[15]{}\HSCon{SDecl}\;{}\<[24]%
+\>[24]{}\HSCon{Decl}{}\<[E]%
+\\
+\>[12]{}\HSSym{\mid} {}\<[12E]%
+\>[15]{}\HSCon{SSkip}{}\<[E]%
+\\[\blanklineskip]%
+\>[B]{}\HSKeyword{data}\;\HSCon{Decl}{}\<[12]%
+\>[12]{}\HSSym{\mathrel{=}}{}\<[12E]%
+\>[15]{}\HSCon{DVar}\;\HSCon{String}{}\<[E]%
+\\
+\>[12]{}\HSSym{\mid} {}\<[12E]%
+\>[15]{}\HSCon{DFun}\;\HSCon{String}\;\HSCon{String}\;\HSCon{Stmt}{}\<[E]%
+\\[\blanklineskip]%
+\>[B]{}\HSKeyword{data}\;\HSCon{Exp}{}\<[12]%
+\>[12]{}\HSSym{\mathrel{=}}{}\<[12E]%
+\>[15]{}\HSCon{EVar}\;{}\<[22]%
+\>[22]{}\HSCon{String}{}\<[E]%
+\\
+\>[12]{}\HSSym{\mid} {}\<[12E]%
+\>[15]{}\HSCon{ECall}\;{}\<[22]%
+\>[22]{}\HSCon{String}\;{}\<[30]%
+\>[30]{}\HSCon{Exp}{}\<[E]%
+\\
+\>[12]{}\HSSym{\mid} {}\<[12E]%
+\>[15]{}\HSCon{EAdd}\;{}\<[22]%
+\>[22]{}\HSCon{Exp}\;{}\<[30]%
+\>[30]{}\HSCon{Exp}{}\<[E]%
+\\
+\>[12]{}\HSSym{\mid} {}\<[12E]%
+\>[15]{}\HSCon{ESub}\;{}\<[22]%
+\>[22]{}\HSCon{Exp}\;{}\<[30]%
+\>[30]{}\HSCon{Exp}{}\<[E]%
+\\
+\>[12]{}\HSSym{\mid} {}\<[12E]%
+\>[15]{}\HSCon{ELit}\;{}\<[22]%
+\>[22]{}\HSCon{Int}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+\end{minipage}%
+\begin{minipage}[t]{.65\textwidth}
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{7}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{11}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{16}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{61}{@{}>{\hspre}c<{\hspost}@{}}%
+\column{61E}{@{}l@{}}%
+\column{65}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSVar{go}\;\HT{\overbar{\HSCon{Stmt}}}\;{}\<[16]%
+\>[16]{}\HSVar{x}\HSSym{\mathrel{=}}\HSKeyword{case}\;\HSVar{sop}\;\HSVar{x}\;\HSKeyword{of}{}\<[E]%
+\\
+\>[B]{}\hsindent{7}{}\<[7]%
+\>[7]{}\HT{\overbar{\HSCon{SAssign}}}\;\HSSpecial{(}\HSVar{v\char95 1}\mathrel{\HT{:\!*\!:}}\HSVar{v\char95 2}\HSSpecial{)}\;\HSSpecial{(}\HSVar{e\char95 1}\mathrel{\HT{:\!*\!:}}\HSVar{e\char95 2}\HSSpecial{)}{}\<[61]%
+\>[61]{}\HSSym{\to} {}\<[61E]%
+\>[65]{}\HSVar{addRule}\;\HSVar{v\char95 1}\;\HSVar{v\char95 2}\HSSym{\sequ} \HSVar{galphaEq}\;\HSVar{e\char95 1}\;\HSVar{e\char95 2}{}\<[E]%
+\\
+\>[B]{}\hsindent{7}{}\<[7]%
+\>[7]{}\HSSym{\anonymous} {}\<[61]%
+\>[61]{}\HSSym{\to} {}\<[61E]%
+\>[65]{}\HSVar{step}\;\HSVar{x}{}\<[E]%
+\\
+\>[B]{}\HSVar{go}\;\HT{\overbar{\HSCon{Decl}}}\;{}\<[16]%
+\>[16]{}\HSVar{x}\HSSym{\mathrel{=}}\HSKeyword{case}\;\HSVar{sop}\;\HSVar{x}\;\HSKeyword{of}{}\<[E]%
+\\
+\>[B]{}\hsindent{7}{}\<[7]%
+\>[7]{}\HT{\overbar{\HSCon{DVar}}}\;\HSSpecial{(}\HSVar{v\char95 1}\mathrel{\HT{:\!*\!:}}\HSVar{v\char95 2}\HSSpecial{)}{}\<[61]%
+\>[61]{}\HSSym{\to} {}\<[61E]%
+\>[65]{}\HSVar{addRule}\;\HSVar{v\char95 1}\;\HSVar{v\char95 2}\HSSym{\sequ} \HSVar{return}\;\HSCon{True}{}\<[E]%
+\\
+\>[B]{}\hsindent{7}{}\<[7]%
+\>[7]{}\HT{\overbar{\HSCon{DFun}}}\;\HSSpecial{(}\HSVar{f\char95 1}\mathrel{\HT{:\!*\!:}}\HSVar{f\char95 2}\HSSpecial{)}\;\HSSpecial{(}\HSVar{x\char95 1}\mathrel{\HT{:\!*\!:}}\HSVar{x\char95 2}\HSSpecial{)}\;\HSSpecial{(}\HSVar{s\char95 1}\mathrel{\HT{:\!*\!:}}\HSVar{s\char95 2}\HSSpecial{)}{}\<[61]%
+\>[61]{}\HSSym{\to} {}\<[61E]%
+\>[65]{}\HSVar{addRule}\;\HSVar{f\char95 1}\;\HSVar{f\char95 2}{}\<[E]%
+\\
+\>[61]{}\HSSym{\sequ} {}\<[61E]%
+\>[65]{}\HSVar{scoped}\;\HSSpecial{(}\HSVar{addRule}\;\HSVar{x\char95 1}\;\HSVar{x\char95 2}\HSSym{\sequ} \HSVar{galphaEq}\;\HSVar{s\char95 1}\;\HSVar{s\char95 2}\HSSpecial{)}{}\<[E]%
+\\
+\>[B]{}\hsindent{7}{}\<[7]%
+\>[7]{}\HSSym{\anonymous} {}\<[61]%
+\>[61]{}\HSSym{\to} {}\<[61E]%
+\>[65]{}\HSVar{step}\;\HSVar{x}{}\<[E]%
+\\
+\>[B]{}\HSVar{go}\;\HT{\overbar{\HSCon{Exp}}}\;{}\<[16]%
+\>[16]{}\HSVar{x}\HSSym{\mathrel{=}}\HSKeyword{case}\;\HSVar{sop}\;\HSVar{x}\;\HSKeyword{of}{}\<[E]%
+\\
+\>[B]{}\hsindent{7}{}\<[7]%
+\>[7]{}\HT{\overbar{\HSCon{EVar}}}\;\HSSpecial{(}\HSVar{v\char95 1}\mathrel{\HT{:\!*\!:}}\HSVar{v\char95 2}\HSSpecial{)}{}\<[61]%
+\>[61]{}\HSSym{\to} {}\<[61E]%
+\>[65]{}\HSVar{v\char95 1}\HS{\approx}\HSVar{v\char95 2}{}\<[E]%
+\\
+\>[B]{}\hsindent{7}{}\<[7]%
+\>[7]{}\HT{\overbar{\HSCon{ECall}}}\;\HSSpecial{(}\HSVar{f\char95 1}\mathrel{\HT{:\!*\!:}}\HSVar{f\char95 2}\HSSpecial{)}\;\HSSpecial{(}\HSVar{e\char95 1}\mathrel{\HT{:\!*\!:}}\HSVar{e\char95 2}\HSSpecial{)}{}\<[61]%
+\>[61]{}\HSSym{\to} {}\<[61E]%
+\>[65]{}\HSSpecial{(}\HSSym{\mathrel{\wedge}}\HSSpecial{)}\mathrel{\HS{<\!\!\$\!\!>}}\HSVar{f\char95 1}\HS{\approx}\HSVar{f\char95 2}\mathrel{\HS{<\!\!*\!\!>}}\HSVar{galphaEq}\;\HSVar{e\char95 1}\;\HSVar{e\char95 2}{}\<[E]%
+\\
+\>[B]{}\hsindent{7}{}\<[7]%
+\>[7]{}\HSSym{\anonymous} {}\<[61]%
+\>[61]{}\HSSym{\to} {}\<[61E]%
+\>[65]{}\HSVar{step}\;\HSVar{x}{}\<[E]%
+\\
+\>[B]{}\HSVar{go}\;\HSSym{\anonymous} \;{}\<[11]%
+\>[11]{}\HSVar{x}\HSSym{\mathrel{=}}\HSVar{step}\;\HSVar{x}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+\end{minipage}
+\mycaption{$\alpha$-equivalence for a toy imperative language}
+\label{fig:alphatoy}
+\end{figure*}
+
+  There is a number of remarks to be made for this example. First,
+note the application of \ensuremath{\HSVar{zipRep}}. If two \ensuremath{\HT{Term_{\lambda}}}s are made with different
+constructors, \ensuremath{\HSVar{galphaEq}} will already return \ensuremath{\HSCon{False}} because \ensuremath{\HSVar{zipRep}} will fail.
+When \ensuremath{\HSVar{zipRep}} succeeds though, we get access to one constructor with
+paired fields inside. The \ensuremath{\HSVar{go}} is then responsible for performing
+the necessary semantic actions for the \ensuremath{\HSCon{Var}} and \ensuremath{\HSCon{Abs}}
+constructors and applying a general eliminator for anything else.
+In the actual library, the \emph{pattern synonyms} \ensuremath{\HT{\overbar{\HT{Term_{\lambda}}}}}, \ensuremath{\HT{\overbar{\HSCon{Var}}}},
+ and \ensuremath{\HT{\overbar{\HSCon{Abs}}}} are automatically 
+generated as we will see in \Cref{sec:templatehaskell}.
+
+  One might be inclined to believe that the generic programming here
+is more cumbersome than a straightforward pattern matching definition
+over \ensuremath{\HT{Term_{\lambda}}}. If we consider a more intricate language,
+however, manual pattern matching becomes almost intractable
+very fast.
+
+Take the toy imperative language defined in \Cref{fig:alphatoy}.
+$\alpha$-equivalence for this language can be defined with just a 
+couple of changes to the definition for \ensuremath{\HT{Term_{\lambda}}}.
+For one thing, \ensuremath{\HSVar{alphaEq}}, \ensuremath{\HSVar{step}} and \ensuremath{\HSVar{galphaEq}} remain the same.  We just need to
+adapt the \ensuremath{\HSVar{go}} function. Here writing
+$\alpha$-equivalence by pattern matching is not straightforward anymore.
+Moreover, if we decide to change this language and
+add more statements or more expressions, the changes to the \ensuremath{\HSVar{go}}
+function are minimal, none if we do not introduce any additional construct
+which declares or uses variables. As long as we do not touch the
+constructors that \ensuremath{\HSVar{go}} patterns matches on, we can even use the very same
+function.
+
+  In this section we have shown several recurring examples from the
+generic programming community. \texttt{\nameofourlibrary} gives
+both expressive power and convenience.
+%  The overall selection of examples show that by keeping the good ideas from
+%the generic programming community and putting them all under the same roof
+%we are able to achieve powerful functionality in a convenient fashion.
+  The last point we have to address is that we still have to write
+the \ensuremath{\HSCon{Family}} instance for the types we want to use. For instance,
+the \ensuremath{\HSCon{Family}} instance for example in \Cref{fig:alphatoy} is not going
+to be fun. Deriving these automatically is possible, but non-trivial;
+we give a full account in \Cref{sec:templatehaskell}   
+
+\section{Conclusion and Future Work}
+
+  Generic programming is an ever changing field. The more the
+Haskell language evolves, the more interesting generic programming
+libraries we can create. Indeed, some of the language extensions we require 
+in our work were not available at the time that some of the
+libraries in the related work were developed.  
+
+  Future work involves expanding the universe of datatypes that our
+library can handle. Currently, every type involved in a recursive
+family must be a ground type (of kind \ensuremath{\HSCon{*}} in Haskell terms); our
+Template Haskell derivations acknowledges this fact by implementing
+some amount of reduction for types.  This limits the functions we can
+implement generically, for example we cannot write a generic \ensuremath{\HV{\textit{fmap}}}
+function, since it operates on types of kind \ensuremath{\HSCon{*}\HSSym{\to} \HSCon{*}}.
+\texttt{GHC.Generics} supports type constructors with exactly one
+argument via the \texttt{Generic1} type class. 
+We intend to combine the approach in this paper with that of
+\citet{Ultimate}, in which atoms have a wider choice of shapes.
+
+  The original sum-of-products approach does not handle all the ground
+types either, only regular ones~\cite{deVries2014}. We inherit this
+restriction, and cannot represent recursive families which involve
+existentials or GADTs. The problem in this case is representing the
+constraints that each constructor imposes on the type arguments.
+
+  Our \texttt{\nameofourlibrary} is a powerful library for generic
+programming that combines the advantages of previous approaches to
+generic programming. We have carefully blended the information about
+(mutually) recursive positions from \texttt{multirec}, with the
+sums-of-products codes introduced by \texttt{generics-sop}, while maintaining the
+advantages of both. The programmer is now able to use
+simple, combinator-based generic programming for a more expressive
+class of types than the sums-of-products approach allows. This is
+interesting, especially since mutually recursive types were hard 
+to handle in a generic fashion previous to \texttt{\nameofourlibrary}.
+%
+%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Acknowledgments
+%\begin{acks}                            %% acks environment is optional
+                                        %% contents suppressed with 'anonymous'
+  %% Commands \grantsponsor{<sponsorID>}{<name>}{<url>} and
+  %% \grantnum[<url>]{<sponsorID>}{<number>} should be used to
+  %% acknowledge financial support and will be used by metadata
+  %% extraction tools.
+%  This material is based upon work supported by the
+%  \grantsponsor{GS100000001}{National Science
+%    Foundation}{http://dx.doi.org/10.13039/100000001} under Grant
+%  No.~\grantnum{GS100000001}{nnnnnnn} and Grant
+%  No.~\grantnum{GS100000001}{mmmmmmm}.  Any opinions, findings, and
+%  conclusions or recommendations expressed in this material are those
+%  of the author and do not necessarily reflect the views of the
+%  National Science Foundation.
+%\end{acks}
+
+
+%% Bibliography
+% \newpage
+\bibliography{references}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Appendix
+%
+\newpage
+\appendix
+
+\section{The Generic Zipper}
+\label{sec:zipper}
+
+  To add to our examples section we conduct a validation
+exercise involving a more complex application of generic
+programming. Zippers~\cite{Huet1997} are a well established technique
+for traversing a recursive data structure keeping track of the current
+\emph{focus point}. Defining generic zippers is nothing new, this has
+been done by many authors~\cite{Hinze2004,Adams2010,Yakushev2009} for
+many different classes of types in the past. To the best of the
+authors knowledge, this is the first definition in a direct
+\emph{sums-of-products} style.  We will not be explaining 
+\emph{are} zippers are in detail, instead, we will give a quick reminder
+and show how zippers fit within our framework.
+
+  Generally speaking, the zipper keeps track of a focus point in a
+data structure and allows for the user to conveniently move this focus
+point and to apply functions to whatever is under focus.  This focus
+point is expressed by the means of a location type, \ensuremath{\HSCon{Loc}}, with a
+couple of associated functions:
+
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{20}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSVar{up}\HSSpecial{,}\HSVar{dowm}\HSSpecial{,}\HSVar{right}{}\<[20]%
+\>[20]{}\HSSym{::}\HSCon{Loc}\;\HSVar{a}\HSSym{\to} \HSCon{Maybe}\;\HSSpecial{(}\HSCon{Loc}\;\HSVar{a}\HSSpecial{)}{}\<[E]%
+\\
+\>[B]{}\HSVar{update}{}\<[20]%
+\>[20]{}\HSSym{::}\HSSpecial{(}\HSVar{a}\HSSym{\to} \HSVar{a}\HSSpecial{)}\HSSym{\to} \HSCon{Loc}\;\HSVar{a}\HSSym{\to} \HSCon{Loc}\;\HSVar{a}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+  Where \ensuremath{\HSVar{a}} and \ensuremath{\HSCon{Loc}\;\HSVar{a}} are isomorphic, and can be converted by the
+means of \ensuremath{\HSVar{enter}} and \ensuremath{\HSVar{leave}} functions. For instance, the composition
+of \ensuremath{\HSVar{down}}, \ensuremath{\HSVar{down}}, \ensuremath{\HSVar{right}} , \ensuremath{\HSVar{update}\;\HSVar{f}} will essentially move the
+focus two layers down from the root, then one element to the right and
+apply function \ensuremath{\HSVar{f}} to the focused element, as shown below.
+
+\begin{center}
+\begin{tabular}{m{.2\linewidth} m{.15\linewidth} m{.2\linewidth}}
+\begin{forest}
+  [\ensuremath{\HSVar{a}},draw [\ensuremath{\HSVar{b}} [\ensuremath{\HSVar{c\char95 1}}] [\ensuremath{\HSVar{c\char95 2}}] [\ensuremath{\HSVar{c\char95 3}}]] [\ensuremath{\HSVar{d}}]]
+\end{forest}
+  & { \qquad \centering $\Rightarrow$ } &
+\begin{forest}
+  [\ensuremath{\HSVar{a}} [\ensuremath{\HSVar{b}} [\ensuremath{\HSVar{c\char95 1}}] [\ensuremath{\HSVar{f}\;\HSVar{c\char95 2}},draw] [\ensuremath{\HSVar{c\char95 3}}]] [\ensuremath{\HSVar{d}}]]
+\end{forest}
+\end{tabular}
+\end{center}
+
+  In our case, this location type consists of a distinguished element
+of the family \ensuremath{\HSCon{El}\;\HV{\mathit{fam}}\;\HSVar{ix}} and a stack of contexts with a hole of type \ensuremath{\HSVar{ix}}, where
+we can plug in the distinguished element. This stack of contexts may build
+a value whose type is a different member of the family; we recall its index
+as \ensuremath{\HSVar{iy}}. 
+
+For the sake of conciseness we present the datatypes for a fixed interpretation
+of opaque types \ensuremath{\HSVar{ki}\HSSym{::}\HSVar{kon}\HSSym{\to} \HSCon{*}}, a family \ensuremath{\HV{\mathit{fam}}\HSSym{::}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{*}\HSSpecial{\HSSym{\mskip1.5mu]}}} and its associated codes \ensuremath{\HSVar{codes}\HSSym{::}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSSpecial{\HSSym{[\mskip1.5mu} }\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{Atom}\;\HSVar{kon}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{\HSSym{\mskip1.5mu]}}}.
+In the actual implementation all those elements appear as additional
+parameters to \ensuremath{\HSCon{Loc}} and \ensuremath{\HSCon{Ctxs}}.
+
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{3}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{data}\;\HSCon{Loc}\HSSym{::}\HSCon{Nat}\HSSym{\to} \HSCon{*}\;\HSKeyword{where}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSCon{Loc}\HSSym{::}\HSCon{El}\;\HV{\mathit{fam}}\;\HSVar{iy}\HSSym{\to} \HSCon{Ctxs}\;\HSVar{ix}\;\HSVar{iy}\HSSym{\to} \HSCon{Loc}\;\HSVar{ix}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+  The second field of \ensuremath{\HSCon{Loc}}, the stack of contexts,
+represents how deep into the recursive
+tree we have descended so far. Each time we unwrap another layer of recursion,
+we push some context onto the stack to be able to go back up. Note how
+the \ensuremath{\HSCon{Cons}} constructor resembles some sort of composition operation.
+
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{3}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{9}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{data}\;\HSCon{Ctxs}\HSSym{::}\HSCon{Nat}\HSSym{\to} \HSCon{Nat}\HSSym{\to} \HSCon{*}\;\HSKeyword{where}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSCon{Nil}{}\<[9]%
+\>[9]{}\HSSym{::}\HSCon{Ctxs}\;\HSVar{ix}\;\HSVar{ix}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSCon{Cons}{}\<[9]%
+\>[9]{}\HSSym{::}\HSCon{Ctx}\;\HSSpecial{(}\HSCon{Lkup}\;\HSVar{codes}\;\HSVar{iz}\HSSpecial{)}\;\HSVar{iy}\HSSym{\to} \HSCon{Ctxs}\;\HSVar{ix}\;\HSVar{iz}\HSSym{\to} \HSCon{Ctxs}\;\HSVar{ix}\;\HSVar{iy}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+  Each element in this stack is an individual context, \ensuremath{\HSCon{Ctx}\;\HSVar{c}\;\HSVar{iy}}.
+A context is defined by a choice of a constructor
+for the code \ensuremath{\HSVar{c}}, paired a product of the correct type where one 
+of the elements is a hole. This hole represents where the distinguished element
+in \ensuremath{\HSCon{Loc}} was supposed to be. 
+
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{3}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{10}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{47}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{64}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{71}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{data}\;\HSCon{Ctx}\HSSym{::}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{Atom}\;\HSVar{kon}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSym{\to} \HSCon{Nat}\HSSym{\to} \HSCon{*}\;\HSKeyword{where}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSCon{Ctx}\HSSym{::}\HSCon{Constr}\;\HSVar{n}\;\HSVar{c}\HSSym{\to} \HT{NP_{\square}}\;\HSSpecial{(}\HSCon{Lkup}\;\HSVar{n}\;\HSVar{c}\HSSpecial{)}\;\HSVar{iy}\HSSym{\to} \HSCon{Ctx}\;\HSVar{c}\;\HSVar{iy}{}\<[E]%
+\\[\blanklineskip]%
+\>[B]{}\HSKeyword{data}\;\HT{NP_{\square}}\HSSym{::}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{Atom}\;\HSVar{kon}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSym{\to} \HSCon{Nat}\HSSym{\to} \HSCon{*}\;\HSKeyword{where}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSCon{Here}{}\<[10]%
+\>[10]{}\HSSym{::}\HSCon{NP}\;\HSSpecial{(}\HSCon{NA}\;\HSVar{ki}\;\HSSpecial{(}\HSCon{El}\;\HV{\mathit{fam}}\HSSpecial{)}\HSSpecial{)}\;\HSVar{xs}{}\<[47]%
+\>[47]{}\HSSym{\to} \HT{NP_{\square}}\;\HSSpecial{(}\HSCon{I}\;\HSVar{ix}{}\<[64]%
+\>[64]{}\HSCon{\mathbin{:}}\HSVar{xs}\HSSpecial{)}\;{}\<[71]%
+\>[71]{}\HSVar{ix}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSCon{There}{}\<[10]%
+\>[10]{}\HSSym{::}\HSCon{NA}\;\HSVar{ki}\;\HSSpecial{(}\HSCon{El}\;\HV{\mathit{fam}}\HSSpecial{)}\;\HSVar{x}\HSSym{\to} \HT{NP_{\square}}\;\HSVar{xs}\;\HSVar{ix}{}\<[47]%
+\>[47]{}\HSSym{\to} \HT{NP_{\square}}\;\HSSpecial{(}\HSVar{x}{}\<[64]%
+\>[64]{}\HSCon{\mathbin{:}}\HSVar{xs}\HSSpecial{)}\;{}\<[71]%
+\>[71]{}\HSVar{ix}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+  The navigation functions are a direct translation of those defined 
+for the \texttt{multirec}~\cite{Yakushev2009} library, that use the
+\ensuremath{\HSVar{first}}, \ensuremath{\HSVar{fill}}, and \ensuremath{\HSVar{next}} primitives for working over \ensuremath{\HSCon{Ctx}}s.
+The \ensuremath{\HSVar{fill}} function can be taken over almost unchanged, whereas \ensuremath{\HSVar{first}} and \ensuremath{\HSVar{next}} require
+a simple trick: we have to wrap the \ensuremath{\HSCon{Nat}} parameter of \ensuremath{\HT{NP_{\square}}} in an
+existential in order to manipulate it conveniently. The \ensuremath{\HSVar{ix}} is packed up in an existential
+type since we do not really know beforehand which member of the mutually
+recursive family is seen first in an arbitrary product.
+
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{3}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{data}\;\HT{\exists NP_{\square}}\HSSym{::}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{Atom}\;\HSVar{kon}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSym{\to} \HSCon{*}\;\HSKeyword{where}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSCon{Witness}\HSSym{::}\HSCon{El}\;\HV{\mathit{fam}}\;\HSVar{ix}\HSSym{\to} \HT{NP_{\square}}\;\HSVar{c}\;\HSVar{ix}\HSSym{\to} \HT{\exists NP_{\square}}\;\HSVar{c}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+  Now we can define the \ensuremath{\HV{first_\exists}} and \ensuremath{\HV{next_\exists}}, the counterparts of
+\ensuremath{\HSVar{first}} and \ensuremath{\HSVar{next}} from \texttt{multirec}. Intuitively,
+\ensuremath{\HV{first_\exists}} returns the \ensuremath{\HT{NP_{\square}}} with the 
+first recursive position (if any) selected, \ensuremath{\HV{next_\exists}} tries to find the
+next recursive position in an \ensuremath{\HT{NP_{\square}}}. These functions have the following types:
+
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{9}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{36}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HV{first_\exists}{}\<[9]%
+\>[9]{}\HSSym{::}\HSCon{NP}\;\HSSpecial{(}\HSCon{NA}\;\HSVar{ki}\;\HSSpecial{(}\HSCon{El}\;\HV{\mathit{fam}}\HSSpecial{)}\HSSpecial{)}\;\HSVar{xs}{}\<[36]%
+\>[36]{}\HSSym{\to} \HSCon{Maybe}\;\HSSpecial{(}\HT{\exists NP_{\square}}\;\HSVar{xs}\HSSpecial{)}{}\<[E]%
+\\
+\>[B]{}\HV{next_\exists}{}\<[9]%
+\>[9]{}\HSSym{::}\HT{\exists NP_{\square}}\;\HSVar{xs}{}\<[36]%
+\>[36]{}\HSSym{\to} \HSCon{Maybe}\;\HSSpecial{(}\HT{\exists NP_{\square}}\;\HSVar{xs}\HSSpecial{)}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+  To conclude we can now use flipped compositions for pure functions 
+\ensuremath{\HSSpecial{(}\HSSym{\ggg}\HSSpecial{)}\HSSym{::}\HSSpecial{(}\HSVar{a}\HSSym{\to} \HSVar{b}\HSSpecial{)}\HSSym{\to} \HSSpecial{(}\HSVar{b}\HSSym{\to} \HSVar{c}\HSSpecial{)}\HSSym{\to} \HSVar{a}\HSSym{\to} \HSVar{c}} and monadic functions
+\ensuremath{\HSSpecial{(}\HSSym{> \! = \! >}\HSSpecial{)}\HSSym{::}\HSSpecial{(}\HSCon{Monad}\;\HSVar{m}\HSSpecial{)}\HSSym{\Rightarrow} \HSSpecial{(}\HSVar{a}\HSSym{\to} \HSVar{m}\;\HSVar{b}\HSSpecial{)}\HSSym{\to} \HSSpecial{(}\HSVar{b}\HSSym{\to} \HSVar{m}\;\HSVar{c}\HSSpecial{)}\HSSym{\to} \HSVar{a}\HSSym{\to} \HSVar{m}\;\HSVar{c}} to elegantly
+write some \emph{location based} instruction to transform some value
+of the type \ensuremath{\HT{Term_{\lambda}}} defined in \Cref{sec:alphaequivalence}.
+Here \ensuremath{\HSVar{enter}} and \ensuremath{\HSVar{leave}} witness the isomorphism between \ensuremath{\HSCon{El}\;\HV{\mathit{fam}}\;\HSVar{ix}}
+and \ensuremath{\HSCon{Loc}\;\HSVar{ix}}.
+
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{3}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{13}{@{}>{\hspre}c<{\hspost}@{}}%
+\column{13E}{@{}l@{}}%
+\column{18}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSVar{tr}\HSSym{::}\HT{Term_{\lambda}}\HSSym{\to} \HSCon{Maybe}\;\HT{Term_{\lambda}}{}\<[E]%
+\\
+\>[B]{}\HSVar{tr}\HSSym{\mathrel{=}}\HSVar{enter}{}\<[13]%
+\>[13]{}\HSSym{\ggg}{}\<[13E]%
+\>[18]{}\HSVar{down}{}\<[E]%
+\\
+\>[13]{}\HSSym{> \! = \! >}{}\<[13E]%
+\>[18]{}\HSVar{right}{}\<[E]%
+\\
+\>[13]{}\HSSym{> \! = \! >}{}\<[13E]%
+\>[18]{}\HSVar{update}\;\HSSpecial{(}\HSVar{const}\HSSym{\mathbin{\$}}\HSCon{Var}\;\HSString{``c\char34 }\HSSpecial{)}{}\<[E]%
+\\
+\>[13]{}\HSSym{\ggg}{}\<[13E]%
+\>[18]{}\HSVar{leave}{}\<[E]%
+\\
+\>[13]{}\HSSym{\ggg}{}\<[13E]%
+\>[18]{}\HSVar{return}{}\<[E]%
+\\[\blanklineskip]%
+\>[B]{}\HSVar{tr}\;\HSSpecial{(}\HSCon{App}\;\HSSpecial{(}\HSCon{Var}\;\HSString{``a\char34 }\HSSpecial{)}\;\HSSpecial{(}\HSCon{Var}\;\HSString{``b\char34 }\HSSpecial{)}\HSSpecial{)}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSSym{\equiv} \HSCon{Just}\;\HSSpecial{(}\HSCon{App}\;\HSSpecial{(}\HSCon{Var}\;\HSString{``a\char34 }\HSSpecial{)}\;\HSSpecial{(}\HSCon{Var}\;\HSString{``c\char34 }\HSSpecial{)}\HSSpecial{)}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+ %$
+\end{myhs}
+
+  We invite the reader to check the source code for a more detailed
+account of the generic zipper.
+In fact, we were able to provide the same zipper interface 
+as the \texttt{multirec} library. Our implementation is shorter, however.
+This is because we do not need type classes to implement \ensuremath{\HV{first_\exists}} and \ensuremath{\HV{next_\exists}}.
+
+
+\section{Template Haskell}
+\label{sec:templatehaskell}
+
+  Having a convenient and robust way to get the \ensuremath{\HSCon{Family}} instance for
+a given selection of datatypes is paramount for the usability of our
+library. In a real scenario, a mutually recursive family
+may consist of many datatypes with dozens of
+constructors. Sometimes these datatypes are written with parameters,
+or come from external libraries.
+
+Our goal is to automate the generation of \ensuremath{\HSCon{Family}} instances under all
+those circumstances using \emph{Template Haskell}~\cite{Sheard2002}.
+From the programmers' point of view, they only need to call \ensuremath{\HSVar{deriveFamily}}
+with the topmost (that is, the first) type of the family. For example:
+
+\newcommand{\shspc}{\hspace{-0.05em}}
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{12}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{data}\;\HSCon{Exp}\;{}\<[12]%
+\>[12]{}\HSVar{var}\HSSym{\mathrel{=}}\HS{\dots}{}\<[E]%
+\\
+\>[B]{}\HSKeyword{data}\;\HSCon{Stmt}\;{}\<[12]%
+\>[12]{}\HSVar{var}\HSSym{\mathrel{=}}\HS{\dots}{}\<[E]%
+\\
+\>[B]{}\HSKeyword{data}\;\HSCon{Decl}\;{}\<[12]%
+\>[12]{}\HSVar{var}\HSSym{\mathrel{=}}\HS{\dots}{}\<[E]%
+\\
+\>[B]{}\HSKeyword{data}\;\HSCon{Prog}\;{}\<[12]%
+\>[12]{}\HSVar{var}\HSSym{\mathrel{=}}\HS{\dots}{}\<[E]%
+\\[\blanklineskip]%
+\>[B]{}\HSVar{deriveFamily}\;\HSSym{[\shspc t\shspc|}\HSCon{Prog}\;\HSCon{String}\HSSym{|\shspc]}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+  The \ensuremath{\HSVar{deriveFamily}} takes care of unfolding the (type level) recursion until it
+reaches a fixpoint.  In this case, the type synonym \ensuremath{\HSCon{FamProgString}\HSSym{\mathrel{=}}\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{Prog}\;\HSCon{String}\HSSpecial{,}\HS{\dots}\HSSpecial{\HSSym{\mskip1.5mu]}}} will be generated, together with its \ensuremath{\HSCon{Family}}
+instance. Optionally, one can also pass along a custom function to decide
+whether a type should be considered opaque. By default, it uses a
+selection of Haskell built-in types as opaque types.
+
+\subsection{Unfolding the Family}
+\label{sec:underthehood}
+
+  The process of deriving a whole mutually recursive family from a single
+member is conceptually divided into two disjoint processes. First we unfold all definitions
+and follow all the recursive paths until we reach a fixpoint. At that moment
+we know that we
+have discovered all the types in the family. Second, we translate the definition
+of those types to the format our library expects.
+During the unfolding process we keep a key-value map in a 
+\ensuremath{\HSCon{State}} monad, keeping track of the types we have seen, the types we have
+seen \emph{and} processed and the indices of those within the family.
+
+  Let us illustrate this process in a bit more detail using our running example
+of a
+mutually recursive family and consider what
+happens within \emph{Template Haskell} when it starts unfolding 
+the \ensuremath{\HSVar{deriveFamily}} clause.
+
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{14}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{data}\;\HSCon{Rose}\;\HSVar{a}{}\<[14]%
+\>[14]{}\HSSym{\mathrel{=}}\HSCon{Fork}\;\HSVar{a}\;\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{Rose}\;\HSVar{a}\HSSpecial{\HSSym{\mskip1.5mu]}}{}\<[E]%
+\\
+\>[B]{}\HSKeyword{data}\;\HSSpecial{\HSSym{[\mskip1.5mu} }\HSVar{a}\HSSpecial{\HSSym{\mskip1.5mu]}}{}\<[14]%
+\>[14]{}\HSSym{\mathrel{=}}\HSCon{[]}\HSSym{\mid} \HSVar{a}\HSCon{\mathbin{:}}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSVar{a}\HSSpecial{\HSSym{\mskip1.5mu]}}{}\<[E]%
+\\[\blanklineskip]%
+\>[B]{}\HSVar{deriveFamily}\;\HSSym{[\shspc t\shspc|}\HSCon{Rose}\;\HSCon{Int}\HSSym{|\shspc]}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+  The first thing that happens is registering that we seen the type \ensuremath{\HSCon{Rose}\;\HSCon{Int}}.
+Since it is the first type to be discovered, it is assigned index zero
+within the family.
+Next we need to reify the definition of \ensuremath{\HSCon{Rose}}. At this point,
+we query \emph{Template Haskell} for the definition, and we obtain
+\ensuremath{\HSKeyword{data}\;\HSCon{Rose}\;\HSVar{x}\HSSym{\mathrel{=}}\HSCon{Fork}\;\HSVar{x}\;\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{Rose}\;\HSVar{x}\HSSpecial{\HSSym{\mskip1.5mu]}}}. Since \ensuremath{\HSCon{Rose}} has kind \ensuremath{\HSCon{*}\HSSym{\to} \HSCon{*}}, it cannot
+be directly translated -- our library only supports ground types, which
+are those with kind \ensuremath{\HSCon{*}}.
+But we do not need a generic definition for \ensuremath{\HSCon{Rose}}, we just need the specific case where \ensuremath{\HSVar{x}\HSSym{\mathrel{=}}\HSCon{Int}}.
+Essentially, we just apply the reified definition of \ensuremath{\HSCon{Rose}} to \ensuremath{\HSCon{Int}} and $\beta$-reduce it,
+giving us \ensuremath{\HSCon{Fork}\;\HSCon{Int}\;\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{Rose}\;\HSCon{Int}\HSSpecial{\HSSym{\mskip1.5mu]}}}.
+
+The next processing step is looking into
+the types of the fields of the (single) constructor \ensuremath{\HSCon{Fork}}. First we see \ensuremath{\HSCon{Int}} and
+decide it is an opaque type, say \ensuremath{\HSCon{KInt}}. Second, we see \ensuremath{\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{Rose}\;\HSCon{Int}\HSSpecial{\HSSym{\mskip1.5mu]}}} and
+notice it is the first time we see this type. Hence, we register it with a fresh
+index, \ensuremath{\HSCon{S}\;\HSCon{Z}} in this case. The final result for \ensuremath{\HSCon{Rose}\;\HSCon{Int}} is \ensuremath{\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{K}\;\HSCon{KInt}\HSSpecial{,}\HSCon{I}\;\HSSpecial{(}\HSCon{S}\;\HSCon{Z}\HSSpecial{)}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{\HSSym{\mskip1.5mu]}}}.
+
+We now go into \ensuremath{\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{Rose}\;\HSCon{Int}\HSSpecial{\HSSym{\mskip1.5mu]}}} for processing.
+Once again we need to perform some amount of $\beta$-reduction
+at the type level before inspecting its fields.
+The rest of the process is the same that for \ensuremath{\HSCon{Rose}\;\HSCon{Int}}.
+However, when we encounter the field of type \ensuremath{\HSCon{Rose}\;\HSCon{Int}} this is already
+registered, so we just need to use the index \ensuremath{\HSCon{Z}} in that position.
+
+  The final step is generating the actual Haskell code from the data obtained
+in the previous process. This is a very
+verbose and mechanical process, whose details we
+omit. In short, we generate the necessary type synonyms, pattern synonyms,
+the \ensuremath{\HSCon{Family}} instance, and metadata information.  The generated type
+synonyms are named after the topmost type of the family, passed to
+\ensuremath{\HSVar{deriveFamily}}:
+
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{7}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{41}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{type}\;{}\<[7]%
+\>[7]{}\HSCon{FamRoseInt}{}\<[E]%
+\\
+\>[7]{}\HSSym{\mathrel{=}}\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{Rose}\;\HSCon{Int}{}\<[41]%
+\>[41]{}\HSSpecial{,}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{Rose}\;\HSCon{Int}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{\HSSym{\mskip1.5mu]}}{}\<[E]%
+\\
+\>[B]{}\HSKeyword{type}\;{}\<[7]%
+\>[7]{}\HSCon{CodesRoseInt}{}\<[E]%
+\\
+\>[7]{}\HSSym{\mathrel{=}}\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{K}\;\HSCon{KInt}\HSSpecial{,}\HSCon{I}\;\HSSpecial{(}\HSCon{S}\;\HSCon{Z}\HSSpecial{)}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{\HSSym{\mskip1.5mu]}}{}\<[41]%
+\>[41]{}\HSSpecial{,}\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{,}\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{I}\;\HSCon{Z}\HSSpecial{,}\HSCon{I}\;\HSSpecial{(}\HSCon{S}\;\HSCon{Z}\HSSpecial{)}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{\HSSym{\mskip1.5mu]}}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+  Pattern synonyms are useful for convenient pattern matching and injecting into
+the \ensuremath{\HSCon{View}} datatype. We produce two different kinds of pattern synonyms.
+First, synonyms for generic representations, one per constructor. Second,
+synonyms which associate each type in the recursive family with their
+position in the list of codes.
+
+\vspace{.1cm}
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{21}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{28}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{36}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{pattern}\;\HT{\overline{Fork}}\;\HSVar{x}\;\HSVar{xs}{}\<[21]%
+\>[21]{}\HSSym{\mathrel{=}}\HT{\textit{Tag}}\;\HSCon{SZ}\;{}\<[36]%
+\>[36]{}\HSSpecial{(}\HSCon{NA\char95 K}\;\HSVar{x}\mathrel{\HT{\times}}\HSCon{NA\char95 I}\;\HSVar{xs}\mathrel{\HT{\times}}\HSCon{NP0}\HSSpecial{)}{}\<[E]%
+\\
+\>[B]{}\HSKeyword{pattern}\;\HT{\overbar{[]}}{}\<[21]%
+\>[21]{}\HSSym{\mathrel{=}}\HT{\textit{Tag}}\;\HSCon{SZ}\;{}\<[36]%
+\>[36]{}\HSCon{NP0}{}\<[E]%
+\\
+\>[B]{}\HSKeyword{pattern}\;\HSVar{x}\;\HT{\overline{:}}\;\HSVar{xs}{}\<[21]%
+\>[21]{}\HSSym{\mathrel{=}}\HT{\textit{Tag}}\;\HSSpecial{(}\HSCon{SS}\;\HSCon{SZ}\HSSpecial{)}\;{}\<[36]%
+\>[36]{}\HSSpecial{(}\HSCon{NA\char95 I}\;\HSVar{x}\mathrel{\HT{\times}}\HSCon{NA\char95 I}\;\HSVar{xs}\mathrel{\HT{\times}}\HSCon{NP0}\HSSpecial{)}{}\<[E]%
+\\[\blanklineskip]%
+\>[B]{}\HSKeyword{pattern}\;\HT{\overbar{\HSCon{RoseInt}}}{}\<[28]%
+\>[28]{}\HSSym{\mathrel{=}}\HSCon{SZ}{}\<[E]%
+\\
+\>[B]{}\HSKeyword{pattern}\;\HT{\overbar{\HSCon{ListRoseInt}}}{}\<[28]%
+\>[28]{}\HSSym{\mathrel{=}}\HSCon{SS}\;\HSCon{SZ}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+\vspace{.2cm}
+  The actual \ensuremath{\HSCon{Family}} instance is exactly as the one shown in \Cref{sec:family}
+
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{instance}\;\HSCon{Family}\;\HSCon{Singl}\;\HSCon{FamRoseInt}\;\HSCon{CodesRoseInt}\;\HSKeyword{where}\;\HS{\dots}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+
+%% \section{Metadata}
+%% \label{sec:metadata}
+%% 
+%%   The representations described in this paper is enough to write generic equalities
+%% and zippers. But there is one missing ingredient to derive generic
+%% pretty-printing or conversion to JSON, for instance. We need to maintain
+%% the \emph{metadata} information of our datatypes.
+%% This metadata includes the datatype name, the module where it was defined,
+%% and the name of the constructors. Without this
+%% information you cannot write a function which outputs the string
+%% \begin{verbatim}
+%% Fork 1 [Fork 2 [], Fork 3 []]
+%% \end{verbatim}
+%% for a call to |genericShow (Fork 1 [Fork 2 [], Fork 3 []])|. The reason is that
+%% the code of |Rose Int| does not contain the information that the constructor
+%% of |Rose| is called |"Fork"|.
+%% 
+%%   Like in \texttt{generics-sop}~\cite{deVries2014}, having the code
+%% for a family of datatypes available allows for a completely separate
+%% treatment of metadata. This is yet another advantage of the
+%% sum-of-products approach when compared to the more traditional pattern
+%% functors. In fact, our handling of metadata is heavily inspired from
+%% \texttt{generics-sop}, so much so that we will start by explaining a simplified version of
+%% their handling of metadata, and then outline the differences to our approach. 
+%% 
+%%   The general idea is to store the meta information following the structure of
+%% the datatype itself. So, instead of data, we keep track of the names of the
+%% different parts and other meta information that can be useful. It is advantageous
+%% to keep metadata separate from the generic representation as it would only
+%% clutter the definition of generic functionality.
+%% This information is tied to a datatype by means of an additional type class
+%% |HasDatatypeInfo|.
+%% Generic functions may now query the metadata by means of functions like
+%% |datatypeName|, which reflect the type information into the term level.
+%% The definitions are given in \Cref{fig:sopmeta}.
+%% 
+%% \begin{figure*}
+%% \begin{myhs}
+%% \begin{code}
+%% data DatatypeInfo :: [[Star]] -> Star where
+%%   ADT  :: ModuleName -> DatatypeName -> NP  ConstructorInfo cs       -> DatatypeInfo cs
+%%   New  :: ModuleName -> DatatypeName ->     ConstructorInfo (P [c])  -> DatatypeInfo (P [ P [ c ]])
+%% 
+%% data ConstructorInfo :: [Star] -> Star where
+%%   Constructor  :: ConstructorName                             -> ConstructorInfo xs
+%%   Infix        :: ConstructorName -> Associativity -> Fixity  -> ConstructorInfo (P [ x, y ])
+%%   Record       :: ConstructorName -> NP FieldInfo xs          -> ConstructorInfo xs
+%% 
+%% data FieldInfo :: Star -> Star where
+%%   FieldInfo :: FieldName -> FieldInfo a
+%% 
+%% class HasDatatypeInfo a where
+%%   datatypeInfo :: proxy a -> DatatypeInfo (Code a)
+%% \end{code}
+%% \end{myhs}
+%% \caption{Definitions related to metadata from \texttt{generics-sop}}
+%% \label{fig:sopmeta}
+%% \end{figure*}
+%% 
+%% 
+%% Our library uses the same approach to handle metadata. In fact, the code remains
+%% almost unchanged, except for adapting it to the larger universe of
+%% datatypes we can now handle. Unlike \texttt{generic-sop}, our list of lists
+%% representing the sum-of-products structure does not contain types of kind |Star|,
+%% but |Atom|s. All the types representing metadata at the type level must be
+%% updated to reflect this new scenario:
+%% \begin{myhs}
+%% \begin{code}
+%% data DatatypeInfo     :: [  [  Atom kon ]]  -> Star where ...
+%% data ConstructorInfo  ::    [  Atom kon ]   -> Star where ...
+%% data FieldInfo        ::       Atom kon     -> Star where ...
+%% \end{code}
+%% \end{myhs}
+%% 
+%% As we have discussed above, our library is able to generate codes not only
+%% for single types of kind |Star|, like |Int| or |Bool|, but also for types which
+%% are the result of type level applications, such as |Rose Int| and |[Rose Int]|.
+%% The shape of the metadata information in |DatatypeInfo|, a module name plus
+%% a datatype name, is not enough to handle these cases. 
+%% We replace the uses of |ModuleName| and |DatatypeName| in 
+%% |DatatypeInfo| by a richer promoted type |TypeName|, which can
+%% describe applications, as required.
+%% \begin{myhs}
+%% \begin{code}
+%% data TypeName  =  ConT ModuleName DatatypeName
+%%                |  TypeName :@: TypeName
+%% 
+%% data DatatypeInfo :: [[Atom kon]] -> Star where
+%%   ADT  ::  TypeName  -> NP  ConstructorInfo cs
+%%        ->  DatatypeInfo cs
+%%   New  ::  TypeName  ->     ConstructorInfo (P [c])
+%%        ->  DatatypeInfo (P [ P [ c ]])
+%% \end{code}
+%% \end{myhs}
+%% 
+%% The most important difference to \texttt{generics-sop}, perhaps, 
+%% is that the metadata is not defined for a single type, but
+%% for a type \emph{within} a family. This is reflected in the new signature of 
+%% |datatypeInfo|, which receives proxies for both the family and the type.
+%% The type equalities in that signature reflect the fact that the given type
+%% |ty| is included with index |ix| within the family |fam|. This step is needed
+%% to look up the code for the type in the right position of |codes|.
+%% \begin{myhs}
+%% \begin{code}
+%% class  (Family kappa fam codes)
+%%        =>  HasDatatypeInfo kappa fam codes ix 
+%%        |   fam -> kappa codes where
+%%   datatypeInfo  ::  (ix ~ Idx ty fam , Lkup ix fam ~ ty)
+%%                 =>  Proxy fam -> Proxy ty
+%%                 ->  DatatypeInfo (Lkup ix codes)
+%% \end{code}
+%% \end{myhs}
+%% 
+%%   The Template Haskell will then generate something similar to
+%% the instance below for the first type in the family, |Rose Int|:
+%% 
+%% \begin{myhs}
+%% \begin{code}
+%% instance HasDatatypeInfo Singl FamRose CodesRose Z where
+%%   datatypeInfo _ _ 
+%%     =  ADT (ConT "E" "Rose" :@: ConT "Prelude" "Int")
+%%     $  (Constructor "Fork") :* NP0
+%% \end{code} %$
+%% \end{myhs}
+%% 
+%% Once all the metadata is in place, we can use it in the same fashion
+%% as \texttt{generics-sop}. We refer the interested reader to
+%% \citet{deVries2014} for examples.
+%
+%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%
+
+\end{document}
