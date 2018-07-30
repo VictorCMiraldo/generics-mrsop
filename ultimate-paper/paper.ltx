@@ -769,12 +769,13 @@ is a dead end.
 Looking at the Haskell Report~\cite[section 4.1.2]{haskell2010}, we see
 that a type follows closely the applicative fragment of the $\lambda$-calculus:
 it is either a type variable, a type constructor, or an application.
-We use well-known techniques to represent the structure of these types
+We use well-known techniques~\cite{Benton:2012:STT:2339478.2339503,McBrideCourse}
+to represent the structure of these types
 as terms:
 \begin{enumerate}
 \item We use de Bruijn indices to refer to variables.
 \item We prevent ill-kinded types such as |Kon Int :@: Var Z| by keeping
-track of the kind of the type being described as an index~\cite{BAARS201051}.
+track of the kind of the type being described as an index.
 \end{enumerate}
 In \Cref{fig:atomdefn} we define two GADTs, |TyVar| and |Atom|, to represent
 types. For the sake of clarity, we also define a
@@ -1496,17 +1497,22 @@ constraints~\cite{Bottu2017}, \citet{ScottBlog} describes how to derive
 handle existentials or kinds different from |Star|.
 
 \paragraph{Kind-genericity.}
-\citet{Hinze2000,Hinze:2000:NAG:325694.325709} describe an approach
-to generic operations for different kinds. The leverage the pattern functors
-(as those used in |GHC.Generics|) to work on different kinds, and define
-operations indexing by the kind. Our approach is quite different, as 
-we extend the language of atoms in \texttt{generic-sop} to cover different kinds.
+\citet{Hinze2000,Hinze:2000:NAG:325694.325709} describe an alternative
+approach to generic operations for different kinds. Using this approach
+they define generic mapping operations, as we do in \Cref{sec:kmap}.
+They main difference is their use of the pattern functors
+(as those used in |GHC.Generics|) lifted to arbitrary kinds, as opposed
+to sums of products. Another difference is their use of a preprocessor;
+it might be possible to port some of the techniques to modern Haskell,
+although their use of rank-$n$ polymorphism may pose a challenge, as
+type families and classes cannot operate over those.
 
 \citet{Weirich2010} define arity-generic operations, such as the family
-of functions |zipWith|, |zipWith3|, and so on. In their case the
-operations are indexed by a natural number which specifies the amount
-of arguments; in contrast our development is indexed by contexts
-|LoT| which specify the kind of each type variable.
+of functions |zipWith|, |zipWith3|, and so on. The development, 
+written in Agda, is very similar to ours.
+The main addition of our approach is the ability to define of subsets
+of datatypes for which we can implement certain generic functionality
+through the use of type classes.
 
 \section{Conclusion and Future Work}
 
@@ -1522,18 +1528,16 @@ data KTProxy dtk t where
   KTProxy :: forall dtk (t :: dtk) dot KTProxy dtk t
 \end{code}
 \end{myhs}
-The |Exists| combinator in our library only allows
-\emph{constant} kinds to quantify over.
+Our library only allows to quantify over \emph{constant} kinds.
 
 Another shortcoming of our library is that only \emph{single}
-recursion can be represented. The
-\texttt{multirec}~\cite{Yakushev2009} library adds support families of
-mutually recursive datatypes, and \texttt{generic-mrsop}~\cite{MrSop}
-translated its approach to the sum-of-products style.
-However, in both cases all members of a datatype
+recursion can be represented. 
+\texttt{generic-mrsop}~\cite{MrSop} describes how to encode
+mutually mutually recursive datatypes in the sum-of-products style.
+However, members of a datatype family
 are restricted to be of kind |*|. It might be possible to use a similar technique
---- adding an index to the |Rec| atom -- to try tackling this. 
-The difficulty is in the possibility of different members of the family
+--- adding an index to the |Rec| atom --
+but the difficulty is in the possibility of different members of the family
 having different kinds.
 
 Through several refinements, starting with the original
