@@ -1,7 +1,7 @@
 %% For double-blind review submission, w/ CCS and ACM Reference
 \documentclass[sigplan,screen]{acmart}%\settopmatter{printfolios=true}
 
-\newenvironment{myhs}{\par\vspace{0.15cm}\begin{minipage}{\textwidth}}{\end{minipage}\vspace{0.15cm}}
+\newenvironment{myhs}{\par\vspace{0.12cm}\begin{minipage}{\textwidth}}{\end{minipage}\vspace{0.12cm}}
 
 %include lhs2TeX.fmt
 %include custom.fmt
@@ -156,10 +156,10 @@ promotion, kind polymorphism ~\cite{Yorgey2012}, the |Constraint|
 kind~\cite{constraintkinds}, and
 |TypeInType|~\cite{Weirich2013,Weirich2017}.  Regarding the latter, we
 show that our construction does \emph{not} require the |Star agdatyof Star| axiom
-by attaching a model in Agda~(\Cref{sec:agda}).  Nevertheless, using
+(\Cref{sec:agda}).  Nevertheless, using
 these recent additions we drastically expand the amount of Haskell
-datatypes we can represent generically compared to other
-approaches. Take for example the following datatype for simple
+datatypes we can represent.
+Take for example the following datatype for simple
 well-typed expressions:
 \begin{myhs}
 \begin{code}
@@ -180,11 +180,8 @@ data Expr :: Star -> Star where
   If   :: Expr Bool -> Expr a -> Expr a -> Expr a
 \end{code}
 \end{myhs}
-
 Using the approach presented in this paper, this type is encoded
-using a list of lists of atoms. The outer list represents the choice
-of constructors, and the inner list represents
-the fields of such constructors.
+using the list of lists of atoms below.
 \begin{myhs}
 \begin{code}
 type CodeExpr =
@@ -192,10 +189,11 @@ type CodeExpr =
         P  [  Implicit (Kon (~) :@: V0 :@: Kon Bool ),
               Explicit (Kon Expr :@: Kon Int) ],
         P  [  Explicit (Kon Expr :@: Kon Bool),
-              Explicit (Kon Expr :@: V0), 
+              Explicit (Kon Expr :@: V0),
               Explicit (Kon Expr :@: V0) ]]
 \end{code}
 \end{myhs}
+
 The three constructors translate into three elements in the outer list.
 Each of the inner lists contain a list of fields.
 The type of each of their fields are represented using the
@@ -245,14 +243,13 @@ shapes than a mere list of fields:
   account for these constraints.
 
   \item Constructors may introduce new type variables.
-  These are called \emph{existentials}, since
+  These are \emph{existentials}, since
   once you pattern match you know that a type has been used, but not
-  exactly which one. The support for existentials is discussed in
+  exactly which one. Support for existentials is discussed in
   \Cref{sec:exists}.
 \end{itemize}
-
-In \Cref{sec:recursion} we address how one could encode explicit
-recursion within our approach.
+In \Cref{sec:recursion} we address how to encode recursion explicitly
+within our approach by extending the set of basic atoms.
 
 \section{Preliminaries}
 \label{sec:pre}
@@ -376,10 +373,10 @@ instance Size (Tree a) where
 \end{code}
 \end{myhs}
 By using the |default| keyword~\cite{Magalhaes2010} available in GHC,
-the implementation of |size| in terms of |gsize| can be completely automated.
-In that case, only an empty |instance| declaration for |Size| is required.
-The recent |deriving via| proposal~\cite{DerivingVia} provides another
-way to automatize the creation of such instances.
+the implementation of |size| in terms of |gsize| can be completely automated;
+only an empty |instance| declaration for |Size| is required.
+The recent |deriving via|~\cite{DerivingVia} provides another
+mechanism to automatize the creation of such instances.
 
 The definition of |size| is very simple, other generic operations such
 as |show| or |parse| need to access the metadata and keep additional
@@ -721,6 +718,7 @@ type family AllRec   c xs :: Constraint where
   AllRec c (x      qcolon xs)   = AllRec c xs
 \end{code} %$
 \end{myhs}
+\vspace{-0.3cm}
 \caption{Generic |fmap| using |Generic1SOP|}
 \label{fig:gfmap2}
 \end{figure}
@@ -769,14 +767,14 @@ is a dead end.
 Looking at the Haskell Report~\cite[section 4.1.2]{haskell2010}, we see
 that a type follows closely the applicative fragment of the $\lambda$-calculus:
 it is either a type variable, a type constructor, or an application.
-We use well-known techniques~\cite{Benton:2012:STT:2339478.2339503,McBrideCourse}
-to represent the structure of these types
-as terms:
-\begin{enumerate}
-\item We use de Bruijn indices to refer to variables.
-\item We prevent ill-kinded types such as |Kon Int :@: Var Z| by keeping
-track of the kind of the type being described as an index.
-\end{enumerate}
+We use two well-known techniques~\cite{Bird:1998:ND:648084.747162,
+Altenkirch:1999:MPL:647849.737066,Benton:2012:STT:2339478.2339503,McBrideCourse}
+to represent the structure of these types as terms.
+First, we use de Bruijn indices to refer to variables and ensure that
+those are well-scoped in the corresponding context. Second,
+we prevent ill-kinded types such as |Kon Int :@: Var Z| by tracking
+the kind of the type being described as an index.
+
 In \Cref{fig:atomdefn} we define two GADTs, |TyVar| and |Atom|, to represent
 types. For the sake of clarity, we also define a
 synonym |Kind| for |(Star)|,
@@ -802,6 +800,7 @@ data Atom   (dtk :: Kind) (k :: Kind) :: (Star) where
   (:@:)  :: Atom dtk (ell -> k) -> Atom dtk ell  -> Atom dtk k
 \end{code}
 \end{myhs}
+\vspace{-0.3cm}
 \caption{Definition of |Atom|}
 \label{fig:atomdefn}
 \end{figure}
@@ -1000,6 +999,7 @@ instance GenericNSOP (Star -> Star) [] where
       There (  Here (T x :* T xs :* Nil))  -> Arg $ A0 $ x : xs
 \end{code}
 \end{myhs}
+\vspace{-0.3cm}
 \caption{The |GenericNSOP| class and its instance for lists}
 \label{fig:genericnsoplist}
 \end{figure}
@@ -1085,6 +1085,7 @@ instance  FunctorAtom (Kon t) where
   gfmapF f (T x)  =  T x
 \end{code}
 \end{myhs}
+\vspace{-0.3cm}
 \caption{Generic |fmap| using |GenericNSOP|}
 \label{fig:gfmap3}
 \end{figure}
@@ -1252,15 +1253,16 @@ that the |Star agdatyof Star| axiom is not essential to our construction.
 The move from ADTs to GADTs makes it possible to require a constraint
 to be satisfied when using a certain constructor of a datatype. The
 |Expr| type described in the Introduction is one example: it mandates
-the index to be exactly |Bool| in the |IsZ| case. Here is another example, in which
-the constructor |Refl| mandates the two type arguments to coincide by
-imposing an equality constraint |a ~ b|.
+the index to be exactly |Bool| in the |IsZ| case. Here is another example:
 \begin{myhs}
 \begin{code}
 data Eql a b where
   Refl :: a ~ b => Eql a b
 \end{code}
 \end{myhs}
+The constructor |Refl| mandates the two type arguments to coincide by
+imposing an equality constraint |a ~ b|. This means that by pattern matching
+on |Refl| the compiler ``learns'' that both indices coincide.
 
 Since version 7.4.1, GHC treats constraints --- in short, anything
 which appears before the |=>| arrow --- as regular ground types, with
@@ -1316,6 +1318,7 @@ instance GenericNSOP (k -> k -> Star) Eql where
       Here (I :* Nil) -> Arg $ Arg $ A0 Refl
 \end{code} %$
 \end{myhs}
+\vspace{-0.3cm}
 \caption{The |GenericNSOP| instance for |Eql|}
 \label{fig:eqlgeneric}
 \end{figure}
@@ -1402,6 +1405,7 @@ type TmCode
                                                      Explicit (Kon Expr' :@: V1), Explicit (Kon Expr' :@: V0) ] ) ) )  ] )
 \end{code}
 \end{myhs}
+\vspace{-0.3cm}
 \caption{Code for |Expr'|}
 \label{fig:codetm}
 \end{figure*}
@@ -2049,6 +2053,7 @@ instance forall k (f :: k) dot (KFunctor k f) => KFunctorHead (Kon f) where
   kmaph _ _ r x = kmap r x
 \end{code}
 \end{myhs}
+\vspace{-0.3cm}
 \caption{Arity-generic map |kmap| and associated type class |KFunctor|}
 \label{fig:kmap}
 \end{figure*}
@@ -2068,6 +2073,7 @@ instance SForTyVar k v => SForTyVar (Star -> k) (VS v) where
   styvar = SVS styvar
 \end{code}
 \end{myhs}
+\vspace{-0.3cm}
 \caption{Auxiliary singleton for |TyVar|}
 \label{fig:styvar}
 \end{figure}
@@ -2103,6 +2109,7 @@ type family ISatisfiedE dtk (tys :: LoT dtk) xs :: Constraint where
     =                  ISatisfiedE dtk tys xs
 \end{code}
 \end{myhs}
+\vspace{-0.3cm}
 \caption{Auxiliary type families for arity-generic |fmap|}
 \label{fig:auxkmap}
 \end{figure}
@@ -2208,6 +2215,7 @@ data Branch (rtk :: Kind) (dtk :: Kind) where
 type DataType dtk = [Branch dtk dtk]
 \end{code}
 \end{myhs}
+\vspace{-0.3cm}
 \caption{Full implementation, part 1: language of codes}
 \label{fig:full1}
 \end{figure*}
@@ -2245,6 +2253,7 @@ data NS :: (k -> Star) -> [k] -> Star where
 type SOPn (dtk :: Kind) (c :: DataType dtk) (r :: dtk) (tys :: LoT dtk) = NS (NB dtk dtk r tys) c
 \end{code}
 \end{myhs}
+\vspace{-0.3cm}
 \caption{Full implementation, part 2: interpretation of codes}
 \label{fig:full2}
 \end{figure*}
@@ -2275,6 +2284,7 @@ class GenericNSOP dtk (f :: dtk) where
         =>  SOPn dtk (Code f) f tys -> ApplyT dtk f tys
 \end{code}
 \end{myhs}
+\vspace{-0.3cm}
 \caption{Full implementation, part 3: |GenericNSOP| type class}
 \label{fig:full3}
 \end{figure}
@@ -2301,6 +2311,7 @@ ravel = go (sslot atunder @tys)
     go (SLoTA ts)  x = Arg  (go ts x)
 \end{code}
 \end{myhs}
+\vspace{-0.3cm}
 \caption{Full implementation, part 4: utility functions}
 \label{fig:full4}
 \end{figure}
