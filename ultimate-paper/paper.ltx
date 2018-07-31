@@ -1553,12 +1553,12 @@ have leveraged many of the Haskell extensions proposed in the
 literature and available in GHC. 
 
 %% Acknowledgments
-%\begin{acks}
-%We thank the anonymous reviewers which provided very helpful comments
-%and pushed us to simplify and extend our library. The participants of the
-%Reading Club at Utrecht provided many suggestions in early
-%versions of this paper.
-%\end{acks}
+\begin{acks}
+We thank the anonymous reviewers which provided very helpful comments
+and pushed us to simplify and extend our library. The participants of the
+Reading Club at Utrecht provided many suggestions in early
+versions of this paper.
+\end{acks}
 
 %% Bibliography
 \bibliography{references}
@@ -1569,10 +1569,11 @@ literature and available in GHC.
 \section{Reference Implementation in Agda}
 \label{sec:agda}
 
+  In this section we shall describe the Agda model of
+|GenericNSOP|.
 %option agda
 %{
-  In this section we shall describe the Agda model of
-|GenericsNSOP|. Agda~\cite{Norell09} is a depentently typed language
+Agda~\cite{Norell09} is a depentently typed language
 with a predicative hierarchy of universes. This allows us to
 model our construction with a finer level of detail. Ultimately
 showing one does not need the |Set : Set| axiom to make the construction
@@ -1739,7 +1740,7 @@ functions. Again, as long as we do not take the least fixpoint of this construct
 there is no need for the |Set : Set| axiom.
 %}
 
-\newpage
+%\newpage
 %option haskell
 
 \section{Explicit Recursion}
@@ -1748,8 +1749,7 @@ there is no need for the |Set : Set| axiom.
   Up until now, we have not distinguished recursive positions from regular
 fields in our datatypes. This is also the case in |Generic| and |GenericSOP|,
 where recursion is \emph{implicit}.
-  
-  Marking recursion \emph{explicitly} is advantageous but introduces a
+Marking recursion \emph{explicitly} is advantageous but introduces a
 more intricate design. It enables one to write combinators exploiting
 recursion schemes, such as fold, but it introduces some extra
 complexity to the atoms of the universe and one extra parameter to the
@@ -1789,7 +1789,7 @@ data Atom (dtk :: Kind) k where
 \end{myhs}
 The kind of a recursive occurence is exactly the kind of whatever
 datatype we are defining. As an example, we can provide a more
-informative code for |[]|, where the recursion is explicit:
+informative code for |[]| in which recursion is explicit:
 \begin{myhs}
 \begin{code}
 type ListCode = P [ P [ ], P [ V0, Rec :@: V0 ] ]
@@ -1903,7 +1903,7 @@ gfmap f  =  dots
 \end{myhs}
 This approach makes the definition of |gfmap| self-contained, in
 contrast to the definition without explicit recursion, in which a
-|Functor| instance needs to be written to make recursion possible.
+|Functor| instance needs to be introduced.
 
 \subsection{Explicit Recursion and Existentials}
 \label{sec:recursionexists}
@@ -1911,7 +1911,7 @@ contrast to the definition without explicit recursion, in which a
 The combination of existentials
 with explicit recursion is not as straightforward as the combination
 of constraints from \Cref{sec:constraints} with explicit recursion.
-In this section we outline the changes required to bring both
+We outline the changes required to bring both
 concepts under the same umbrella.
 
 For the language of codes the introduction of |Rec| does not stop
@@ -2215,7 +2215,6 @@ data Branch (rtk :: Kind) (dtk :: Kind) where
 type DataType dtk = [Branch dtk dtk]
 \end{code}
 \end{myhs}
-\vspace{-0.3cm}
 \caption{Full implementation, part 1: language of codes}
 \label{fig:full1}
 \end{figure*}
@@ -2253,12 +2252,11 @@ data NS :: (k -> Star) -> [k] -> Star where
 type SOPn (dtk :: Kind) (c :: DataType dtk) (r :: dtk) (tys :: LoT dtk) = NS (NB dtk dtk r tys) c
 \end{code}
 \end{myhs}
-\vspace{-0.3cm}
 \caption{Full implementation, part 2: interpretation of codes}
 \label{fig:full2}
 \end{figure*}
 
-\begin{figure}
+\begin{figure*}
 \begin{myhs}
 \begin{code}
 data SLoT dtk (tys :: LoT dtk) where
@@ -2273,24 +2271,21 @@ instance SSLoT ks ts => SSLoT (k -> ks) (t :&&: ts) where
   sslot = SLoTA sslot
 
 data ApplyT k (f :: k) (tys :: LoT k) :: Star where
-  A0   :: { unA0   ::  f  }  -> ApplyT (Star)     f  LoT0
-  Arg  :: { unArg  ::  ApplyT ks (f t) ts  }
-                             -> ApplyT (k -> ks)  f (t :&&: ts)
+  A0   :: { unA0   ::  f  }                   -> ApplyT (Star)     f  LoT0
+  Arg  :: { unArg  ::  ApplyT ks (f t) ts  }  -> ApplyT (k -> ks)  f (t :&&: ts)
 
 class GenericNSOP dtk (f :: dtk) where
   type Code f :: DataType dtk
-  from  ::  ApplyT dtk f tys -> SOPn dtk (Code f) f tys
-  to    ::  SSLoT dtk tys
-        =>  SOPn dtk (Code f) f tys -> ApplyT dtk f tys
+  from  ::                     ApplyT dtk f tys -> SOPn dtk (Code f) f tys
+  to    ::  SSLoT dtk tys  =>  SOPn dtk (Code f) f tys -> ApplyT dtk f tys
 \end{code}
 \end{myhs}
-\vspace{-0.3cm}
 \caption{Full implementation, part 3: |GenericNSOP| type class}
 \label{fig:full3}
-\end{figure}
+\end{figure*}
 
-\begin{figure}
-\vspace{1.9cm}
+\begin{figure*}
+\vspace{1cm}
 \begin{myhs}
 \begin{code}
 type family Apply dtk (f :: dtk) (tys :: LoT dtk) :: Star where
@@ -2301,20 +2296,17 @@ unravel :: ApplyT k f tys -> Apply k f tys
 unravel (A0   x) = x
 unravel (Arg  x) = unravel x
 
-ravel  ::  forall k f tys dot SSLoT k tys 
-       =>  Apply k f tys -> ApplyT k f tys
+ravel  ::  forall k f tys dot SSLoT k tys  =>  Apply k f tys -> ApplyT k f tys
 ravel = go (sslot atunder @tys)
   where
-    go  ::  forall k f tys dot SLoT k tys
-        ->  Apply k f tys -> ApplyT k f tys
+    go  ::  forall k f tys dot SLoT k tys  ->  Apply k f tys -> ApplyT k f tys
     go SLoT0       x = A0   x
     go (SLoTA ts)  x = Arg  (go ts x)
 \end{code}
 \end{myhs}
-\vspace{-0.3cm}
 \caption{Full implementation, part 4: utility functions}
 \label{fig:full4}
-\end{figure}
+\end{figure*}
 
 \subsection{List of Extensions}
 
