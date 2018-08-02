@@ -3,6 +3,7 @@ appendix = appendices
 lhs2tex  = lhs2TeX --poly
 
 all: $(file).pdf $(appendix).pdf
+	zip camera-ready.zip paper.tex *.cls *.bst *.bib
 
 $(file).pdf: $(file).ltx references.bib custom.fmt
 	$(lhs2tex) $(file).ltx > $(file).tex
