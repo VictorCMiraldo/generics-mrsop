@@ -38,6 +38,7 @@ data Atom kon
   | I Nat
   deriving (Eq, Show)
 
+
 -- |@NA ki phi a@ provides an interpretation for an atom @a@,
 --  using either @ki@ or @phi@ to interpret the type variable
 --  or opaque type.
@@ -48,11 +49,13 @@ data NA  :: (kon -> *) -> (Nat -> *) -> Atom kon -> * where
 instance (Eq1 phi, Eq1 ki) => Eq1 (NA ki phi) where
   eq1 = eqNA eq1 eq1
 
-instance (TestEquality ki, TestEquality kon) => TestEquality (NA ki kon) where
-  testEquality (NA_I i) (NA_I i') = 
-    case testEquality i i' of
+
+instance (TestEquality ki) => TestEquality (NA ki phi) where
+  testEquality (NA_I i) (NA_I i') =
+    case testEquality (sNatFixIdx i) (sNatFixIdx i') of
       Just Refl -> Just Refl
       Nothing -> Nothing
+    
   testEquality (NA_K k) (NA_K k') =
     -- we learn that
     -- a ~ (K k1)
@@ -250,6 +253,10 @@ sop = go . unRep
     go (There s)   = case go s of
                         Tag c poa -> Tag (CS c) poa
 
+-- |Wraps a 'View' into a 'Rep'
+fromView :: View ki fam sum -> Rep ki fam sum
+fromView (Tag c x) = inj c x
+
 -- * Least Fixpoints
 --
 -- $leastFixpoints
@@ -263,12 +270,40 @@ sop = go . unRep
 newtype Fix (ki :: kon -> *) (codes :: [[[ Atom kon ]]]) (n :: Nat)
   = Fix { unFix :: Rep ki (Fix ki codes) (Lkup n codes) }
 
+-- | Catamorphism over fixpoints
+cata ::
+     (forall iy. Rep ki phi (Lkup iy codes) -> phi iy)
+  -> Fix ki codes ix
+  -> phi ix
+cata f (Fix x) = f (mapRep (cata f) x)
+
+-- | Annotated version of Fix.   This is basically the 'Cofree' datatype,
+-- but for n-ary functors
+data AnnFix (ki :: kon -> *) (codes :: [[[Atom kon]]]) (phi :: Nat -> *) (n :: Nat) =
+  AnnFix (phi n)
+         (Rep ki (AnnFix ki codes phi) (Lkup n codes))
+
+getAnn :: AnnFix ki codes ann ix -> ann ix
+getAnn (AnnFix a x) = a
+
+annCata :: (forall iy. chi iy -> Rep ki phi (Lkup iy codes) -> phi iy)
+        -> AnnFix ki codes chi ix
+        -> phi ix
+annCata f (AnnFix a x) = f a (mapRep (annCata f) x)
+
+-- | Forget the annotations
+forgetAnn :: AnnFix ki codes a ix -> Fix ki codes ix
+forgetAnn (AnnFix _ rep) = Fix (mapRep forgetAnn rep)
+
 instance Eq1 ki => Eq1 (Fix ki codes) where
   eq1 = eqFix eq1
 
 -- |Retrieves the index of a 'Fix'
-proxyFixIdx :: Fix ki fam ix -> Proxy ix
+proxyFixIdx :: phi ix -> Proxy ix
 proxyFixIdx _ = Proxy
+
+sNatFixIdx :: IsNat ix => phi ix -> SNat ix
+sNatFixIdx x = getSNat (proxyFixIdx x)
 
 -- |Maps over the values of opaque types within the
 --  fixpoint.
@@ -288,3 +323,4 @@ eqFix p = eqRep p (eqFix p) `on` unFix
 heqFixIx :: (IsNat ix , IsNat ix')
          => Fix ki fam ix -> Fix ki fam ix' -> Maybe (ix :~: ix')
 heqFixIx fa fb = testEquality (getSNat Proxy) (getSNat Proxy)
+
