@@ -450,6 +450,14 @@ reifySTy opq sty
 -- > pattern HT0_ d = Here d
 -- > pattern HT1_ d = There (Here d)
 --
+--  TODO:
+--   This has an issue; if we import two modules with code generation
+--   the HT0, HT1, ... HTn names will clash.
+--   Same with D0_, D1_, Dn_ in part (1.2) above.
+--   These were an effort in circumventing the GHC memory leak,
+--   but since it does not solve the problem, we should consider
+--   dropping that.
+--
 -- 2.2. constructors
 -- > pattern a :>:_ as = Tag CZ      (NA_K a :* NA_I (El as) :* NP0)
 -- > pattern Leaf_ a   = Tag (CS CZ) (NA_K a :* NP0)
@@ -652,7 +660,7 @@ genHereTherePatSyn opq first ls
              <$> inj ix (return $ VarP var)
            
 
--- |Generating pattern sinonyms for the type indexes
+-- |Generating pattern synonyms for the type indexes
 --  and the 'Here/There' combinations. (pieces 2.1 and 2.1.1)
 --
 --  > pattern IdxRInt = SZ
@@ -661,8 +669,52 @@ genHereTherePatSyn opq first ls
 genPiece2 :: OpaqueData -> STy -> Input -> Q [Dec]
 genPiece2 opq first ls
   = do p21  <- mapM (\(sty , ix , dti) -> genIdxPatSyn sty ix) ls
+       p22  <- genPiece2_2 opq first ls
        p211 <- genHereTherePatSyn opq first ls
-       return $ p21 ++ p211
+       return $ p21 ++ p211 ++ p22
+
+-- |Generating pattern synonyms for constructors with 'Tag'
+--
+--  Infix constructors are ignored. The rest receives an underscore
+--  as a suffix.
+--
+genPiece2_2 :: OpaqueData -> STy -> Input -> Q [Dec]
+genPiece2_2 opq first ls
+  = concat <$> mapM (\(sty , ix , dti) -> mapM (uncurry genTagPatSyn)
+                                        $ filter (legalCon . snd)
+                                        $ zip [0..]
+                                        $ dti2ci dti) ls
+  where
+    legalCon (Infix _ _ _ _) = False
+    legalCon ci              = all isAlphaNum (nameBase $ ciName ci)
+
+    tagPatSynName :: ConName -> Q Name
+    tagPatSynName = return . mkName . (++ "_") . nameBase
+
+    genTagPatSyn :: Int -> CI IK -> Q Dec
+    genTagPatSyn ix (Normal nm fields) = genTags ix nm fields
+    genTagPatSyn ix (Record nm fields) = genTags ix nm (map snd fields)
+
+    genTags :: Int -> ConName -> [IK] -> Q Dec
+    genTags ix nm iks 
+      = do vars <- mapM (const (newName "p")) iks
+           let iks' = zip iks vars
+           nm' <- tagPatSynName nm
+           pat <- [p| Tag $(int2Constr ix) $(tagPatSynProd iks') |]
+           return $ PatSynD nm' (PrefixPatSyn vars) ImplBidir pat
+
+    tagPatSynProd :: [(IK , Name)] -> Q Pat
+    tagPatSynProd []     = [p| NP0 |]
+    tagPatSynProd (h:hs) = [p| $(tagPatSynProdHead h) :* ( $(tagPatSynProd hs) ) |]
+
+    int2Constr :: Int -> Q Pat
+    int2Constr 0 = [p| CZ |]
+    int2Constr n = [p| CS $(int2Constr (n-1)) |]
+
+    tagPatSynProdHead :: (IK , Name) -> Q Pat
+    tagPatSynProdHead (AtomI _ , name) = [p| NA_I $(return . VarP $ name) |]
+    tagPatSynProdHead (AtomK _ , name) = [p| NA_K $(return . VarP $ name) |]
+       
 
 genPiece3 :: OpaqueData -> STy -> Input -> Q Dec
 genPiece3 opq first ls
