@@ -18,7 +18,7 @@ module Generics.MRSOP.Examples.SimpTH where
 import Data.Function (on)
 
 import Generics.MRSOP.Base
-import Generics.MRSOP.Opaque
+--import Generics.MRSOP.Opaque
 import Generics.MRSOP.Util
 import Generics.MRSOP.Zipper
 
@@ -43,6 +43,8 @@ data Stmt var
 data Decl var
   = DVar var
   | DFun var var (Stmt var)
+  | Bar (Maybe (Stmt var))
+  | Lol (Maybe (Exp var))
   deriving Show
 
 data Exp var
@@ -50,10 +52,17 @@ data Exp var
   | ECall var (Exp var)
   | EAdd (Exp var) (Exp var)
   | ESub (Exp var) (Exp var)
+  | Foo (Maybe (Stmt var))
+  | BBar (Maybe (Exp var))
   | ELit Int
   deriving Show
 
-deriveFamily [t| Stmt String |]
+data SimpKon = SimpString | SimpInt
+data Singl (kon :: SimpKon) :: * where
+  SString :: String -> Singl SimpString
+  SInt :: Int -> Singl SimpInt
+
+deriveFamilyWith ''Singl [t| Stmt String |]
 
 pattern Decl_ = SS (SS SZ)
 pattern Exp_  = SS SZ
@@ -70,7 +79,7 @@ pattern Stmt_ = SZ
 type FIX = Fix Singl CodesStmtString
 
 -- * Alpha Equality Functionality
-
+{-
 alphaEqD :: Decl String -> Decl String -> Bool
 alphaEqD = (galphaEq Decl_) `on` (deep @FamStmtString)
   where
@@ -204,3 +213,4 @@ test5 = enter
     mk42 Exp_ _ = El $ ELit 42
     mk42 _    x = x
 
+-}
