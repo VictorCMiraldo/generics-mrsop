@@ -683,8 +683,12 @@ genPiece2_2 opq first ls
   = concat <$> mapM (\(sty , ix , dti) -> mapM (uncurry genTagPatSyn)
                                         $ filter (legalCon . snd)
                                         $ zip [0..]
-                                        $ dti2ci dti) ls
+                                        $ dti2ci dti) (filter isSimple ls)
   where
+    isSimple :: (STy , Int , DTI IK) -> Bool
+    isSimple (ConST _ , _ , _) = True
+    isSimple _                 = False
+    
     legalCon (Infix _ _ _ _) = False
     legalCon ci              = all isAlphaNum (nameBase $ ciName ci)
 
@@ -717,12 +721,17 @@ genPiece2_2 opq first ls
        
 
 genPiece3 :: OpaqueData -> STy -> Input -> Q Dec
-genPiece3 opq first ls
-  = head <$> [d| instance Family $(return $ ConT $ opaqueName opq)
-                                 $(ConT <$> familyName first)
-                                 $(ConT <$> codesName first)
-                   where sfrom' = $(genPiece3_1 opq ls)
-                         sto'   = $(genPiece3_2 opq ls) |]
+genPiece3 opq first ls 
+  = do ihead <- [d| instance Family $(return $ ConT $ opaqueName opq)
+                                    $(ConT <$> familyName first)
+                                    $(ConT <$> codesName first) where |]
+       sfromD <- genPiece3_1 opq ls
+       stoD   <- genPiece3_2 opq ls
+       return (complete (head ihead) sfromD stoD)
+  where
+    complete :: Dec -> Dec -> Dec -> Dec
+    complete (InstanceD mo ctx ty []) sfromD stoD
+      = InstanceD mo ctx ty [sfromD , stoD]
 
 -- |Given a datatype information, generates a pattern
 --  and an expression from it. The int here
@@ -789,6 +798,9 @@ makeK opq n cont
 match :: Pat -> Exp -> Match
 match pat bdy = Match pat (NormalB bdy) []
 
+mkclause :: [Pat] -> Exp -> Clause
+mkclause pats bdy = Clause pats (NormalB bdy) []
+
 -- Adds a matchall clause; for instance:
 --
 -- > matchAll [Just x -> 1] = [Just x -> 1 , _ -> error "matchAll"]
@@ -798,27 +810,29 @@ matchAll = (++ [match WildP err])
   where
     err = AppE (VarE (mkName "error")) (LitE (StringL "matchAll"))
 
-genPiece3_1 :: OpaqueData -> Input -> Q Exp
+genPiece3_1 :: OpaqueData -> Input -> Q Dec
 genPiece3_1 opq input
-  = LamCaseE <$> mapM (\(sty , ix , dti) -> clauseForIx sty ix dti) input
+  = (FunD (mkName "sfrom'") . map (uncurry mkclause) . concat)
+    <$> mapM (\(sty , ix , dti) -> clauseForIx sty ix dti) input
   where
-    clauseForIx :: STy -> Int -> DTI IK -> Q Match
-    clauseForIx sty ix dti = match (idxPatSyn sty)
-                       <$> (LamCaseE <$> genMatchFor ix dti)
+    clauseForIx :: STy -> Int -> DTI IK -> Q [([Pat] , Exp)]
+    clauseForIx sty ix dti = map ((idxPatSyn sty:) *** id)
+                         <$> genMatchFor ix dti
     
-    genMatchFor :: Int -> DTI IK -> Q [Match]
-    genMatchFor ix dti = map (uncurry match) <$> mapM (ci2PatExp opq ix) (dti2ci dti)
+    genMatchFor :: Int -> DTI IK -> Q [([Pat] , Exp)]
+    genMatchFor ix dti = map ((:[]) *** id) <$> mapM (ci2PatExp opq ix) (dti2ci dti)
       
-genPiece3_2 :: OpaqueData -> Input -> Q Exp
+genPiece3_2 :: OpaqueData -> Input -> Q Dec
 genPiece3_2 opq input
-  = LamCaseE . matchAll <$> mapM (\(sty , ix , dti) -> clauseForIx sty ix dti) input
+  = (FunD (mkName "sto'") . map (uncurry mkclause) . concat)
+    <$> mapM (\(sty , ix , dti) -> clauseForIx sty ix dti) input
   where    
-    clauseForIx :: STy -> Int -> DTI IK -> Q Match
-    clauseForIx sty ix dti = match (idxPatSyn sty)
-                       <$> (LamCaseE . matchAll <$> genMatchFor ix dti)
+    clauseForIx :: STy -> Int -> DTI IK -> Q [([Pat] , Exp)]
+    clauseForIx sty ix dti = map ((idxPatSyn sty:) *** id)
+                         <$> genMatchFor ix dti
       
-    genMatchFor :: Int -> DTI IK -> Q [Match]
-    genMatchFor ix dti = map (uncurry match) <$> mapM (ci2ExpPat opq ix) (dti2ci dti)
+    genMatchFor :: Int -> DTI IK -> Q [([Pat] , Exp)]
+    genMatchFor ix dti = map ((:[]) *** id) <$> mapM (ci2ExpPat opq ix) (dti2ci dti)
 
 genPiece4 :: OpaqueData -> STy -> Input -> Q [Dec]
 genPiece4 opq first ls
