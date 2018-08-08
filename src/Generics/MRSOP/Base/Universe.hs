@@ -5,6 +5,7 @@
 {-# LANGUAGE TypeOperators        #-}
 {-# LANGUAGE DataKinds            #-}
 {-# LANGUAGE PolyKinds            #-}
+{-# LANGUAGE PatternSynonyms      #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TypeApplications     #-}
 -- |Wraps the definitions of 'NP' and 'NS'
@@ -16,6 +17,7 @@ import Data.Function (on)
 import Data.Type.Equality
 import Data.Proxy
 
+import Data.Functor.Const
 import Control.Monad
 
 import Generics.MRSOP.Base.NS
@@ -267,8 +269,23 @@ fromView (Tag c x) = inj c x
 -- the representation of the code indexed by ix
 
 -- |Indexed least fixpoints
-newtype Fix (ki :: kon -> *) (codes :: [[[ Atom kon ]]]) (n :: Nat)
+{-newtype Fix (ki :: kon -> *) (codes :: [[[ Atom kon ]]]) (n :: Nat)
   = Fix { unFix :: Rep ki (Fix ki codes) (Lkup n codes) }
+-}
+
+
+-- | Annotated version of Fix.   This is basically the 'Cofree' datatype,
+-- but for n-ary functors
+data AnnFix (ki :: kon -> *) (codes :: [[[Atom kon]]]) (phi :: Nat -> *) (n :: Nat) =
+  AnnFix (phi n)
+         (Rep ki (AnnFix ki codes phi) (Lkup n codes))
+
+type Fix ki codes = AnnFix ki codes (Const ())
+
+pattern Fix x = AnnFix (Const ()) x
+
+unFix :: Fix ki codes ix -> Rep ki (Fix ki codes) (Lkup ix codes)
+unFix (Fix x) = x
 
 -- | Catamorphism over fixpoints
 cata ::
@@ -277,11 +294,6 @@ cata ::
   -> phi ix
 cata f (Fix x) = f (mapRep (cata f) x)
 
--- | Annotated version of Fix.   This is basically the 'Cofree' datatype,
--- but for n-ary functors
-data AnnFix (ki :: kon -> *) (codes :: [[[Atom kon]]]) (phi :: Nat -> *) (n :: Nat) =
-  AnnFix (phi n)
-         (Rep ki (AnnFix ki codes phi) (Lkup n codes))
 
 getAnn :: AnnFix ki codes ann ix -> ann ix
 getAnn (AnnFix a x) = a
@@ -316,6 +328,9 @@ mapFixM fk = (Fix <$>) . bimapRepM fk (mapFixM fk) . unFix
 eqFix :: (forall k. ki k -> ki k -> Bool)
       -> Fix ki fam ix -> Fix ki fam ix -> Bool
 eqFix p = eqRep p (eqFix p) `on` unFix
+
+instance Eq1 ki => Eq  (Fix ki codes ix) where
+  (==) = eqFix eq1
 
 -- |Compare two indexes of two fixpoints
 --  Note we can't use a 'testEquality' instance because
