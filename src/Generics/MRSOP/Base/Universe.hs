@@ -53,11 +53,12 @@ instance (Eq1 phi, Eq1 ki) => Eq1 (NA ki phi) where
 
 
 instance (TestEquality ki) => TestEquality (NA ki phi) where
+  testEquality (NA_I i) (NA_K k) = Nothing
+  testEquality (NA_K i) (NA_I k) = Nothing
   testEquality (NA_I i) (NA_I i') =
     case testEquality (sNatFixIdx i) (sNatFixIdx i') of
       Just Refl -> Just Refl
       Nothing -> Nothing
-    
   testEquality (NA_K k) (NA_K k') =
     -- we learn that
     -- a ~ (K k1)
