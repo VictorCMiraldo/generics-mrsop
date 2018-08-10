@@ -1479,7 +1479,17 @@ class Monad m => MonadAlphaEq m where
 \end{code}
 \end{myhs}
 
-\begin{figure}
+  Running a |scoped f| computation will push a new scope for running |f|
+and pop it after |f| is done. The |addRule v_1 v_2| function registers an equivalence
+of |v_1| and |v_2| in the top of the scope stack. Finally, |v_1 =~= v_2| is defined
+by pattern matching on the scope stack. If the stack is empty, then |(=~=) v_1 v_2 = (v_1 == v_2)|.
+Otherwise, let the stack be |s:ss|. We first traverse |s| gathering the rules
+referencing either |v_1| or |v_2|. If there are none, we check if |v_1 =~= v_2| under |ss|.
+If there are rules referencing either variable name in the topmost stack, we must
+ensure there is only one such rule, and it states a name equivalence between |v_1| and |v_2|.
+The implementation of these functions for |MonadAlphaEq (State [[ (String , String) ]])| is available as part of our library.
+
+\begin{figure}[b]
 %format TermP  = "\HT{Term\_}"
 %format VarP   = "\HT{Var\_}"
 %format AbsP   = "\HT{Abs\_}"
@@ -1506,16 +1516,6 @@ alphaEq x y =  flip runState [[]]
 \mycaption{$\alpha$-equivalence for a $\lambda$-calculus}
 \label{fig:alphalambda}
 \end{figure}
-
-  Running a |scoped f| computation will push a new scope for running |f|
-and pop it after |f| is done. The |addRule v_1 v_2| function registers an equivalence
-of |v_1| and |v_2| in the top of the scope stack. Finally, |v_1 =~= v_2| is defined
-by pattern matching on the scope stack. If the stack is empty, then |(=~=) v_1 v_2 = (v_1 == v_2)|.
-Otherwise, let the stack be |s:ss|. We first traverse |s| gathering the rules
-referencing either |v_1| or |v_2|. If there are none, we check if |v_1 =~= v_2| under |ss|.
-If there are rules referencing either variable name in the topmost stack, we must
-ensure there is only one such rule, and it states a name equivalence between |v_1| and |v_2|.
-The implementation of these functions for |MonadAlphaEq (State [[ (String , String) ]])| is available as part of our library.
 
   Returning to our main focus and leaving book-keeping functionality
 aside, we define in \Cref{fig:alphalambda} our alpha equivalence decision procedure by encoding what to do
