@@ -29,3 +29,9 @@ cabal.project.local
 *.zip
 *.fdb_latexmk
 *.cut
+writeup/haskell2018/appendices.bbl
+writeup/haskell2018/appendices.pdf
+writeup/haskell2018/appendices.tex
+writeup/haskell2018/paper.bbl
+writeup/haskell2018/paper.pdf
+writeup/haskell2018/paper.tex
