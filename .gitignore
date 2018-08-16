@@ -20,3 +20,12 @@ cabal.project.local
 .HTF/
 *~
 *.agdai
+*.orig
+\#*
+*.log
+*.blg
+*.ptb
+*.fls
+*.zip
+*.fdb_latexmk
+*.cut
