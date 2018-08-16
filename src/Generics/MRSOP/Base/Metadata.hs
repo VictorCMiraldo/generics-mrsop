@@ -114,4 +114,13 @@ constrInfoLkup c = go c . constructorInfo
     go (CS c) (_  :* cis) = go c cis
 
 
+-- |Returns the constructor information for a given
+--  type in the family.
+constrInfoFor :: (HasDatatypeInfo ki fam codes , IsNat ix)
+              => Proxy fam
+              -> SNat ix
+              -> Constr (Lkup ix codes) c
+              -> ConstructorInfo (Lkup c (Lkup ix codes))
+constrInfoFor pfam six c = constrInfoLkup c (datatypeInfo pfam six)
+               
 
