@@ -2778,7 +2778,17 @@ should go about defining equality for \emph{nominal terms}~\cite{Calves2008}.
 \)\par\noindent\endgroup\resethooks
 \end{myhs}
 
-\begin{figure}
+  Running a \ensuremath{\HSVar{scoped}\;\HSVar{f}} computation will push a new scope for running \ensuremath{\HSVar{f}}
+and pop it after \ensuremath{\HSVar{f}} is done. The \ensuremath{\HSVar{addRule}\;\HSVar{v\char95 1}\;\HSVar{v\char95 2}} function registers an equivalence
+of \ensuremath{\HSVar{v\char95 1}} and \ensuremath{\HSVar{v\char95 2}} in the top of the scope stack. Finally, \ensuremath{\HSVar{v\char95 1}\HS{\approx}\HSVar{v\char95 2}} is defined
+by pattern matching on the scope stack. If the stack is empty, then \ensuremath{\HSSpecial{(}\HS{\approx}\HSSpecial{)}\;\HSVar{v\char95 1}\;\HSVar{v\char95 2}\HSSym{\mathrel{=}}\HSSpecial{(}\HSVar{v\char95 1}\HSSym{\equiv} \HSVar{v\char95 2}\HSSpecial{)}}.
+Otherwise, let the stack be \ensuremath{\HSVar{s}\HSCon{\mathbin{:}}\HSVar{ss}}. We first traverse \ensuremath{\HSVar{s}} gathering the rules
+referencing either \ensuremath{\HSVar{v\char95 1}} or \ensuremath{\HSVar{v\char95 2}}. If there are none, we check if \ensuremath{\HSVar{v\char95 1}\HS{\approx}\HSVar{v\char95 2}} under \ensuremath{\HSVar{ss}}.
+If there are rules referencing either variable name in the topmost stack, we must
+ensure there is only one such rule, and it states a name equivalence between \ensuremath{\HSVar{v\char95 1}} and \ensuremath{\HSVar{v\char95 2}}.
+The implementation of these functions for \ensuremath{\HSCon{MonadAlphaEq}\;\HSSpecial{(}\HSCon{State}\;\HSSpecial{\HSSym{[\mskip1.5mu} }\HSSpecial{\HSSym{[\mskip1.5mu} }\HSSpecial{(}\HSCon{String}\HSSpecial{,}\HSCon{String}\HSSpecial{)}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{)}} is available as part of our library.
+
+\begin{figure}[b]
 \begin{myhs}
 \begingroup\par\noindent\advance\leftskip\mathindent\(
 \begin{pboxed}\SaveRestoreHook
@@ -2838,16 +2848,6 @@ should go about defining equality for \emph{nominal terms}~\cite{Calves2008}.
 \mycaption{$\alpha$-equivalence for a $\lambda$-calculus}
 \label{fig:alphalambda}
 \end{figure}
-
-  Running a \ensuremath{\HSVar{scoped}\;\HSVar{f}} computation will push a new scope for running \ensuremath{\HSVar{f}}
-and pop it after \ensuremath{\HSVar{f}} is done. The \ensuremath{\HSVar{addRule}\;\HSVar{v\char95 1}\;\HSVar{v\char95 2}} function registers an equivalence
-of \ensuremath{\HSVar{v\char95 1}} and \ensuremath{\HSVar{v\char95 2}} in the top of the scope stack. Finally, \ensuremath{\HSVar{v\char95 1}\HS{\approx}\HSVar{v\char95 2}} is defined
-by pattern matching on the scope stack. If the stack is empty, then \ensuremath{\HSSpecial{(}\HS{\approx}\HSSpecial{)}\;\HSVar{v\char95 1}\;\HSVar{v\char95 2}\HSSym{\mathrel{=}}\HSSpecial{(}\HSVar{v\char95 1}\HSSym{\equiv} \HSVar{v\char95 2}\HSSpecial{)}}.
-Otherwise, let the stack be \ensuremath{\HSVar{s}\HSCon{\mathbin{:}}\HSVar{ss}}. We first traverse \ensuremath{\HSVar{s}} gathering the rules
-referencing either \ensuremath{\HSVar{v\char95 1}} or \ensuremath{\HSVar{v\char95 2}}. If there are none, we check if \ensuremath{\HSVar{v\char95 1}\HS{\approx}\HSVar{v\char95 2}} under \ensuremath{\HSVar{ss}}.
-If there are rules referencing either variable name in the topmost stack, we must
-ensure there is only one such rule, and it states a name equivalence between \ensuremath{\HSVar{v\char95 1}} and \ensuremath{\HSVar{v\char95 2}}.
-The implementation of these functions for \ensuremath{\HSCon{MonadAlphaEq}\;\HSSpecial{(}\HSCon{State}\;\HSSpecial{\HSSym{[\mskip1.5mu} }\HSSpecial{\HSSym{[\mskip1.5mu} }\HSSpecial{(}\HSCon{String}\HSSpecial{,}\HSCon{String}\HSSpecial{)}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{)}} is available as part of our library.
 
   Returning to our main focus and leaving book-keeping functionality
 aside, we define in \Cref{fig:alphalambda} our alpha equivalence decision procedure by encoding what to do
@@ -3558,134 +3558,272 @@ position in the list of codes.
 \end{myhs}
 
 
-%% \section{Metadata}
-%% \label{sec:metadata}
-%% 
-%%   The representations described in this paper is enough to write generic equalities
-%% and zippers. But there is one missing ingredient to derive generic
-%% pretty-printing or conversion to JSON, for instance. We need to maintain
-%% the \emph{metadata} information of our datatypes.
-%% This metadata includes the datatype name, the module where it was defined,
-%% and the name of the constructors. Without this
-%% information you cannot write a function which outputs the string
-%% \begin{verbatim}
-%% Fork 1 [Fork 2 [], Fork 3 []]
-%% \end{verbatim}
-%% for a call to |genericShow (Fork 1 [Fork 2 [], Fork 3 []])|. The reason is that
-%% the code of |Rose Int| does not contain the information that the constructor
-%% of |Rose| is called |"Fork"|.
-%% 
-%%   Like in \texttt{generics-sop}~\cite{deVries2014}, having the code
-%% for a family of datatypes available allows for a completely separate
-%% treatment of metadata. This is yet another advantage of the
-%% sum-of-products approach when compared to the more traditional pattern
-%% functors. In fact, our handling of metadata is heavily inspired from
-%% \texttt{generics-sop}, so much so that we will start by explaining a simplified version of
-%% their handling of metadata, and then outline the differences to our approach. 
-%% 
-%%   The general idea is to store the meta information following the structure of
-%% the datatype itself. So, instead of data, we keep track of the names of the
-%% different parts and other meta information that can be useful. It is advantageous
-%% to keep metadata separate from the generic representation as it would only
-%% clutter the definition of generic functionality.
-%% This information is tied to a datatype by means of an additional type class
-%% |HasDatatypeInfo|.
-%% Generic functions may now query the metadata by means of functions like
-%% |datatypeName|, which reflect the type information into the term level.
-%% The definitions are given in \Cref{fig:sopmeta}.
-%% 
-%% \begin{figure*}
-%% \begin{myhs}
-%% \begin{code}
-%% data DatatypeInfo :: [[Star]] -> Star where
-%%   ADT  :: ModuleName -> DatatypeName -> NP  ConstructorInfo cs       -> DatatypeInfo cs
-%%   New  :: ModuleName -> DatatypeName ->     ConstructorInfo (P [c])  -> DatatypeInfo (P [ P [ c ]])
-%% 
-%% data ConstructorInfo :: [Star] -> Star where
-%%   Constructor  :: ConstructorName                             -> ConstructorInfo xs
-%%   Infix        :: ConstructorName -> Associativity -> Fixity  -> ConstructorInfo (P [ x, y ])
-%%   Record       :: ConstructorName -> NP FieldInfo xs          -> ConstructorInfo xs
-%% 
-%% data FieldInfo :: Star -> Star where
-%%   FieldInfo :: FieldName -> FieldInfo a
-%% 
-%% class HasDatatypeInfo a where
-%%   datatypeInfo :: proxy a -> DatatypeInfo (Code a)
-%% \end{code}
-%% \end{myhs}
-%% \caption{Definitions related to metadata from \texttt{generics-sop}}
-%% \label{fig:sopmeta}
-%% \end{figure*}
-%% 
-%% 
-%% Our library uses the same approach to handle metadata. In fact, the code remains
-%% almost unchanged, except for adapting it to the larger universe of
-%% datatypes we can now handle. Unlike \texttt{generic-sop}, our list of lists
-%% representing the sum-of-products structure does not contain types of kind |Star|,
-%% but |Atom|s. All the types representing metadata at the type level must be
-%% updated to reflect this new scenario:
-%% \begin{myhs}
-%% \begin{code}
-%% data DatatypeInfo     :: [  [  Atom kon ]]  -> Star where ...
-%% data ConstructorInfo  ::    [  Atom kon ]   -> Star where ...
-%% data FieldInfo        ::       Atom kon     -> Star where ...
-%% \end{code}
-%% \end{myhs}
-%% 
-%% As we have discussed above, our library is able to generate codes not only
-%% for single types of kind |Star|, like |Int| or |Bool|, but also for types which
-%% are the result of type level applications, such as |Rose Int| and |[Rose Int]|.
-%% The shape of the metadata information in |DatatypeInfo|, a module name plus
-%% a datatype name, is not enough to handle these cases. 
-%% We replace the uses of |ModuleName| and |DatatypeName| in 
-%% |DatatypeInfo| by a richer promoted type |TypeName|, which can
-%% describe applications, as required.
-%% \begin{myhs}
-%% \begin{code}
-%% data TypeName  =  ConT ModuleName DatatypeName
-%%                |  TypeName :@: TypeName
-%% 
-%% data DatatypeInfo :: [[Atom kon]] -> Star where
-%%   ADT  ::  TypeName  -> NP  ConstructorInfo cs
-%%        ->  DatatypeInfo cs
-%%   New  ::  TypeName  ->     ConstructorInfo (P [c])
-%%        ->  DatatypeInfo (P [ P [ c ]])
-%% \end{code}
-%% \end{myhs}
-%% 
-%% The most important difference to \texttt{generics-sop}, perhaps, 
-%% is that the metadata is not defined for a single type, but
-%% for a type \emph{within} a family. This is reflected in the new signature of 
-%% |datatypeInfo|, which receives proxies for both the family and the type.
-%% The type equalities in that signature reflect the fact that the given type
-%% |ty| is included with index |ix| within the family |fam|. This step is needed
-%% to look up the code for the type in the right position of |codes|.
-%% \begin{myhs}
-%% \begin{code}
-%% class  (Family kappa fam codes)
-%%        =>  HasDatatypeInfo kappa fam codes ix 
-%%        |   fam -> kappa codes where
-%%   datatypeInfo  ::  (ix ~ Idx ty fam , Lkup ix fam ~ ty)
-%%                 =>  Proxy fam -> Proxy ty
-%%                 ->  DatatypeInfo (Lkup ix codes)
-%% \end{code}
-%% \end{myhs}
-%% 
-%%   The Template Haskell will then generate something similar to
-%% the instance below for the first type in the family, |Rose Int|:
-%% 
-%% \begin{myhs}
-%% \begin{code}
-%% instance HasDatatypeInfo Singl FamRose CodesRose Z where
-%%   datatypeInfo _ _ 
-%%     =  ADT (ConT "E" "Rose" :@: ConT "Prelude" "Int")
-%%     $  (Constructor "Fork") :* NP0
-%% \end{code} %$
-%% \end{myhs}
-%% 
-%% Once all the metadata is in place, we can use it in the same fashion
-%% as \texttt{generics-sop}. We refer the interested reader to
-%% \citet{deVries2014} for examples.
+\section{Metadata}
+\label{sec:metadata}
+
+  The representations described in this paper is enough to write generic equalities
+and zippers. But there is one missing ingredient to derive generic
+pretty-printing or conversion to JSON, for instance. We need to maintain
+the \emph{metadata} information of our datatypes.
+This metadata includes the datatype name, the module where it was defined,
+and the name of the constructors. Without this
+information you cannot write a function which outputs the string
+\begin{tabbing}\tt
+~Fork~1~\char91{}Fork~2~\char91{}\char93{}\char44{}~Fork~3~\char91{}\char93{}\char93{}
+\end{tabbing}
+for a call to \ensuremath{\HSVar{genericShow}\;\HSSpecial{(}\HSCon{Fork}\;\HSNumeral{1}\;\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{Fork}\;\HSNumeral{2}\;\HSSpecial{\HSSym{[\mskip1.5mu} }\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{,}\HSCon{Fork}\;\HSNumeral{3}\;\HSSpecial{\HSSym{[\mskip1.5mu} }\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{)}}. The reason is that
+the code of \ensuremath{\HSCon{Rose}\;\HSCon{Int}} does not contain the information that the constructor
+of \ensuremath{\HSCon{Rose}} is called \ensuremath{\HSString{``Fork\char34 }}.
+
+  Like in \texttt{generics-sop}~\cite{deVries2014}, having the code
+for a family of datatypes available allows for a completely separate
+treatment of metadata. This is yet another advantage of the
+sum-of-products approach when compared to the more traditional pattern
+functors. In fact, our handling of metadata is heavily inspired from
+\texttt{generics-sop}, so much so that we will start by explaining a simplified version of
+their handling of metadata, and then outline the differences to our approach. 
+
+  The general idea is to store the meta information following the structure of
+the datatype itself. So, instead of data, we keep track of the names of the
+different parts and other meta information that can be useful. It is advantageous
+to keep metadata separate from the generic representation as it would only
+clutter the definition of generic functionality.
+This information is tied to a datatype by means of an additional type class
+\ensuremath{\HSCon{HasDatatypeInfo}}.
+Generic functions may now query the metadata by means of functions like
+\ensuremath{\HSVar{datatypeName}}, which reflect the type information into the term level.
+The definitions are given in \Cref{fig:sopmeta}.
+
+\begin{figure*}
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{3}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{8}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{16}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{45}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{63}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{70}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{data}\;\HSCon{DatatypeInfo}\HSSym{::}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{*}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSym{\to} \HSCon{*}\;\HSKeyword{where}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSCon{ADT}{}\<[8]%
+\>[8]{}\HSSym{::}\HSCon{ModuleName}\HSSym{\to} \HSCon{DatatypeName}\HSSym{\to} \HSCon{NP}\;{}\<[45]%
+\>[45]{}\HSCon{ConstructorInfo}\;\HSVar{cs}{}\<[70]%
+\>[70]{}\HSSym{\to} \HSCon{DatatypeInfo}\;\HSVar{cs}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSCon{New}{}\<[8]%
+\>[8]{}\HSSym{::}\HSCon{ModuleName}\HSSym{\to} \HSCon{DatatypeName}\HSSym{\to} {}\<[45]%
+\>[45]{}\HSCon{ConstructorInfo}\;\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSVar{c}\HSSpecial{\HSSym{\mskip1.5mu]}}{}\<[70]%
+\>[70]{}\HSSym{\to} \HSCon{DatatypeInfo}\;\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSVar{c}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{\HSSym{\mskip1.5mu]}}{}\<[E]%
+\\[\blanklineskip]%
+\>[B]{}\HSKeyword{data}\;\HSCon{ConstructorInfo}\HSSym{::}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{*}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSym{\to} \HSCon{*}\;\HSKeyword{where}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSCon{Constructor}{}\<[16]%
+\>[16]{}\HSSym{::}\HSCon{ConstructorName}{}\<[63]%
+\>[63]{}\HSSym{\to} \HSCon{ConstructorInfo}\;\HSVar{xs}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSCon{Infix}{}\<[16]%
+\>[16]{}\HSSym{::}\HSCon{ConstructorName}\HSSym{\to} \HSCon{Associativity}\HSSym{\to} \HSCon{Fixity}{}\<[63]%
+\>[63]{}\HSSym{\to} \HSCon{ConstructorInfo}\;\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSVar{x}\HSSpecial{,}\HSVar{y}\HSSpecial{\HSSym{\mskip1.5mu]}}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSCon{Record}{}\<[16]%
+\>[16]{}\HSSym{::}\HSCon{ConstructorName}\HSSym{\to} \HSCon{NP}\;\HSCon{FieldInfo}\;\HSVar{xs}{}\<[63]%
+\>[63]{}\HSSym{\to} \HSCon{ConstructorInfo}\;\HSVar{xs}{}\<[E]%
+\\[\blanklineskip]%
+\>[B]{}\HSKeyword{data}\;\HSCon{FieldInfo}\HSSym{::}\HSCon{*}\HSSym{\to} \HSCon{*}\;\HSKeyword{where}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSCon{FieldInfo}\HSSym{::}\HSCon{FieldName}\HSSym{\to} \HSCon{FieldInfo}\;\HSVar{a}{}\<[E]%
+\\[\blanklineskip]%
+\>[B]{}\HSKeyword{class}\;\HSCon{HasDatatypeInfo}\;\HSVar{a}\;\HSKeyword{where}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSVar{datatypeInfo}\HSSym{::}\HSVar{proxy}\;\HSVar{a}\HSSym{\to} \HSCon{DatatypeInfo}\;\HSSpecial{(}\HSCon{Code}\;\HSVar{a}\HSSpecial{)}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+\caption{Definitions related to metadata from \texttt{generics-sop}}
+\label{fig:sopmeta}
+\end{figure*}
+
+
+Our library uses the same approach to handle metadata. In fact, the code remains
+almost unchanged, except for adapting it to the larger universe of
+datatypes we can now handle. Unlike \texttt{generic-sop}, our list of lists
+representing the sum-of-products structure does not contain types of kind \ensuremath{\HSCon{*}},
+but \ensuremath{\HSCon{Atom}}s. All the types representing metadata at the type level must be
+updated to reflect this new scenario:
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{23}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{29}{@{}>{\hspre}c<{\hspost}@{}}%
+\column{29E}{@{}l@{}}%
+\column{32}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{45}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{data}\;\HSCon{DatatypeInfo}{}\<[23]%
+\>[23]{}\HSSym{::}\HSSpecial{\HSSym{[\mskip1.5mu} }{}\<[29]%
+\>[29]{}\HSSpecial{\HSSym{[\mskip1.5mu} }{}\<[29E]%
+\>[32]{}\HSCon{Atom}\;\HSVar{kon}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{\HSSym{\mskip1.5mu]}}{}\<[45]%
+\>[45]{}\HSSym{\to} \HSCon{*}\;\HSKeyword{where}\HSSym{...}{}\<[E]%
+\\
+\>[B]{}\HSKeyword{data}\;\HSCon{ConstructorInfo}{}\<[23]%
+\>[23]{}\HSSym{::}{}\<[29]%
+\>[29]{}\HSSpecial{\HSSym{[\mskip1.5mu} }{}\<[29E]%
+\>[32]{}\HSCon{Atom}\;\HSVar{kon}\HSSpecial{\HSSym{\mskip1.5mu]}}{}\<[45]%
+\>[45]{}\HSSym{\to} \HSCon{*}\;\HSKeyword{where}\HSSym{...}{}\<[E]%
+\\
+\>[B]{}\HSKeyword{data}\;\HSCon{FieldInfo}{}\<[23]%
+\>[23]{}\HSSym{::}{}\<[32]%
+\>[32]{}\HSCon{Atom}\;\HSVar{kon}{}\<[45]%
+\>[45]{}\HSSym{\to} \HSCon{*}\;\HSKeyword{where}\HSSym{...}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+As we have discussed above, our library is able to generate codes not only
+for single types of kind \ensuremath{\HSCon{*}}, like \ensuremath{\HSCon{Int}} or \ensuremath{\HSCon{Bool}}, but also for types which
+are the result of type level applications, such as \ensuremath{\HSCon{Rose}\;\HSCon{Int}} and \ensuremath{\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{Rose}\;\HSCon{Int}\HSSpecial{\HSSym{\mskip1.5mu]}}}.
+The shape of the metadata information in \ensuremath{\HSCon{DatatypeInfo}}, a module name plus
+a datatype name, is not enough to handle these cases. 
+We replace the uses of \ensuremath{\HSCon{ModuleName}} and \ensuremath{\HSCon{DatatypeName}} in 
+\ensuremath{\HSCon{DatatypeInfo}} by a richer promoted type \ensuremath{\HSCon{TypeName}}, which can
+describe applications, as required.
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{3}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{8}{@{}>{\hspre}c<{\hspost}@{}}%
+\column{8E}{@{}l@{}}%
+\column{12}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{16}{@{}>{\hspre}c<{\hspost}@{}}%
+\column{16E}{@{}l@{}}%
+\column{19}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{22}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{29}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{data}\;\HSCon{TypeName}{}\<[16]%
+\>[16]{}\HSSym{\mathrel{=}}{}\<[16E]%
+\>[19]{}\HSCon{ConT}\;\HSCon{ModuleName}\;\HSCon{DatatypeName}{}\<[E]%
+\\
+\>[16]{}\HSSym{\mid} {}\<[16E]%
+\>[19]{}\HSCon{TypeName}\mathrel{\HT{:\!@\!:}}\HSCon{TypeName}{}\<[E]%
+\\[\blanklineskip]%
+\>[B]{}\HSKeyword{data}\;\HSCon{DatatypeInfo}\HSSym{::}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSSpecial{\HSSym{[\mskip1.5mu} }\HSCon{Atom}\;\HSVar{kon}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSym{\to} \HSCon{*}\;\HSKeyword{where}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSCon{ADT}{}\<[8]%
+\>[8]{}\HSSym{::}{}\<[8E]%
+\>[12]{}\HSCon{TypeName}{}\<[22]%
+\>[22]{}\HSSym{\to} \HSCon{NP}\;{}\<[29]%
+\>[29]{}\HSCon{ConstructorInfo}\;\HSVar{cs}{}\<[E]%
+\\
+\>[8]{}\HSSym{\to} {}\<[8E]%
+\>[12]{}\HSCon{DatatypeInfo}\;\HSVar{cs}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSCon{New}{}\<[8]%
+\>[8]{}\HSSym{::}{}\<[8E]%
+\>[12]{}\HSCon{TypeName}{}\<[22]%
+\>[22]{}\HSSym{\to} {}\<[29]%
+\>[29]{}\HSCon{ConstructorInfo}\;\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSVar{c}\HSSpecial{\HSSym{\mskip1.5mu]}}{}\<[E]%
+\\
+\>[8]{}\HSSym{\to} {}\<[8E]%
+\>[12]{}\HSCon{DatatypeInfo}\;\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HS{'}\HSSpecial{\HSSym{[\mskip1.5mu} }\HSVar{c}\HSSpecial{\HSSym{\mskip1.5mu]}}\HSSpecial{\HSSym{\mskip1.5mu]}}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+The most important difference to \texttt{generics-sop}, perhaps, 
+is that the metadata is not defined for a single type, but
+for a type \emph{within} a family. This is reflected in the new signature of 
+\ensuremath{\HSVar{datatypeInfo}}, which receives proxies for both the family and the type.
+The type equalities in that signature reflect the fact that the given type
+\ensuremath{\HSVar{ty}} is included with index \ensuremath{\HSVar{ix}} within the family \ensuremath{\HV{\mathit{fam}}}. This step is needed
+to look up the code for the type in the right position of \ensuremath{\HSVar{codes}}.
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{3}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{8}{@{}>{\hspre}c<{\hspost}@{}}%
+\column{8E}{@{}l@{}}%
+\column{12}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{17}{@{}>{\hspre}c<{\hspost}@{}}%
+\column{17E}{@{}l@{}}%
+\column{21}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{class}\;\HSSpecial{(}\HSCon{Family}\;\HV{\kappa}\;\HV{\mathit{fam}}\;\HSVar{codes}\HSSpecial{)}{}\<[E]%
+\\
+\>[B]{}\hsindent{8}{}\<[8]%
+\>[8]{}\HSSym{\Rightarrow} {}\<[8E]%
+\>[12]{}\HSCon{HasDatatypeInfo}\;\HV{\kappa}\;\HV{\mathit{fam}}\;\HSVar{codes}\;\HSVar{ix}{}\<[E]%
+\\
+\>[B]{}\hsindent{8}{}\<[8]%
+\>[8]{}\HSSym{\mid} {}\<[8E]%
+\>[12]{}\HV{\mathit{fam}}\HSSym{\to} \HV{\kappa}\;\HSVar{codes}\;\HSKeyword{where}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSVar{datatypeInfo}{}\<[17]%
+\>[17]{}\HSSym{::}{}\<[17E]%
+\>[21]{}\HSSpecial{(}\HSVar{ix}\HSSym{\mathrel{\sim}}\HSCon{Idx}\;\HSVar{ty}\;\HV{\mathit{fam}}\HSSpecial{,}\HSCon{Lkup}\;\HSVar{ix}\;\HV{\mathit{fam}}\HSSym{\mathrel{\sim}}\HSVar{ty}\HSSpecial{)}{}\<[E]%
+\\
+\>[17]{}\HSSym{\Rightarrow} {}\<[17E]%
+\>[21]{}\HSCon{Proxy}\;\HV{\mathit{fam}}\HSSym{\to} \HSCon{Proxy}\;\HSVar{ty}{}\<[E]%
+\\
+\>[17]{}\HSSym{\to} {}\<[17E]%
+\>[21]{}\HSCon{DatatypeInfo}\;\HSSpecial{(}\HSCon{Lkup}\;\HSVar{ix}\;\HSVar{codes}\HSSpecial{)}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+\end{myhs}
+
+  The Template Haskell will then generate something similar to
+the instance below for the first type in the family, \ensuremath{\HSCon{Rose}\;\HSCon{Int}}:
+
+\begin{myhs}
+\begingroup\par\noindent\advance\leftskip\mathindent\(
+\begin{pboxed}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{3}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{5}{@{}>{\hspre}c<{\hspost}@{}}%
+\column{5E}{@{}l@{}}%
+\column{8}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
+\>[B]{}\HSKeyword{instance}\;\HSCon{HasDatatypeInfo}\;\HSCon{Singl}\;\HSCon{FamRose}\;\HSCon{CodesRose}\;\HSCon{Z}\;\HSKeyword{where}{}\<[E]%
+\\
+\>[B]{}\hsindent{3}{}\<[3]%
+\>[3]{}\HSVar{datatypeInfo}\;\HSSym{\anonymous} \;\HSSym{\anonymous} {}\<[E]%
+\\
+\>[3]{}\hsindent{2}{}\<[5]%
+\>[5]{}\HSSym{\mathrel{=}}{}\<[5E]%
+\>[8]{}\HSCon{ADT}\;\HSSpecial{(}\HSCon{ConT}\;\HSString{``E\char34 }\;\HSString{``Rose\char34 }\mathrel{\HT{:\!@\!:}}\HSCon{ConT}\;\HSString{``Prelude\char34 }\;\HSString{``Int\char34 }\HSSpecial{)}{}\<[E]%
+\\
+\>[3]{}\hsindent{2}{}\<[5]%
+\>[5]{}\HSSym{\mathbin{\$}}{}\<[5E]%
+\>[8]{}\HSSpecial{(}\HSCon{Constructor}\;\HSString{``Fork\char34 }\HSSpecial{)}\mathrel{\HT{\times}}\HSCon{NP0}{}\<[E]%
+\ColumnHook
+\end{pboxed}
+\)\par\noindent\endgroup\resethooks
+ %$
+\end{myhs}
+
+Once all the metadata is in place, we can use it in the same fashion
+as \texttt{generics-sop}. We refer the interested reader to
+\citet{deVries2014} for examples.
 %
 %%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%

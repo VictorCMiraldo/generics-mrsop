@@ -19,3 +19,7 @@ bib: references.bib dist/$(TGT).aux
 
 clean :
 	cd dist && rm -rf * && cd ..
+
+crop:
+	pdftk dist/$(TGT).pdf cat 1-13 output dist/main.pdf
+	pdftk dist/$(TGT).pdf cat 14-17 output dist/appendix.pdf
