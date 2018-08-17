@@ -12,7 +12,12 @@
 --   We are borrowing a some code from generic-sop
 --   ( https://hackage.haskell.org/package/generics-sop-0.3.2.0/docs/src/Generics-SOP-TH.html )
 --
-module Generics.MRSOP.TH (deriveFamilyWith , deriveFamily, genFamilyDebug) where
+module Generics.MRSOP.TH
+  ( deriveFamilyWith
+  , deriveFamilyWithTy
+  , deriveFamily
+  , genFamilyDebug
+  ) where
 
 import Data.Function (on)
 import Data.Char (ord , isAlphaNum)
@@ -72,6 +77,13 @@ deriveFamilyWith opqName t
       = fail $ "Type " ++ show sty ++ " has no datatype information."
     extractDTI (sty , (ix , Just dti))
       = return (sty , ix , dti)
+
+deriveFamilyWithTy :: Q Type -> Q Type -> Q [Dec]
+deriveFamilyWithTy opq ty
+  = do opqTy <- opq
+       case opqTy of
+         ConT opqName -> deriveFamilyWith opqName ty
+         _            -> fail $ "Type " ++ show opqTy ++ " must be a name!"
 
 deriveFamily :: Q Type -> Q [Dec]
 deriveFamily = deriveFamilyWith (mkName "Singl")

@@ -289,8 +289,8 @@ unFix :: Fix ki codes ix -> Rep ki (Fix ki codes) (Lkup ix codes)
 unFix (Fix x) = x
 
 -- | Catamorphism over fixpoints
-cata ::
-     (forall iy. Rep ki phi (Lkup iy codes) -> phi iy)
+cata :: (IsNat ix)
+  => (forall iy. IsNat iy => Rep ki phi (Lkup iy codes) -> phi iy)
   -> Fix ki codes ix
   -> phi ix
 cata f (Fix x) = f (mapRep (cata f) x)

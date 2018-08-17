@@ -141,17 +141,17 @@ synthesizeAnn f = annCata alg
     alg ann rep = AnnFix (f ann (mapRep getAnn rep)) rep
     
 
-synthesize ::
-     forall ki phi codes ix.
-     (forall iy. Rep ki phi (Lkup iy codes) -> phi iy)
-  -> Fix ki codes ix
-  -> AnnFix ki codes phi ix
+synthesize :: forall ki phi codes ix
+            . (IsNat ix)
+           => (forall iy . (IsNat iy) => Rep ki phi (Lkup iy codes) -> phi iy)
+           -> Fix ki codes ix
+           -> AnnFix ki codes phi ix
 synthesize f = cata alg
   where
-    alg ::
-         forall iy.
-         Rep ki (AnnFix ki codes phi) (Lkup iy codes)
-      -> AnnFix ki codes phi iy
+    alg :: forall iy
+         . (IsNat iy)
+        => Rep ki (AnnFix ki codes phi) (Lkup iy codes)
+        -> AnnFix ki codes phi iy
     alg xs = AnnFix (f (mapRep getAnn xs)) xs
 
 monoidAlgebra :: Monoid m => Rep ki (Const m) xs -> Const m iy
@@ -169,9 +169,11 @@ sizeAlgebra :: Rep ki (Const (Sum Int)) xs -> Const (Sum Int) iy
 sizeAlgebra = (Const 1 <>) . monoidAlgebra
 
 -- | Annotate each node with the number of subtrees
-sizeGeneric' :: Fix ki codes ix -> AnnFix ki codes (Const (Sum Int)) ix
+sizeGeneric' :: (IsNat ix)
+             => Fix ki codes ix -> AnnFix ki codes (Const (Sum Int)) ix
 sizeGeneric' = synthesize sizeAlgebra
 
 -- | Count the number of nodes
-sizeGeneric :: Fix ki codes ix -> Const (Sum Int) ix
+sizeGeneric :: (IsNat ix)
+            => Fix ki codes ix -> Const (Sum Int) ix
 sizeGeneric = cata sizeAlgebra
