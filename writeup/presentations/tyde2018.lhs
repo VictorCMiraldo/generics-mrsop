@@ -12,11 +12,27 @@
 %include polycode.fmt 
 %include stylish.lhs
 
+
 % Easy to typeset Haskell types using the \HSCon
 % command from stylish.lhs (if it's defined!)
 \newcommand{\HT}[1]{\ifdefined\HSCon\HSCon{#1}\else#1\fi}
 \newcommand{\HS}[1]{\ifdefined\HSSym\HSSym{#1}\else#1\fi}
 \newcommand{\HV}[1]{\ifdefined\HSVar\HSVar{#1}\else#1\fi}
+
+%%% Usefull Notation
+%format dots    = "\HS{\dots}"
+%format forall  = "\HS{\forall}"
+%format dot     = "\HS{.}"
+%format ^=      = "\HS{\bumpeq}"
+%format alpha   = "\HV{\alpha}"
+%format phi     = "\HV{\varphi}"
+%format phi1    = "\HV{\varphi_1}"
+%format phi2    = "\HV{\varphi_2}"
+%format kappa   = "\HV{\kappa}"
+%format kappa1  = "\HV{\kappa_1}"
+%format kappa2  = "\HV{\kappa_2}"
+%format fSq     = "\HV{f}"
+%format =~=     = "\HS{\approx}"
 
 
 % ---------------------------------------------------
@@ -97,7 +113,34 @@
 % \mycaption{Spectrum of static generic programming libraries}
 % \label{fig:gplibraries}
 \end{figure}
+\end{frame}
 
+\begin{frame}
+\frametitle{Pattern Functors versus Codes}
+\begin{block}{Pattern Functors}
+\vspace{-.5em}
+\begin{code}
+type Rep :: Star -> Star
+\end{code}
+\vspace{-2em}
+\begin{itemize}
+  \item<2-> Generic Functions by Class-dispatch
+  \item<3-> Not every |T :: Star| has a |Rep|
+\end{itemize}
+\end{block}
+\vspace{-.5em}
+\begin{block}{Codes}
+\vspace{-.5em}
+\begin{code}
+data Codes = dots
+type Rep :: Codes -> Star
+\end{code}
+\vspace{-2em}
+\begin{itemize}
+  \item<2-> Generic functions by induction on |Codes|
+  \item<3-> |Codes| is a closed universe
+\end{itemize}
+\end{block}
 \end{frame}
 
 \begin{frame}
