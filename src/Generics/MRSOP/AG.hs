@@ -49,8 +49,9 @@ mapAnn :: (forall iy. chi iy -> phi iy)
        -> AnnFix ki codes phi ix
 mapAnn f = synthesizeAnn (\x _ -> f x)
 
+-- HACK. why doesn't haskell have this instance?
 instance Show k => Show1 (Const k) where
-  show1 (Const x) = "(Const " ++ show x ++ ")"
+  show1 (Const x) = show x
 
 instance (Show1 f, Show1 g) => Show1 (Product f g) where
   show1 (Pair x y) = "(" ++ show1 x ++ ", " ++ show1 y ++ ")"
