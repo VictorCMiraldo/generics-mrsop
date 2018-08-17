@@ -12,15 +12,30 @@ module Generics.MRSOP.Base.NP where
 import Generics.MRSOP.Util
 
 infixr 5 :*
+-- |Indexed n-ary products. This is analogous to the @All@ datatype
+--  in Agda. 
 data NP :: (k -> *) -> [k] -> * where
   NP0  :: NP p '[]
   (:*) :: p x -> NP p xs -> NP p (x : xs)
 
-instance Show (NP p '[]) where
-  show NP0 = "END"
-instance (Show (p x), Show (NP p xs)) => Show (NP p (x : xs)) where
-  showsPrec p (v :* vs) = showParen (p > 5)
-                        $ showsPrec 5 v . showString " :* " . showsPrec 5 vs
+
+instance Eq1 ki => Eq1 (NP ki) where
+  eq1 = eqNP eq1
+  
+
+-- * Relation to IsList predicate
+
+-- |Append two values of type 'NP'
+appendNP :: NP p xs -> NP p ys -> NP p (xs :++: ys)
+appendNP NP0        ays = ays
+appendNP (a :* axs) ays = a :* appendNP axs ays
+
+-- |Proves that the index of a value of type 'NP' is a list.
+--  This is useful for pattern matching on said list without
+--  having to carry the product around.
+listPrfNP :: NP p xs -> ListPrf xs
+listPrfNP NP0       = Nil
+listPrfNP (_ :* xs) = Cons $ listPrfNP xs
 
 -- * Map, Elim and Zip
 
@@ -39,6 +54,7 @@ elimNP :: (forall x . f x -> a) -> NP f ks -> [a]
 elimNP f NP0       = []
 elimNP f (k :* ks) = f k : elimNP f ks
 
+-- |Monadic eliminator
 elimNPM :: (Monad m) => (forall x . f x -> m a) -> NP f ks -> m [a]
 elimNPM f NP0       = return []
 elimNPM f (k :* ks) = (:) <$> f k <*> elimNPM f ks
@@ -50,6 +66,7 @@ zipNP (f :* fs) (g :* gs) = (f :*: g) :* zipNP fs gs
 
 -- * Catamorphism
 
+-- |Consumes a value of type 'NP'.
 cataNP :: (forall x xs . f x  -> r xs -> r (x : xs))
        -> r '[]
        -> NP f xs -> r xs
@@ -58,6 +75,8 @@ cataNP fCons fNil (k :* ks) = fCons k (cataNP fCons fNil ks)
 
 -- * Equality
 
+-- |Compares two 'NP's pairwise with the provided function and
+--  return the conjunction of the results.
 eqNP :: (forall x. p x -> p x -> Bool)
      -> NP p xs -> NP p xs -> Bool
 eqNP p x = and . elimNP (uncurry' p) . zipNP x

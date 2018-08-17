@@ -11,6 +11,8 @@
 {-# LANGUAGE TemplateHaskell         #-}
 {-# LANGUAGE LambdaCase              #-}
 {-# LANGUAGE PatternSynonyms         #-}
+-- |Uses a more involved example to test some
+--  of the functionalities of @generics-mrsop@.
 module Generics.MRSOP.Examples.SimpTH where
 
 import Data.Function (on)
@@ -56,12 +58,12 @@ deriveFamily [t| Stmt String |]
 pattern Decl_ = SS (SS SZ)
 pattern Exp_  = SS SZ
 pattern Stmt_ = SZ
-
+-- 
 pattern SAssign_ v e = Tag CZ (NA_K v :* NA_I e :* NP0)
-
+-- 
 pattern DVar_ v     = Tag CZ (NA_K v :* NP0)
 pattern DFun_ f x s = Tag (CS CZ) (NA_K f :* NA_K x :* NA_I s :* NP0)
-
+-- 
 pattern EVar_ v    = Tag CZ      (NA_K v :* NP0)
 pattern ECall_ f x = Tag (CS CZ) (NA_K f :* NA_I x :* NP0)
 

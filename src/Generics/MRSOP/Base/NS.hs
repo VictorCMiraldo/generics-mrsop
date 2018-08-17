@@ -1,26 +1,27 @@
-{-# LANGUAGE RankNTypes        #-}
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GADTs             #-}
-{-# LANGUAGE TypeOperators     #-}
-{-# LANGUAGE DataKinds         #-}
-{-# LANGUAGE PolyKinds         #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE FlexibleInstances   #-}
+{-# LANGUAGE GADTs               #-}
+{-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE PolyKinds           #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 -- | Standard representation of n-ary sums.
 module Generics.MRSOP.Base.NS where
 
 import Control.Monad
 import Generics.MRSOP.Util
 
+
+-- |Indexed n-ary sums. This is analogous to the @Any@ datatype
+--  in @Agda@. 
+--  Combinations of 'Here' and 'There's are also called injections.
 data NS :: (k -> *) -> [k] -> * where
   There :: NS p xs -> NS p (x : xs)
   Here  :: p x     -> NS p (x : xs)
 
-instance Show (NS p '[]) where
-  show _ = error "This code is unreachable"
-instance (Show (p x), Show (NS p xs)) => Show (NS p (x : xs)) where
-  show (There r) = 'T' : show r
-  show (Here  x) = "H (" ++ show x ++ ")"
+instance Eq1 ki => Eq1 (NS ki) where
+  eq1 = eqNS eq1
 
 -- * Map, Zip and Elim
 
@@ -48,6 +49,7 @@ zipNS _         _         = mzero
 
 -- * Catamorphism
 
+-- |Consumes a value of type 'NS'
 cataNS :: (forall x xs . f x  -> r (x ': xs))
        -> (forall x xs . r xs -> r (x ': xs))
        -> NS f xs -> r xs
@@ -56,6 +58,8 @@ cataNS fHere fThere (There x) = fThere (cataNS fHere fThere x)
 
 -- * Equality
 
+-- |Compares two values of type 'NS' using the provided function
+--  in case they are made of the same injection.
 eqNS :: (forall x. p x -> p x -> Bool)
      -> NS p xs -> NS p xs -> Bool
 eqNS p x = maybe False (elimNS $ uncurry' p) . zipNS x

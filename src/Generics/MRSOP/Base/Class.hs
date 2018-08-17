@@ -9,8 +9,10 @@
 {-# LANGUAGE ScopedTypeVariables     #-}
 {-# LANGUAGE TypeApplications        #-}
 {-# LANGUAGE FunctionalDependencies  #-}
+-- |Provides the main class of the library, 'Family'.
 module Generics.MRSOP.Base.Class where
 
+import Data.Functor.Const
 import Data.Function (on)
 
 import Generics.MRSOP.Base.Universe
@@ -21,7 +23,6 @@ import Generics.MRSOP.Util
 -- |A Family consists of a list of types and a list of codes of the same length.
 --  The idea is that the code of @Lkup n fam@ is @Lkup n code@.
 --  We also parametrize on the interpretation of constants.
---
 --  The class family provides primitives for performing a shallow conversion.
 --  The 'deep' conversion is easy to obtain: @deep = map deep . shallow@
 class Family (ki :: kon -> *) (fam :: [*]) (codes :: [[[Atom kon]]])
@@ -49,6 +50,8 @@ sto = sto' (getSNat' @ix)
 
 -- ** Deep Conversion
 --
+-- $deepConversion
+--
 -- The deep translation is obtained by simply
 -- recursing the shallow translation at every
 -- point in the (generic) tree.
@@ -67,6 +70,7 @@ dfrom = Fix . mapRep dfrom . sfrom @fam
 --  This is the dual of 'dfrom'.
 --
 --  @dto = sto . map dto@
+--
 dto :: forall ix ki fam codes
      . (Family ki fam codes , IsNat ix)
     => Rep ki (Fix ki codes) (Lkup ix codes)
@@ -86,5 +90,5 @@ shallow = sfrom . into
 deep :: forall fam ty ki codes ix
       . (Family ki fam codes,
          ix ~ Idx ty fam, Lkup ix fam ~ ty, IsNat ix)
-     => ty -> Fix ki codes ix
+     => ty -> AnnFix ki codes (Const ()) ix
 deep = dfrom . into
