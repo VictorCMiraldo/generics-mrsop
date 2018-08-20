@@ -155,6 +155,10 @@ dtiMapM :: (Monad m) => (ty -> m tw) -> DTI ty -> m (DTI tw)
 dtiMapM f (ADT name args ci) = ADT name args <$> mapM (ciMapM f) ci
 dtiMapM f (New name args ci) = New name args <$> ciMapM f ci
 
+dtiName :: DTI ty -> DataName
+dtiName (ADT name _ _) = name
+dtiName (New name _ _) = name
+
 dti2ci :: DTI ty -> [CI ty]
 dti2ci (ADT _ _ cis) = cis
 dti2ci (New _ _ ci)  = [ ci ]
@@ -553,6 +557,9 @@ ik2Codes :: IK -> Type
 ik2Codes (AtomI n) = AppT tyI $ int2Type n -- ConT (int2TySynName n)
 ik2Codes (AtomK k) = AppT tyK $ PromotedT k
 
+{-
+  VCM: GHC performance HACK
+
 -- Generates piece (1.2); we do so by
 -- finding what's the maximum type index used
 -- in all DatatypeInformation we have and then generate
@@ -571,6 +578,7 @@ inputToTySynNums input
     getMaxIdx = foldr (ikElim max (const id)) 0
 
     genTySynNum i = TySynD (int2TySynName i) [] (int2Type i)
+-}
 
 -- generates rhs of piece (1.1)
 inputToFam :: Input -> Q Type
@@ -601,7 +609,7 @@ familyName = return . onBaseName ("Fam" ++) . styToName
 
 genPiece1 :: STy -> Input -> Q [Dec]
 genPiece1 first ls
-  = do -- nums  <- inputToTySynNums ls
+  = do -- nums  <- inputToTySynNums ls -- TODO: Remove this hack
        codes <- TySynD <$> codesName first
                        <*> return []
                        <*> inputToCodes ls
@@ -615,6 +623,9 @@ idxPatSynName = styToName . (AppST (ConST (mkName "Idx")))
        
 idxPatSyn :: STy -> Pat
 idxPatSyn = flip ConP [] . idxPatSynName
+
+{-
+  VCM: HACK
 
 -- |@htPatSynName ci@ will generate the
 --  pattern synonym name for constructor ci.
@@ -632,9 +643,11 @@ htPatSynName dtiIx ci = mkName . translate . nameBase . ciName $ ci
 htPatSynExp :: Int -> CI IK -> Q Exp
 htPatSynExp dtiIx = return . ConE . htPatSynName dtiIx
 
-genIdxPatSyn :: STy -> Int -> Q Dec
-genIdxPatSyn sty ix
-  = return (PatSynD (idxPatSynName sty) (PrefixPatSyn []) ImplBidir (int2SNatPat ix))
+-}
+{-
+  We tried this in order to help the exhaustiveness checker in GHC.
+  I'm removing this hack to avoid name clashes. Our experiments
+  showed that this did not help at all.
 
 genHereTherePatSyn :: OpaqueData -> STy -> Input -> Q [Dec]
 genHereTherePatSyn opq first ls
@@ -670,10 +683,14 @@ genHereTherePatSyn opq first ls
       = do var <- newName "d"
            PatSynD (htPatSynName dtiIx ci) (PrefixPatSyn [var]) ImplBidir
              <$> inj ix (return $ VarP var)
-           
+-}
+
+genIdxPatSyn :: STy -> Int -> Q Dec
+genIdxPatSyn sty ix
+  = return (PatSynD (idxPatSynName sty) (PrefixPatSyn []) ImplBidir (int2SNatPat ix))
 
 -- |Generating pattern synonyms for the type indexes
---  and the 'Here/There' combinations. (pieces 2.1 and 2.1.1)
+--  and the pattern synonyms for the constructors.
 --
 --  > pattern IdxRInt = SZ
 --  > pattern IdxListRInt = SS SZ
@@ -681,39 +698,58 @@ genHereTherePatSyn opq first ls
 genPiece2 :: OpaqueData -> STy -> Input -> Q [Dec]
 genPiece2 opq first ls
   = do p21  <- mapM (\(sty , ix , dti) -> genIdxPatSyn sty ix) ls
-       -- p22  <- genPiece2_2 opq first ls
-       p211 <- genHereTherePatSyn opq first ls
-       return $ p21 ++ p211 {-++ p22-}
+       p22  <- genPiece2_2 opq first ls
+       -- p211 <- genHereTherePatSyn opq first ls
+       return $ p21 ++ p22
 
 -- |Generating pattern synonyms for constructors with 'Tag'
 --
---  Infix constructors are ignored. The rest receives an underscore
---  as a suffix.
+--  This is trickier than it looks at first sight.
+--  If we have occurences of @Maybe A@ and @Maybe B@ in our
+--  mutually recursive family, we have to generate two sets of
+--  @Just@s and @Nothing@s, otherwise we will have a name clash.
+--
+--  Infix constructors also receive special treatment.
+--  suppose @(:*:)@ is the 4th constructor of a type @Op x@,
+--  The pattern syn for an instantiation of @x@ to @Int@, @Op Int@,
+--  will be named @OpInt_Ifx4@.
 --
 genPiece2_2 :: OpaqueData -> STy -> Input -> Q [Dec]
 genPiece2_2 opq first ls
-  = concat <$> mapM (\(sty , ix , dti) -> mapM (uncurry genTagPatSyn)
-                                        $ filter (legalCon . snd)
-                                        $ zip [0..]
-                                        $ dti2ci dti) ls
+  = concat <$> mapM (\(sty , ix , dti) -> genTagPatSyns sty dti) ls
   where
-    legalCon (Infix _ _ _ _) = False
-    legalCon ci              = all isAlphaNum (nameBase $ ciName ci)
+    genTagPatSyns :: STy -> DTI IK -> Q [Dec]
+    genTagPatSyns sty dti
+      = mapM (uncurry $ genTagPatSynFor sty)
+             (zip [0..] $ dti2ci dti)
 
-    tagPatSynName :: ConName -> Q Name
-    tagPatSynName = return . mkName . (++ "_") . nameBase
+    genTagPatSynFor :: STy -> Int -> CI IK -> Q Dec
+    genTagPatSynFor sty cidx ci
+      = let fields = ci2ty ci
+         in do vars <- mapM (const (newName "p")) fields
+               let namedFields = zip fields vars
+               name <- patSynName sty cidx ci
+               pat <- [p| Tag $(int2Constr cidx) $(tagPatSynProd namedFields) |]
+               return $ PatSynD name (PrefixPatSyn vars) ImplBidir pat
 
-    genTagPatSyn :: Int -> CI IK -> Q Dec
-    genTagPatSyn ix (Normal nm fields) = genTags ix nm fields
-    genTagPatSyn ix (Record nm fields) = genTags ix nm (map snd fields)
+    patSynName :: STy -> Int -> CI IK -> Q Name
+    patSynName sty cidx ci
+      | ciHasIllegalName ci
+      = let styname = nameBase $ styToName sty
+         in return . mkName $ styname ++ "_Ifx" ++ show cidx
+    -- This is a constructor of a type that is not applied
+    -- to any argument; hence there is no risk of name clashing.
+      | ConST _ <- sty
+      = return . mkName $ nameBase (ciName ci) ++ "_"
+    -- Here we will preffix the the constructor name with the
+    -- type it belongs to.
+      | otherwise
+      = let styname = nameBase $ styToName sty
+         in return . mkName $ styname ++ nameBase (ciName ci) ++ "_"
 
-    genTags :: Int -> ConName -> [IK] -> Q Dec
-    genTags ix nm iks 
-      = do vars <- mapM (const (newName "p")) iks
-           let iks' = zip iks vars
-           nm' <- tagPatSynName nm
-           pat <- [p| Tag $(int2Constr ix) $(tagPatSynProd iks') |]
-           return $ PatSynD nm' (PrefixPatSyn vars) ImplBidir pat
+    ciHasIllegalName :: CI ty -> Bool
+    ciHasIllegalName (Infix _ _ _ _) = True
+    ciHasIllegalName ci = any (not . isAlphaNum) $ nameBase (ciName ci)
 
     tagPatSynProd :: [(IK , Name)] -> Q Pat
     tagPatSynProd []     = [p| NP0 |]
@@ -726,7 +762,6 @@ genPiece2_2 opq first ls
     tagPatSynProdHead :: (IK , Name) -> Q Pat
     tagPatSynProdHead (AtomI _ , name) = [p| NA_I $(return . VarP $ name) |]
     tagPatSynProdHead (AtomK _ , name) = [p| NA_K $(return . VarP $ name) |]
-       
 
 genPiece3 :: OpaqueData -> STy -> Input -> Q Dec
 genPiece3 opq first ls
@@ -740,20 +775,19 @@ genPiece3 opq first ls
 --  and an expression from it. The int here
 --  indicates the number of the constructor.
 --
---  > ci2PatExp opq IdxBinTree (Normal "Bin" [VarT a , VarT a])
+--  > ci2PatExp opq IdxBinTree 3 (Normal "Bin" [VarT a , VarT a])
 --  >   = ( El (Bin x_1 x_2)
---  >     , Rep (PatBin_IdxBinTree (NA_I (El x_1) :* NA_I (El x_2) :* NP0))
+--  >     , Rep (There (There (Here (NA_I (El x_1) :* NA_I (El x_2) :* NP0))))
 --  >     )
-ci2PatExp :: OpaqueData -> Int -> CI IK -> Q (Pat , Exp)
-ci2PatExp opq dtiIx ci
+ci2PatExp :: OpaqueData -> Int -> Int -> CI IK -> Q (Pat , Exp)
+ci2PatExp opq dtiIx cIdx ci
   = do (vars , pat) <- ci2Pat ci
-       bdy          <- [e| Rep $(inj $ genBdy (zip vars (ci2ty ci))) |]
+       bdy          <- [e| Rep $(inj cIdx $ genBdy (zip vars (ci2ty ci))) |]
        return (ConP (mkName "El") [pat] , bdy)
   where
-    inj :: Q Exp -> Q Exp
-    -- inj 0 e = [e| Here $e              |]
-    -- inj n e = [e| There $(inj (n-1) e) |]
-    inj e = [e| $(htPatSynExp dtiIx ci) $e |]
+    inj :: Int -> Q Exp -> Q Exp
+    inj 0 e = [e| Here $e              |]
+    inj n e = [e| There $(inj (n-1) e) |]
 
     genBdy :: [(Name , IK)] -> Q Exp
     genBdy []       = [e| NP0 |]
@@ -766,20 +800,19 @@ ci2PatExp opq dtiIx ci
 
 -- | Just like 'ci2PatExp', but the other way around.
 --
---  > ci2ExpPat opq IdxBinTree (Normal "Bin" [VarT a , VarT a])
---  >   = ( Rep (PatBin_IdxBinTree (NA_I (El x_1) :* NA_I (El x_2) :* NP0))
+--  > ci2ExpPat opq IdxBinTree 2 (Normal "Bin" [VarT a , VarT a])
+--  >   = ( Rep (There (There (Here (NA_I (El x_1) :* NA_I (El x_2) :* NP0))))
 --        , El (Bin x_1 x_2)
 --  >     )
-ci2ExpPat :: OpaqueData -> Int -> CI IK -> Q (Pat , Exp)
-ci2ExpPat opq dtiIx ci
+ci2ExpPat :: OpaqueData -> Int -> Int -> CI IK -> Q (Pat , Exp)
+ci2ExpPat opq dtiIx cIdx ci 
   = do (vars , exp) <- ci2Exp ci
-       pat          <- [p| Rep $(inj $ genBdy (zip vars (ci2ty ci))) |]
+       pat          <- [p| Rep $(inj cIdx $ genBdy (zip vars (ci2ty ci))) |]
        return (pat , AppE (ConE $ mkName "El") exp)
   where
-    inj :: Q Pat -> Q Pat
-    -- inj 0 e = [p| Here $e              |]
-    -- inj n e = [p| There $(inj (n-1) e) |]
-    inj e = ConP (htPatSynName dtiIx ci) . (:[]) <$> e
+    inj :: Int -> Q Pat -> Q Pat
+    inj 0 e = [p| Here $e              |]
+    inj n e = [p| There $(inj (n-1) e) |]
     
     genBdy :: [(Name , IK)] -> Q Pat
     genBdy []       = [p| NP0 |]
@@ -819,7 +852,8 @@ genPiece3_1 opq input
                        <$> (LamCaseE <$> genMatchFor ix dti)
     
     genMatchFor :: Int -> DTI IK -> Q [Match]
-    genMatchFor ix dti = map (uncurry match) <$> mapM (ci2PatExp opq ix) (dti2ci dti)
+    genMatchFor ix dti = map (uncurry match) <$> mapM (uncurry $ ci2PatExp opq ix)
+                                                      (zip [0..] $ dti2ci dti)
       
 genPiece3_2 :: OpaqueData -> Input -> Q Exp
 genPiece3_2 opq input
@@ -830,7 +864,8 @@ genPiece3_2 opq input
                        <$> (LamCaseE . matchAll <$> genMatchFor ix dti)
       
     genMatchFor :: Int -> DTI IK -> Q [Match]
-    genMatchFor ix dti = map (uncurry match) <$> mapM (ci2ExpPat opq ix) (dti2ci dti)
+    genMatchFor ix dti = map (uncurry match) <$> mapM (uncurry $ ci2ExpPat opq ix)
+                                                      (zip [0..] $ dti2ci dti)
 
 genPiece4 :: OpaqueData -> STy -> Input -> Q [Dec]
 genPiece4 opq first ls
