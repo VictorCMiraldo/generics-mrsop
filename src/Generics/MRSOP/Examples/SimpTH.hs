@@ -55,24 +55,12 @@ data Exp var
 
 deriveFamily [t| Stmt String |]
 
-pattern Decl_ = SS (SS SZ)
-pattern Exp_  = SS SZ
-pattern Stmt_ = SZ
--- 
-pattern SAssign_ v e = Tag CZ (NA_K v :* NA_I e :* NP0)
--- 
-pattern DVar_ v     = Tag CZ (NA_K v :* NP0)
-pattern DFun_ f x s = Tag (CS CZ) (NA_K f :* NA_K x :* NA_I s :* NP0)
--- 
-pattern EVar_ v    = Tag CZ      (NA_K v :* NP0)
-pattern ECall_ f x = Tag (CS CZ) (NA_K f :* NA_I x :* NP0)
-
 type FIX = Fix Singl CodesStmtString
 
 -- * Alpha Equality Functionality
 
 alphaEqD :: Decl String -> Decl String -> Bool
-alphaEqD = (galphaEq Decl_) `on` (deep @FamStmtString)
+alphaEqD = (galphaEq IdxDeclString) `on` (deep @FamStmtString)
   where
     -- Generic programming boilerplate;
     -- could be removed. WE are just passing SNat
@@ -110,24 +98,24 @@ alphaEqD = (galphaEq Decl_) `on` (deep @FamStmtString)
        -> Rep (Singl :*: Singl) (FIX :*: FIX)
               (Lkup iy CodesStmtString)
        -> m Bool
-    go Stmt_ x
+    go IdxStmtString x
       = case sop x of
-          SAssign_ (SString v1 :*: SString v2) e1e2
-            -> addRule v1 v2 >> uncurry' (galphaEq' Exp_) e1e2
+          StmtStringSAssign_ (SString v1 :*: SString v2) e1e2
+            -> addRule v1 v2 >> uncurry' (galphaEq' IdxExpString) e1e2
           otherwise
             -> step x
-    go Decl_ x
+    go IdxDeclString x
       = case sop x of
-          DVar_ (SString v1 :*: SString v2)
+          DeclStringDVar_ (SString v1 :*: SString v2)
             -> addRule v1 v2 >> return True
-          DFun_ (SString f1 :*: SString f2) (SString x1 :*: SString x2) s
+          DeclStringDFun_ (SString f1 :*: SString f2) (SString x1 :*: SString x2) s
             -> addRule f1 f2 >> onNewScope (addRule x1 x2 >> uncurry' galphaEqT s)
           _ -> step x
-    go Exp_ x
+    go IdxExpString x
       = case sop x of
-          EVar_ (SString v1 :*: SString v2)
+          ExpStringEVar_ (SString v1 :*: SString v2)
             -> v1 =~= v2
-          ECall_ (SString f1 :*: SString f2) e
+          ExpStringECall_ (SString f1 :*: SString f2) e
             -> (&&) <$> (f1 =~= f2) <*> uncurry' galphaEqT e
           _ -> step x 
     go _ x = step x
@@ -201,6 +189,6 @@ test5 = enter
       $ into @FamStmtString (test4 10)
   where
     mk42 :: SNat ix -> El FamStmtString ix -> El FamStmtString ix
-    mk42 Exp_ _ = El $ ELit 42
-    mk42 _    x = x
+    mk42 IdxExpString _ = El $ ELit 42
+    mk42 _            x = x
 
