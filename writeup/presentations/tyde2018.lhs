@@ -48,11 +48,30 @@
 \end{frame}
 
 \begin{frame}
+\frametitle{Motivation}
+
+  \begin{block}{Why another generic programming library?}
+    \begin{itemize}
+      \itemsep2em
+      \pause
+      \item Existing libraries: either hard or not expressive
+            enough
+      \pause
+      \item GHC novel features: combine sucessful ideas
+            from previous libraries
+      \pause
+      \item Mutually recursive families are common
+    \end{itemize}
+  \end{block}
+
+\end{frame}
+
+\begin{frame}
 \frametitle{Generic Programming Primer}
 
   \begin{itemize}
     \itemsep1em
-    \item<1-> Translate class of datatypes to standard representation
+    \item<1-> Translate class of datatypes to uniform representation
     \item<2-> Perform generic operation
     \item<3-> Translate back to original representation
   \end{itemize}
@@ -70,7 +89,7 @@
   |T| \ar[r]^(.4){|from|} & |Rep T| \ar[r]^{|f|} & |Rep U| & 
 }
 \end{displaymath}
-\onslide<3>\begin{displaymath}
+\onslide<3->\begin{displaymath}
 \xymatrix@@C=4em{
   |T| \ar[r]^(.4){|from|} & |Rep T| \ar[r]^{|f|}
                     & |Rep U| \ar[r]^{|to|}
@@ -78,28 +97,41 @@
 }
 \end{displaymath}
 \end{overprint}
+\onslide<4>
+\begin{code}
+class Generic t where
+  from  :: t      -> Rep t
+  to    :: Rep t  -> t
+\end{code}
 \end{frame}
 
 \begin{frame}
-\frametitle{Generic Programming Shortcommings}
+\frametitle{The Design Space}
 
 \begin{itemize}
 \itemsep2em
-  \item<1-> Class of representable datatypes
+  \item Class of representable datatypes
     \begin{itemize}
       \item Regular, Nested, Mutually Recursive, ...
     \end{itemize}
-  \item<2-> Generic Combinators
+  \pause
+  \item Representation of Recursion
     \begin{itemize}
-      \item<3-> Expressivity
-      \item<4-> Ease of use
+      \item Implicit versus Explicit
     \end{itemize}
 \end{itemize}
+
+\pause
+These choices determine the flavour of generic functions:
+    \begin{itemize}
+      \item Expressivity
+      \item Ease of use
+    \end{itemize}
 \end{frame}
       
 
 \begin{frame}
-\frametitle{Current Spectrum of Generic Programming}
+\frametitle{The Landscape}
 
 \begin{figure}\centering
 \ra{1.3}
@@ -110,38 +142,58 @@
   Mutual Recursion      &  \texttt{multirec}     &   \\
 \bottomrule
 \end{tabular}
-% \mycaption{Spectrum of static generic programming libraries}
-% \label{fig:gplibraries}
 \end{figure}
 \end{frame}
 
 \begin{frame}
-\frametitle{Pattern Functors versus Codes}
-\begin{block}{Pattern Functors}
-\vspace{-.5em}
+\frametitle{Pattern Functors}
+
+  Used by \texttt{GHC.Generics}, \texttt{regular}, \texttt{multirec}.
+
+  \pause
+
+  Defines the representation of a datatype directly:
+
+%format :+: = "\HS{:\!\!+\!\!:}"
+%format :*: = "\HS{:\!\!*\!\!:}"
 \begin{code}
-type Rep :: Star -> Star
+data Bin a = Leaf a | Fork (Bin a) (Bin a)
 \end{code}
-\vspace{-2em}
-\begin{itemize}
-  \item<2-> Generic Functions by Class-dispatch
-  \item<3-> Not every |T :: Star| has a |Rep|
-\end{itemize}
-\end{block}
-\vspace{-.5em}
-\begin{block}{Codes}
-\vspace{-.5em}
 \begin{code}
-data Codes = dots
-type Rep :: Codes -> Star
+Rep (Bin a)  =    K1 R a 
+             :+:  (K1 R (Bin a) :*: K1 R (Bin a))
 \end{code}
-\vspace{-2em}
-\begin{itemize}
-  \item<2-> Generic functions by induction on |Codes|
-  \item<3-> |Codes| is a closed universe
-\end{itemize}
-\end{block}
+
 \end{frame}
+
+
+\begin{frame}
+\frametitle{Pattern Functors}
+
+  Class dispatch for generic functions:
+
+\begin{code}
+class GSize (rep :: * -> *) where
+  gsize :: rep x -> Int
+
+instance (GSize f , GSize g) => GSize (f :+: g) where
+  gsize (L1 f) = gsize f
+  gsize (R1 g) = gsize g
+
+dots
+
+size :: Bin a -> Int
+size = gsize . from
+\end{code}
+\vspace{-2em}
+\pause
+\begin{block}{Issue:}
+  No guarantee about the form of the |Rep|. 
+  |K1 R Int :+: Maybe| is a valid |Rep|
+\end{block}
+
+\end{frame}
+
 
 \begin{frame}
   \titlepage
