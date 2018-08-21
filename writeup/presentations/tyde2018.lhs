@@ -33,6 +33,10 @@
 %format kappa2  = "\HV{\kappa_2}"
 %format fSq     = "\HV{f}"
 %format =~=     = "\HS{\approx}"
+%format (P (a)) = "\HS{''}" a
+%format SOPK     = "\HS{''[ ''[}\HT{*}\HS{] ]}"
+%format (PL (a)) = "\HS{''[}{" a "}\HS{]}"
+%format Star     = "\HT{*}"
 
 
 % ---------------------------------------------------
@@ -54,13 +58,13 @@
     \begin{itemize}
       \itemsep2em
       \pause
-      \item Existing libraries: either hard or not expressive
+      \item Existing libraries are either hard to use or not expressive
             enough
       \pause
-      \item GHC novel features: combine sucessful ideas
+      \item GHC novel features allows combination of sucessful ideas
             from previous libraries
       \pause
-      \item Mutually recursive families are common
+      \item No combinator-based GP library for mutually recursive families.
     \end{itemize}
   \end{block}
 
@@ -119,6 +123,8 @@ class Generic t where
     \begin{itemize}
       \item Implicit versus Explicit
     \end{itemize}
+  \pause
+  \item Codes versus Pattern Functors
 \end{itemize}
 
 \pause
@@ -146,34 +152,59 @@ These choices determine the flavour of generic functions:
 \end{frame}
 
 \begin{frame}
-\frametitle{Pattern Functors}
-
-  Used by \texttt{GHC.Generics}, \texttt{regular}, \texttt{multirec}.
-
-  \pause
+\frametitle{Pattern Functors (\texttt{GHC.Generics})}
 
   Defines the representation of a datatype directly:
 
 %format :+: = "\HS{:\!\!+\!\!:}"
 %format :*: = "\HS{:\!\!*\!\!:}"
 \begin{code}
-data Bin a = Leaf a | Fork (Bin a) (Bin a)
-\end{code}
-\begin{code}
-Rep (Bin a)  =    K1 R a 
-             :+:  (K1 R (Bin a) :*: K1 R (Bin a))
-\end{code}
+data Bin a   =    Leaf a 
+             |    Fork (Bin a) (Bin a)
 
+Rep (Bin a)  =    K1 a 
+             :+:  (K1 (Bin a) :*: K1 (Bin a))
+\end{code}
+\pause
+\begin{code}
+data (f :+: g)  x  = L1 (f x) | R1 (g x)
+data (f :*: g)  x  = f x :*: g x
+data K1 a       x  = K1 x
+\end{code}
+\pause
+Note the absence of a pattern-functor for handling recursion.
 \end{frame}
 
+\begin{frame}
+\frametitle{Pattern Functors (\texttt{regular})}
+
+  The \texttt{regular} and \texttt{multirec} have a pattern functor
+for representing recursion.
+\begin{code}
+data I x = I x
+\end{code}
+Now, |Rep (Bin a) = K1 a :+: (I :*: I)|,\\
+\pause
+which allows for explicit least fixpoints:
+
+%format isoto = "\mathbin{\HS{\approx}}"
+|Bin a isoto Rep (Bin a) (Bin a)|
+
+\pause
+Permitting generic recursion shemes:
+\begin{code}
+cata :: (Rep f a -> a) -> f -> a
+\end{code}
+\end{frame}
 
 \begin{frame}
 \frametitle{Pattern Functors}
 
-  Class dispatch for generic functions:
+  Regardless of recursion, class dispatch is used
+  for generic functions:
 
 \begin{code}
-class GSize (rep :: * -> *) where
+class GSize (rep :: Star -> Star) where
   gsize :: rep x -> Int
 
 instance (GSize f , GSize g) => GSize (f :+: g) where
@@ -185,15 +216,46 @@ dots
 size :: Bin a -> Int
 size = gsize . from
 \end{code}
-\vspace{-2em}
-\pause
-\begin{block}{Issue:}
-  No guarantee about the form of the |Rep|. 
-  |K1 R Int :+: Maybe| is a valid |Rep|
-\end{block}
-
 \end{frame}
 
+\begin{frame}
+\frametitle{Pattern Functors Drawbacks}
+
+  \begin{itemize}
+  \itemsep2em
+    \item No guarantee about the form of |Rep|:
+          \pause
+          product-of-sums is valid
+    \pause
+    \item No guarantee about combinators used
+          in |Rep|: \pause |K1 Int :+: Maybe| 
+          breaks class-dispatch.
+    \pause
+    \item Class-dispatch fragile and hard to extend.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{Codes (\texttt{genrics-sop})}
+
+  \begin{itemize}
+    \itemsep1em
+    \item Addresses the issues with pattern-functors.
+    \pause
+    \item The language that representations are defined
+          over.
+  \end{itemize}
+
+\begin{code}
+type family     Code (a :: Star)  :: SOPK
+type instance   Code (Bin a)      = PL (PL a , PL (Bin a , Bin a))
+\end{code}
+\pause
+\begin{code}
+Rep :: SOPK -> Star
+\end{code}
+\end{frame}
+  
 
 \begin{frame}
   \titlepage
