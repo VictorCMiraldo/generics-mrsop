@@ -63,10 +63,10 @@ loop (AG ag) = AG $ \b -> let bd = zipAnn Pair b d
 
 data Unit (a :: k) = Unit
 
-unitAnn :: Fix ki codes :~>: AnnFix ki codes Unit
+unitAnn :: IsNat x => Fix ki codes x -> AnnFix ki codes Unit x
 unitAnn = synthesize (\_ -> Unit)
 
-runAG :: AG ki codes Unit r -> Fix ki codes :~>: AnnFix ki codes r
+runAG :: IsNat x => AG ki codes Unit r -> Fix ki codes x -> AnnFix ki codes r x
 runAG (AG ag) = ag . unitAnn
 
 runAG_ :: (Family ki fam codes, ix ~ Idx ty fam, Lkup ix fam ~ ty, IsNat ix)

@@ -44,10 +44,10 @@ instance ArrowLoop (AG ki codes) where
                                 d = mapAnn (overConst snd) cd
                              in c
 
-voidAnn :: Fix ki codes ix -> AnnFix ki codes (Const ()) ix
+voidAnn :: IsNat ix => Fix ki codes ix -> AnnFix ki codes (Const ()) ix
 voidAnn = synthesize (\_ -> Const ())
 
-runAG :: AG ki codes () r -> Fix ki codes ix -> AnnFix ki codes (Const r) ix
+runAG :: IsNat ix => AG ki codes () r -> Fix ki codes ix -> AnnFix ki codes (Const r) ix
 runAG (AG ag) = ag . voidAnn
 
 inh :: forall ki codes a b.

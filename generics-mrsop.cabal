@@ -1,5 +1,5 @@
 name:                generics-mrsop
-version:             1.1.1
+version:             1.2.1
 
 synopsis:            Generic Programming with Mutually Recursive Sums of Products.
 
@@ -81,4 +81,4 @@ source-repository head
 source-repository this
   type:     git
   location: https://github.com/VictorCMiraldo/generics-mrsop
-  tag:      1.0.0.0
+  tag: v1.1.1
