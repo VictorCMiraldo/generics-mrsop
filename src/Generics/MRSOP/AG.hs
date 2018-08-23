@@ -110,7 +110,6 @@ type family Last def xs where
   Last def (K x ': xs) = Last def xs
   Last def (I x ': xs) = Last x xs
 
-
 chain :: 
      forall ki codes chi phi ix.
      (forall iy. Rep ki chi (Lkup iy codes) -> chi iy -> ChainAttrib phi iy)

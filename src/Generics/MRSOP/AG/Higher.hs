@@ -159,7 +159,8 @@ typing = AG $ synthesize go
                in Pair_ ty []
 
 checker :: AG Singl CodesTerm a (Type :&&: [TyEq])
-checker = unique
+checker = unique2
+          >>> arr (\(Const n) -> Const $ "x" ++ show n)
           >>> arr duplicate
           >>> first context
           >>> arr swap
@@ -171,33 +172,11 @@ checker = proc x -> do u <- unique -< x
                        typing -< Pair u ctx
 -}
 
-counterDown :: AG Singl CodesTerm (Const Integer) (Const Integer)
-counterDown = AG $ inherit go (Const 0)
-  where go :: InhDefn Singl CodesTerm (Const Integer) (Const Integer)
-        go fromChildren _ (Const fromTop) = case sop fromChildren of
-          Abs_ (SString v) _
-            -> fromView $ Abs_ (SString v) (Const (fromTop + 1))
-          App_ (Const i1) _
-            -> fromView $ App_ (Const (fromTop + 1)) (Const (i1 + 1))
-          Var_ (SString v)
-            -> fromView $ Var_ (SString v)
-
-counterUp :: AG Singl CodesTerm (Const Integer) (Const Integer)
-counterUp = AG $ synthesize go
-  where go :: SynDefn Singl CodesTerm (Const Integer) (Const Integer)
-        go _ (Const i) x = case sop x of
-          Abs_ (SString v) (Const i) -> Const i
-          App_ _ (Const i2) -> Const i2
-          Var_ _ -> Const i
-
-counter :: AG Singl CodesTerm a (Const Integer)
-counter = (loop $ arr swap
-                  >>> first counterUp
-                  >>> first counterDown
-                  >>> first (arr duplicate)
-                  >>> arr reassoc
-                  >>> arr swap)
-          >>> arr fst1
+unique2 :: AG ki codes a (Const Integer)
+unique2 = AG $ chain (\_ _ -> ChainAttrib start next end) (Const 0)
+  where start (Const x) = Const x
+        next  (Const x) = Const (x + 1)
+        end   (Const x) = Const x
 
 lambdaT1 = t1 "a" "b"
 lambdaT2 = t2 "a" "b" "c" 'd'
