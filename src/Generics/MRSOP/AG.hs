@@ -5,6 +5,8 @@
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Attribute grammars over mutual recursive datatypes
 module Generics.MRSOP.AG where
@@ -14,6 +16,7 @@ import Data.Foldable (fold)
 import Data.Functor.Const
 import Data.Functor.Product
 import Data.Monoid (Sum(..), (<>))
+import Data.Proxy
 import Generics.MRSOP.Base
 import Generics.MRSOP.Util
 
@@ -66,8 +69,7 @@ inherit ::
   -> AnnFix ki codes chi ix
   -> AnnFix ki codes phi ix
 inherit f start (AnnFix ann rep) =
-  let newFix = f (mapRep getAnn rep) ann start
-      zipWithRep ::
+  let zipWithRep ::
            Rep ki (AnnFix ki codes chi) xs
         -> Rep ki phi xs
         -> Rep ki (AnnFix ki codes phi) xs
@@ -90,7 +92,57 @@ inherit f start (AnnFix ann rep) =
         -> NA ki (AnnFix ki codes phi) ws
       zipWithNA (NA_I i1) (NA_I i2) = NA_I (inherit f i2 i1)
       zipWithNA (NA_K i1) (NA_K i2) = NA_K i1
+      newFix = f (mapRep getAnn rep) ann start
    in AnnFix start (zipWithRep rep newFix)
+
+data ChainAttrib phi x
+  = ChainAttrib { chainStart :: forall y. phi x -> phi y
+                , chainNext  :: forall y z. phi y -> phi z
+                , chainEnd   :: forall y. phi y -> phi x }
+
+type family First def xs where
+  First def '[] = def
+  First def (K x ': xs) = First def xs
+  First def (I x ': xs) = x
+
+type family Last def xs where
+  Last def '[] = def
+  Last def (K x ': xs) = Last def xs
+  Last def (I x ': xs) = Last x xs
+
+
+chain :: 
+     forall ki codes chi phi ix.
+     (forall iy. Rep ki chi (Lkup iy codes) -> chi iy -> ChainAttrib phi iy)
+  -> phi ix
+  -> AnnFix ki codes chi ix
+  -> AnnFix ki codes phi ix
+chain f start (AnnFix ann rep) =
+  AnnFix finalAnn finalRep
+  where chn :: ChainAttrib phi ix
+        chn = f (mapRep getAnn rep) ann
+        (finalAnn, finalRep) = go rep
+        go   :: Rep ki (AnnFix ki codes chi) xs
+             -> (phi ix, Rep ki (AnnFix ki codes phi) xs)
+        go (Rep x) = Rep <$> goNS x
+        goNS :: NS (PoA ki (AnnFix ki codes chi)) ys
+             -> (phi ix, NS (PoA ki (AnnFix ki codes phi)) ys)
+        goNS (Here  x) = let (final, reps) = goNP Proxy x (chainStart chn start)
+                          in (chainEnd chn final, Here reps)
+        goNS (There x) = There <$> goNS x
+        goNP :: forall def zs.
+                Proxy def
+             -> PoA ki (AnnFix ki codes chi) zs
+             -> phi (First def zs)
+             -> (phi (Last def zs), PoA ki (AnnFix ki codes phi) zs)
+        goNP _ NP0 t = (t, NP0)
+        goNP _ ((NA_K x) :* xs) t = let (t2, xs') = goNP (Proxy :: Proxy def) xs t
+                                     in (t2, (NA_K x) :* xs')
+        goNP _ ((NA_I x) :* xs) t = let x' = chain f t x
+                                        t1 = getAnn x'
+                                        (t2, xs') = goNP (Proxy :: Proxy (First def zs)) xs (chainNext chn t1)
+                                     in (t2, (NA_I x') :* xs')
+
 
 -- | Synthesized attributes
 
@@ -109,6 +161,10 @@ synthesize f = annCata alg
       -> Rep ki (AnnFix ki codes phi) (Lkup iy codes)
       -> AnnFix ki codes phi iy
     alg anns ann rep = AnnFix (f anns ann (mapRep getAnn rep)) rep
+
+-- | Chained attributes
+
+
 
 monoidAlgebra :: Monoid m => Rep ki (Const m) xs -> Const m iy
 monoidAlgebra = elimRep mempty coerce fold

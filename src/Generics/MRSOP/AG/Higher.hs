@@ -51,6 +51,9 @@ fst1 (Pair x _) = x
 snd1 :: (f :&: g) :~>: g
 snd1 (Pair _ y) = y
 
+reassoc :: ((f :&: g) :&: h) :~>: (f :&: (g :&: h))
+reassoc (Pair (Pair x y) z) = Pair x (Pair y z)
+
 first :: AG ki codes f g -> AG ki codes (f :&: h) (g :&: h)
 first (AG ag) = AG $ \x -> zipAnn Pair (ag (mapAnn fst1 x)) (mapAnn snd1 x)
 
@@ -167,6 +170,34 @@ checker = proc x -> do u <- unique -< x
                        ctx <- context -< u
                        typing -< Pair u ctx
 -}
+
+counterDown :: AG Singl CodesTerm (Const Integer) (Const Integer)
+counterDown = AG $ inherit go (Const 0)
+  where go :: InhDefn Singl CodesTerm (Const Integer) (Const Integer)
+        go fromChildren _ (Const fromTop) = case sop fromChildren of
+          Abs_ (SString v) _
+            -> fromView $ Abs_ (SString v) (Const (fromTop + 1))
+          App_ (Const i1) _
+            -> fromView $ App_ (Const (fromTop + 1)) (Const (i1 + 1))
+          Var_ (SString v)
+            -> fromView $ Var_ (SString v)
+
+counterUp :: AG Singl CodesTerm (Const Integer) (Const Integer)
+counterUp = AG $ synthesize go
+  where go :: SynDefn Singl CodesTerm (Const Integer) (Const Integer)
+        go _ (Const i) x = case sop x of
+          Abs_ (SString v) (Const i) -> Const i
+          App_ _ (Const i2) -> Const i2
+          Var_ _ -> Const i
+
+counter :: AG Singl CodesTerm a (Const Integer)
+counter = (loop $ arr swap
+                  >>> first counterUp
+                  >>> first counterDown
+                  >>> first (arr duplicate)
+                  >>> arr reassoc
+                  >>> arr swap)
+          >>> arr fst1
 
 lambdaT1 = t1 "a" "b"
 lambdaT2 = t2 "a" "b" "c" 'd'
