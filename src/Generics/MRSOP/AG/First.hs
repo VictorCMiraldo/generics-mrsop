@@ -45,7 +45,7 @@ instance ArrowLoop (AG ki codes) where
                              in c
 
 voidAnn :: IsNat ix => Fix ki codes ix -> AnnFix ki codes (Const ()) ix
-voidAnn = synthesize (\_ -> Const ())
+voidAnn = synthesize (\_ _ -> Const ())
 
 runAG :: IsNat ix => AG ki codes () r -> Fix ki codes ix -> AnnFix ki codes (Const r) ix
 runAG (AG ag) = ag . voidAnn
@@ -55,7 +55,7 @@ inh :: forall ki codes a b.
                    -> Rep ki (Const b) (Lkup iy codes))
     -> b
     -> AG ki codes a b
-inh f b = AG $ inheritAnn go (Const b)
+inh f b = AG $ inherit go (Const b)
   where go :: forall iw. Const a iw -> Rep ki (Const ()) (Lkup iw codes) -> Const b iw
            -> Rep ki (Const b) (Lkup iw codes)
         go (Const a) skeleton (Const b) = f (Proxy :: Proxy iw) a skeleton b
@@ -70,7 +70,7 @@ inh_ f = inh (\p _ -> f p)
 syn :: forall ki codes a b.
        (forall iy. Proxy iy -> a -> Rep ki (Const b) (Lkup iy codes) -> b)
     -> AG ki codes a b
-syn f = AG $ synthesizeAnn go
+syn f = AG $ synthesize go
   where go :: forall iw. Const a iw -> Rep ki (Const b) (Lkup iw codes) -> Const b iw
         go (Const a) r = Const $ f (Proxy :: Proxy iw) a r
 

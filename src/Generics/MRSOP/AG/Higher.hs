@@ -64,7 +64,7 @@ loop (AG ag) = AG $ \b -> let bd = zipAnn Pair b d
 data Unit (a :: k) = Unit
 
 unitAnn :: IsNat x => Fix ki codes x -> AnnFix ki codes Unit x
-unitAnn = synthesize (\_ -> Unit)
+unitAnn = synthesize (\_ _ -> Unit)
 
 runAG :: IsNat x => AG ki codes Unit r -> Fix ki codes x -> AnnFix ki codes r x
 runAG (AG ag) = ag . unitAnn
@@ -74,10 +74,10 @@ runAG_ :: (Family ki fam codes, ix ~ Idx ty fam, Lkup ix fam ~ ty, IsNat ix)
 runAG_ ag = runAG ag . deep
 
 sizeGenericAG :: AG ki codes a (Const (Sum Int))
-sizeGenericAG = AG $ synthesizeAnn (\_ -> sizeAlgebra)
+sizeGenericAG = AG $ synthesize (\_ -> sizeAlgebra)
 
 depthGenericAG :: AG ki codes a (Const Int)
-depthGenericAG = AG $ inheritAnn (\_ r (Const n) -> mapRep (const (Const (n+1))) r) 0
+depthGenericAG = AG $ inherit (\_ r (Const n) -> mapRep (const (Const (n+1))) r) 0
 
 -- CANNOT USE ARROW SYNTAX ON NON-* KINDS!!
 {-
@@ -126,7 +126,7 @@ type SynDefn ki codes a b
                -> b ix
 
 unique :: AG Singl CodesTerm a (Const String)
-unique = AG $ inheritAnn go (Const "x")
+unique = AG $ inherit go (Const "x")
   where go :: InhDefn Singl CodesTerm a (Const String)
         go _ x (Const u) = case sop x of
           Abs_ v _ -> fromView $ Abs_ v (Const ('x':u))
@@ -134,14 +134,14 @@ unique = AG $ inheritAnn go (Const "x")
           Var_ v   -> fromView $ Var_ v
 
 context :: AG Singl CodesTerm (Const String) (Const Context)
-context = AG $ inheritAnn go (Const [])
+context = AG $ inherit go (Const [])
   where go :: InhDefn Singl CodesTerm (Const String) (Const Context)
         go (Const u) x (Const ctx) = case sop x of
           Abs_ (SString v) _ -> fromView $ Abs_ (SString v) (Const $ (v, TyVar u) : ctx)
           _ -> copy (Const ctx) x
 
 typing :: AG Singl CodesTerm (String :&&: Context) (Type :&&: [TyEq])
-typing = AG $ synthesizeAnn go
+typing = AG $ synthesize go
   where go :: SynDefn Singl CodesTerm (String :&&: Context) (Type :&&: [TyEq])
         go (Pair_ u ctx) x = case sop x of
           Abs_ (SString v) (Pair_ ty cs)
@@ -162,7 +162,7 @@ checker = unique
           >>> typing
 
 {-
-checker = proc x -> do unique <- unique -< x
+checker = proc x -> do u <- unique -< x
                        ctx <- context -< u
                        typing -< Pair u ctx
 -}
