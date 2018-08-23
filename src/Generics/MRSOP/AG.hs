@@ -47,7 +47,7 @@ zipAnn f (AnnFix a1 t1) (AnnFix a2 t2) = AnnFix (f a1 a2) (zipWithRep t1 t2)
 mapAnn :: (forall iy. chi iy -> phi iy)
        -> AnnFix ki codes chi ix
        -> AnnFix ki codes phi ix
-mapAnn f = synthesize (\x _ -> f x)
+mapAnn f = synthesize (\_ x _ -> f x)
 
 -- HACK. why doesn't haskell have this instance?
 instance Show k => Show1 (Const k) where
@@ -60,12 +60,13 @@ instance (Show1 f, Show1 g) => Show1 (Product f g) where
 
 inherit ::
      forall ki codes chi phi ix.
-     (forall iy. chi iy -> Rep ki (Const ()) (Lkup iy codes) -> phi iy -> Rep ki phi (Lkup iy codes))
+     (forall iy. Rep ki chi (Lkup iy codes) -> chi iy
+              -> phi iy -> Rep ki phi (Lkup iy codes))
   -> phi ix
   -> AnnFix ki codes chi ix
   -> AnnFix ki codes phi ix
 inherit f start (AnnFix ann rep) =
-  let newFix = f ann (mapRep (const (Const ())) rep) start
+  let newFix = f (mapRep getAnn rep) ann start
       zipWithRep ::
            Rep ki (AnnFix ki codes chi) xs
         -> Rep ki phi xs
@@ -95,17 +96,19 @@ inherit f start (AnnFix ann rep) =
 
 synthesize ::
      forall ki codes chi phi ix.
-     (forall iy. chi iy -> Rep ki phi (Lkup iy codes) -> phi iy)
+     (forall iy. Rep ki chi (Lkup iy codes) -> chi iy   -- The other attributes
+              -> Rep ki phi (Lkup iy codes) -> phi iy)
   -> AnnFix ki codes chi ix
   -> AnnFix ki codes phi ix
 synthesize f = annCata alg
   where
     alg ::
          forall iy.
-         chi iy
+         Rep ki chi (Lkup iy codes)
+      -> chi iy
       -> Rep ki (AnnFix ki codes phi) (Lkup iy codes)
       -> AnnFix ki codes phi iy
-    alg ann rep = AnnFix (f ann (mapRep getAnn rep)) rep
+    alg anns ann rep = AnnFix (f anns ann (mapRep getAnn rep)) rep
 
 monoidAlgebra :: Monoid m => Rep ki (Const m) xs -> Const m iy
 monoidAlgebra = elimRep mempty coerce fold
@@ -124,7 +127,7 @@ sizeAlgebra = (Const 1 <>) . monoidAlgebra
 -- | Annotate each node with the number of subtrees
 sizeGeneric' :: (IsNat ix)
              => Fix ki codes ix -> AnnFix ki codes (Const (Sum Int)) ix
-sizeGeneric' = synthesize (const sizeAlgebra)
+sizeGeneric' = synthesize (\_ _ -> sizeAlgebra)
 
 -- | Count the number of nodes
 sizeGeneric :: (IsNat ix)

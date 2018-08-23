@@ -299,10 +299,11 @@ cata f (Fix x) = f (mapRep (cata f) x)
 getAnn :: AnnFix ki codes ann ix -> ann ix
 getAnn (AnnFix a x) = a
 
-annCata :: (forall iy. chi iy -> Rep ki phi (Lkup iy codes) -> phi iy)
+annCata :: (forall iy. Rep ki chi (Lkup iy codes) -> chi iy
+                    -> Rep ki phi (Lkup iy codes) -> phi iy)
         -> AnnFix ki codes chi ix
         -> phi ix
-annCata f (AnnFix a x) = f a (mapRep (annCata f) x)
+annCata f (AnnFix a x) = f (mapRep getAnn x) a (mapRep (annCata f) x)
 
 -- | Forget the annotations
 forgetAnn :: AnnFix ki codes a ix -> Fix ki codes ix

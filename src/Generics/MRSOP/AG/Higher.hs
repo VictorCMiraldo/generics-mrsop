@@ -64,7 +64,7 @@ loop (AG ag) = AG $ \b -> let bd = zipAnn Pair b d
 data Unit (a :: k) = Unit
 
 unitAnn :: IsNat x => Fix ki codes x -> AnnFix ki codes Unit x
-unitAnn = synthesize (\_ _ -> Unit)
+unitAnn = synthesize (\_ _ _ -> Unit)
 
 runAG :: IsNat x => AG ki codes Unit r -> Fix ki codes x -> AnnFix ki codes r x
 runAG (AG ag) = ag . unitAnn
@@ -74,10 +74,10 @@ runAG_ :: (Family ki fam codes, ix ~ Idx ty fam, Lkup ix fam ~ ty, IsNat ix)
 runAG_ ag = runAG ag . deep
 
 sizeGenericAG :: AG ki codes a (Const (Sum Int))
-sizeGenericAG = AG $ synthesize (\_ -> sizeAlgebra)
+sizeGenericAG = AG $ synthesize (\_ _ -> sizeAlgebra)
 
 depthGenericAG :: AG ki codes a (Const Int)
-depthGenericAG = AG $ inherit (\_ r (Const n) -> mapRep (const (Const (n+1))) r) 0
+depthGenericAG = AG $ inherit (\r _ (Const n) -> mapRep (const (Const (n+1))) r) 0
 
 -- CANNOT USE ARROW SYNTAX ON NON-* KINDS!!
 {-
@@ -115,20 +115,21 @@ copy :: (forall ix. f ix)
 copy x = mapRep (const x)
 
 type InhDefn ki codes a b
-  = forall ix. a ix
-               -> Rep ki (Const ()) (Lkup ix codes)
+  = forall ix. Rep ki a (Lkup ix codes)
+               -> a ix
                -> b ix
                -> Rep ki b (Lkup ix codes)
 
 type SynDefn ki codes a b
-  = forall ix. a ix
+  = forall ix. Rep ki a (Lkup ix codes)
+               -> a ix
                -> Rep ki b (Lkup ix codes)
                -> b ix
 
 unique :: AG Singl CodesTerm a (Const String)
 unique = AG $ inherit go (Const "x")
   where go :: InhDefn Singl CodesTerm a (Const String)
-        go _ x (Const u) = case sop x of
+        go x _ (Const u) = case sop x of
           Abs_ v _ -> fromView $ Abs_ v (Const ('x':u))
           App_ f e -> fromView $ App_ (Const ('f':u)) (Const ('e':u))
           Var_ v   -> fromView $ Var_ v
@@ -136,14 +137,14 @@ unique = AG $ inherit go (Const "x")
 context :: AG Singl CodesTerm (Const String) (Const Context)
 context = AG $ inherit go (Const [])
   where go :: InhDefn Singl CodesTerm (Const String) (Const Context)
-        go (Const u) x (Const ctx) = case sop x of
+        go x (Const u) (Const ctx) = case sop x of
           Abs_ (SString v) _ -> fromView $ Abs_ (SString v) (Const $ (v, TyVar u) : ctx)
           _ -> copy (Const ctx) x
 
 typing :: AG Singl CodesTerm (String :&&: Context) (Type :&&: [TyEq])
 typing = AG $ synthesize go
   where go :: SynDefn Singl CodesTerm (String :&&: Context) (Type :&&: [TyEq])
-        go (Pair_ u ctx) x = case sop x of
+        go _ (Pair_ u ctx) x = case sop x of
           Abs_ (SString v) (Pair_ ty cs)
             -> Pair_ (Arrow (TyVar u) ty) cs
           App_ (Pair_ ty1 cs1) (Pair_ ty2 cs2)

@@ -45,34 +45,35 @@ instance ArrowLoop (AG ki codes) where
                              in c
 
 voidAnn :: IsNat ix => Fix ki codes ix -> AnnFix ki codes (Const ()) ix
-voidAnn = synthesize (\_ _ -> Const ())
+voidAnn = synthesize (\_ _ _ -> Const ())
 
 runAG :: IsNat ix => AG ki codes () r -> Fix ki codes ix -> AnnFix ki codes (Const r) ix
 runAG (AG ag) = ag . voidAnn
 
 inh :: forall ki codes a b.
-       (forall iy. Proxy iy -> a -> Rep ki (Const ()) (Lkup iy codes) -> b
-                   -> Rep ki (Const b) (Lkup iy codes))
+       (forall iy. Proxy iy -> Rep ki (Const a) (Lkup iy codes) -> a
+                -> b -> Rep ki (Const b) (Lkup iy codes))
     -> b
     -> AG ki codes a b
 inh f b = AG $ inherit go (Const b)
-  where go :: forall iw. Const a iw -> Rep ki (Const ()) (Lkup iw codes) -> Const b iw
-           -> Rep ki (Const b) (Lkup iw codes)
-        go (Const a) skeleton (Const b) = f (Proxy :: Proxy iw) a skeleton b
+  where go :: forall iw. Rep ki (Const a) (Lkup iw codes) -> Const a iw 
+                      -> Const b iw -> Rep ki (Const b) (Lkup iw codes)
+        go skeleton (Const a) (Const b) = f (Proxy :: Proxy iw) skeleton a b
 
 inh_ :: forall ki codes a b.
-       (forall iy. Proxy iy -> Rep ki (Const ()) (Lkup iy codes) -> b
+       (forall iy. Proxy iy -> Rep ki (Const a) (Lkup iy codes) -> b
                    -> Rep ki (Const b) (Lkup iy codes))
     -> b
     -> AG ki codes a b
-inh_ f = inh (\p _ -> f p)
+inh_ f = inh (\p skeleton _ attrib -> f p skeleton attrib)
 
 syn :: forall ki codes a b.
        (forall iy. Proxy iy -> a -> Rep ki (Const b) (Lkup iy codes) -> b)
     -> AG ki codes a b
 syn f = AG $ synthesize go
-  where go :: forall iw. Const a iw -> Rep ki (Const b) (Lkup iw codes) -> Const b iw
-        go (Const a) r = Const $ f (Proxy :: Proxy iw) a r
+  where go :: forall iw. Rep ki (Const a) (Lkup iw codes) -> Const a iw
+                      -> Rep ki (Const b) (Lkup iw codes) -> Const b iw
+        go _ (Const a) r = Const $ f (Proxy :: Proxy iw) a r
 
 syn_ :: forall ki codes a b.
         (forall iy. Proxy iy -> Rep ki (Const b) (Lkup iy codes) -> b)
