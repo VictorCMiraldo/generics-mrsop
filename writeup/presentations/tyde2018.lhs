@@ -236,7 +236,7 @@ size = gsize . from
 \end{frame}
 
 \begin{frame}
-\frametitle{Codes (\texttt{genrics-sop})}
+\frametitle{Codes (\texttt{generics-sop})}
 
   \begin{itemize}
     \itemsep1em
@@ -254,6 +254,19 @@ type instance   Code (Bin a)      = PL (PL a , PL (Bin a , Bin a))
 \begin{code}
 Rep :: SOPK -> Star
 \end{code}
+\end{frame}
+
+\begin{frame}
+\frametitle{skeleton}
+
+\begin{itemize}
+  \item Codes allows combinators as oposed to class dispatch
+  \item Define |NS| and |NP|.
+  \item Introduce mutual recursion for codes for allowing even more combinators
+  \item Deep versus shallow
+  \item Only well formed repr are accepted
+  \item Lessons and Conclusion
+\end{itemize}
 \end{frame}
   
 
