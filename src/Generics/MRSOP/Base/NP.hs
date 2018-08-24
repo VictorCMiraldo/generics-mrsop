@@ -73,6 +73,16 @@ cataNP :: (forall x xs . f x  -> r xs -> r (x : xs))
 cataNP fCons fNil NP0       = fNil
 cataNP fCons fNil (k :* ks) = fCons k (cataNP fCons fNil ks)
 
+
+-- |Consumes a value of type 'NP'.
+cataNPM :: (Monad m)
+        => (forall x xs . f x  -> r xs -> m (r (x : xs)))
+        -> m (r '[])
+        -> NP f xs -> m (r xs)
+cataNPM fCons fNil NP0       = fNil
+cataNPM fCons fNil (k :* ks) = cataNPM fCons fNil ks >>= fCons k 
+
+
 -- * Equality
 
 -- |Compares two 'NP's pairwise with the provided function and
