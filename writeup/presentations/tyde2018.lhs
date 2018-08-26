@@ -453,7 +453,7 @@ newtype Fix codes ix
 \begin{frame}
   \frametitle{Lessons and Conclusions}
   \begin{itemize}
-    \item Found two bugs in GHC: #14987 and #15517 (closed) 
+    \item Found two bugs in GHC: \#14987 and \#15517 (closed) 
   \end{itemize}
 \end{frame}
 
