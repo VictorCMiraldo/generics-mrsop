@@ -37,6 +37,14 @@
 %format SOPK     = "\HS{''[ ''[}\HT{*}\HS{] ]}"
 %format (PL (a)) = "\HS{''[}{" a "}\HS{]}"
 %format Star     = "\HT{*}"
+%format (LIST (a)) = "\HS{[}" a "\HS{]}"
+%format space  = "\vspace{1em}"
+%format EMPTYL = "\HS{''[]}"
+%format LISTKS = "\HS{[}" k "\HS{]}"
+%format isoto = "\mathbin{\HS{\approx}}"
+%format :*: = "\HS{:\!\!*\!\!:}"
+%format :+: = "\HS{:\!\!+\!\!:}"
+
 
 
 % ---------------------------------------------------
@@ -58,13 +66,10 @@
     \begin{itemize}
       \itemsep2em
       \pause
-      \item Existing libraries are either hard to use or not expressive
-            enough
+      \item No combinator-based GP library for mutually recursive families.
       \pause
       \item GHC novel features allows combination of sucessful ideas
             from previous libraries
-      \pause
-      \item No combinator-based GP library for mutually recursive families.
     \end{itemize}
   \end{block}
 
@@ -156,8 +161,6 @@ These choices determine the flavour of generic functions:
 
   Defines the representation of a datatype directly:
 
-%format :+: = "\HS{:\!\!+\!\!:}"
-%format :*: = "\HS{:\!\!*\!\!:}"
 \begin{code}
 data Bin a   =    Leaf a 
              |    Fork (Bin a) (Bin a)
@@ -187,7 +190,6 @@ Now, |Rep (Bin a) = K1 a :+: (I :*: I)|,\\
 \pause
 which allows for explicit least fixpoints:
 
-%format isoto = "\mathbin{\HS{\approx}}"
 |Bin a isoto Rep (Bin a) (Bin a)|
 
 \pause
@@ -255,6 +257,206 @@ type instance   Code (Bin a)      = PL (PL a , PL (Bin a , Bin a))
 Rep :: SOPK -> Star
 \end{code}
 \end{frame}
+
+\begin{frame}
+\frametitle{Interpreting Codes (\texttt{generics-sop})}
+
+  Start with n-ary sums and products:
+\begin{code}
+data NS :: (k -> Star) -> LISTKS -> Star where
+  Here   :: f x      -> NS f (x (P (:)) xs)
+  There  :: NS f xs  -> NS f (x (P (:)) xs)
+space
+data NP :: (k -> Star) -> LISTKS -> Star where
+  Nil   ::                    NP f EMPTYL
+  Cons  :: f x -> NP f xs ->  NP f (x (P (:)) xs)
+space
+data I x = I x 
+\end{code}
+
+  \pause
+  Define the representation:
+
+\begin{code}
+type Rep = NS (NP I) :: SOPK -> Star
+\end{code}
+
+\end{frame}
+
+\begin{frame}
+  \frametitle{Generic Functionality (\texttt{generics-sop})}
+
+  Codes allow for combinators instead of class-dispatch:
+
+\begin{code}
+elimNP :: (forall k dot f k -> a) -> NP f xs -> LIST a
+elimNS :: (forall k dot f k -> a) -> NS f xs -> a
+\end{code}
+\vspace{-1.5em}
+\pause
+\begin{code}
+class Size a where 
+  size :: a -> Int
+space
+gsize :: (Generic a, All2 Size (Code a)) => a -> Int
+gsize = sum . elimNS (elimNP (size . unI)) . from
+  where unI (I x) = x
+\end{code}
+\pause
+Still: no explicit recursion: typeclass and complicated constraints.
+\end{frame}
+
+\newcommand{\mrsopName}{\textbf{\texttt{generics-mrsop}}}
+\begin{frame}
+  \frametitle{Mutual Recursion (\mrsopName)}
+\vspace{-2em}
+\begin{overprint}
+\onslide<1>%
+Start with |Rep| as before:
+\onslide<2>%
+Add codes to handle a single recursive position:
+\onslide<3>%
+Augment codes to have $n$ recursive positions:
+\end{overprint}
+\begin{overprint}
+\onslide<1>%
+\begin{code}
+data I x = I x 
+space
+space
+space
+space
+type Rep (f :: SOPK) 
+  = NS (NP I) f 
+\end{code}
+\onslide<2>%
+\begin{code}
+data Atom = I | KInt | dots
+data NA :: Star -> Atom -> Star where
+  NA_I :: x    -> NA x I
+  NA_K :: Int  -> NA x KInt
+space
+type Rep (x :: Star) (f :: (P (LIST (P (LIST Atom)))))  
+  = NS (NP (NA x)) f
+\end{code}
+\onslide<3>%
+\begin{code}
+data Atom = I Nat | KInt | dots
+data NA :: (Nat -> Star) -> Atom -> Star where
+  NA_I :: x n  -> NA x (I n)
+  NA_K :: Int  -> NA x KInt
+space
+type Rep (x :: Nat -> Star) (f :: (P (LIST (P (LIST Atom)))))  
+  = NS (NP (NA x)) f
+\end{code}
+\end{overprint}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Closing the Recursive Knot (\mrsopName)}
+\vspace{-1em}
+  \begin{itemize}
+    \item Define a family: |fam :: PL Star|
+    \pause
+    \item Define its codes: |codes :: PL (PL (PL Atom))|
+    \pause
+    \item Define lookup:
+  \end{itemize}
+\begin{code}
+type family Lkup (ls :: PL k) (n :: Nat) :: k where
+  Lkup EMPTYL          _      = TypeError "Out of bounds"
+  Lkup (x (P (:)) xs)  Z      = x
+  Lkup (x (P (:)) xs)  (S n)  = Lkup xs n
+\end{code}
+\pause
+Then, finally, the $i$-th type is represented by:
+\begin{code}
+Rep (Lkup fam) (Lkup i codes)
+\end{code}
+\pause |Lkup| can't be partially applied though.
+\end{frame}
+
+\begin{frame}
+  \frametitle{Wrapping it up (\mrsopName)}
+
+  Create an |El| type to be able to partially apply it
+and wrap it all in a typeclass:
+\pause
+\begin{code}
+data El :: PL Star -> Nat -> Star where
+  El :: Lkup fam ix -> El fam ix
+space
+class Family (fam :: PL Star) (codes :: PL (PL (PL Atom))) where
+  from  :: SNat ix
+        -> El fam ix
+        -> Rep (El fam) (Lkup codes ix)
+  to    :: SNat ix
+        -> Rep (El fam) (Lkup codes ix)
+        -> El fam ix
+\end{code}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Example (\mrsopName)}
+
+%format pause = "\pause"
+\begin{code}
+data RTree a   = RTree a (Forest a)
+data Forest a  = Nil | Cons (RTree a) (Forest a)
+space
+type Fam    = PL (RTree Int, Forest Int)
+\end{code} 
+\pause
+\begin{code}
+type CodeRTree   = PL (PL (KInt , I 1)) 
+type CodeForest  = PL (EMPTYL , PL (I 0 , I 1))
+type Codes  = PL (CodeRTree , CodeForest)
+\end{code} 
+\pause
+\begin{code}
+instance Family Fam Codes where
+  dots
+\end{code}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Well formed Representations Only}
+
+  \begin{itemize}
+    \itemsep1em
+    \item The |data Atom = I Nat || dots| type might seem too
+          permissive
+    \pause
+    \item One solution: | data Atom n = I (Fin n) || dots|\\
+          Too complicated in Haskell.
+    \pause
+    \item In fact, there is no problem: one could define:
+          |type CodeRTree = (PL (PL (KInt , I 42)))|, 
+          the instance would be impossible to write.
+    \pause
+    \item Malformed codes $\Rightarrow$ uninhabitable representations.
+    \item Errors are caught at compile time.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Deep versus Shallow}
+
+  Deep encoding comes for free!
+\begin{code}
+newtype Fix codes ix
+  = Fix (Rep (Fix codes) (Lkup codes ix))
+\end{code}
+
+\end{frame}
+
+\begin{frame}
+  \frametitle{Lessons and Conclusions}
+  \begin{itemize}
+    \item Found two bugs in GHC: #14987 and #15517 (closed) 
+  \end{itemize}
+\end{frame}
+
 
 \begin{frame}
 \frametitle{skeleton}
