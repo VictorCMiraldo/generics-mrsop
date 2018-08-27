@@ -716,21 +716,40 @@ genPiece2 opq first ls
 --
 genPiece2_2 :: OpaqueData -> STy -> Input -> Q [Dec]
 genPiece2_2 opq first ls
-  = concat <$> mapM (\(sty , ix , dti) -> genTagPatSyns sty dti) ls
+  = concat <$> mapM (\(sty , ix , dti) -> genTagPatSyns sty ix dti) ls
   where
-    genTagPatSyns :: STy -> DTI IK -> Q [Dec]
-    genTagPatSyns sty dti
-      = mapM (uncurry $ genTagPatSynFor sty)
-             (zip [0..] $ dti2ci dti)
+    genTagPatSyns :: STy -> Int -> DTI IK -> Q [Dec]
+    genTagPatSyns sty ix dti
+      = concat <$> mapM (uncurry $ genTagPatSynFor ix sty)
+                        (zip [0..] $ dti2ci dti)
 
-    genTagPatSynFor :: STy -> Int -> CI IK -> Q Dec
-    genTagPatSynFor sty cidx ci
+    genTagPatSynFor :: Int -> STy -> Int -> CI IK -> Q [Dec]
+    genTagPatSynFor ix sty cidx ci
       = let fields = ci2ty ci
          in do vars <- mapM (const (newName "p")) fields
                let namedFields = zip fields vars
                name <- patSynName sty cidx ci
                pat <- [p| Tag $(int2Constr cidx) $(tagPatSynProd namedFields) |]
-               return $ PatSynD name (PrefixPatSyn vars) ImplBidir pat
+               let pDef = PatSynD name (PrefixPatSyn vars) ImplBidir pat
+               patTy <- newName "phi" >>= flip (genTagPatType ix) fields
+               let pTy = PatSynSigD name patTy
+               return [pTy , pDef]
+
+    opqName = return (ConT $ opaqueName opq)
+
+    genTagPatType :: Int -> Name -> [IK] -> Q Type
+    genTagPatType tyIx phi (AtomK konst : rest)
+      = [t| $opqName $(return (ConT konst))
+            -> $(genTagPatType tyIx phi rest) |] 
+    genTagPatType tyIx phi (AtomI ni : rest)
+      = [t| $(return (VarT phi)) $(return $ int2Type ni)
+            -> $(genTagPatType tyIx phi rest) |]
+    genTagPatType tyIx phi []
+      = [t| View $opqName
+                 $(return $ VarT phi)
+                 (Lkup $(return $ int2Type tyIx)
+                       $(ConT <$> codesName first))
+        |]
 
     patSynName :: STy -> Int -> CI IK -> Q Name
     patSynName sty cidx ci
