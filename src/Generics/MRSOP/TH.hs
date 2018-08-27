@@ -731,21 +731,21 @@ genPiece2_2 opq first ls
                name <- patSynName sty cidx ci
                pat <- [p| Tag $(int2Constr cidx) $(tagPatSynProd namedFields) |]
                let pDef = PatSynD name (PrefixPatSyn vars) ImplBidir pat
-               patTy <- newName "phi" >>= flip (genTagPatType ix) fields
+               phiN <- newName "phi"
+               konN <- newName "kon"
+               patTy <- genTagPatType ix phiN konN fields
                let pTy = PatSynSigD name patTy
                return [pTy , pDef]
 
-    opqName = return (ConT $ opaqueName opq)
-
-    genTagPatType :: Int -> Name -> [IK] -> Q Type
-    genTagPatType tyIx phi (AtomK konst : rest)
-      = [t| $opqName $(return (ConT konst))
-            -> $(genTagPatType tyIx phi rest) |] 
-    genTagPatType tyIx phi (AtomI ni : rest)
+    genTagPatType :: Int -> Name -> Name -> [IK] -> Q Type
+    genTagPatType tyIx phi kon (AtomK konst : rest)
+      = [t| $(return $ VarT kon) $(return (ConT konst))
+            -> $(genTagPatType tyIx phi kon rest) |] 
+    genTagPatType tyIx phi kon (AtomI ni : rest)
       = [t| $(return (VarT phi)) $(return $ int2Type ni)
-            -> $(genTagPatType tyIx phi rest) |]
-    genTagPatType tyIx phi []
-      = [t| View $opqName
+            -> $(genTagPatType tyIx phi kon rest) |]
+    genTagPatType tyIx phi kon []
+      = [t| View $(return $ VarT kon)
                  $(return $ VarT phi)
                  (Lkup $(return $ int2Type tyIx)
                        $(ConT <$> codesName first))
