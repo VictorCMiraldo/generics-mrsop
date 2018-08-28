@@ -71,25 +71,41 @@
 \end{frame}
 
 \begin{frame}
-  \frametitle{Representing Datatypes}
+  \frametitle{Representing Datatypes (\texttt{generics-sop})}
 
   Haskell datatypes come in \emph{sums-of-products} shape:
+
 \begin{code}
 data Tree a = Leaf | Bin a (Tree a) (Tree a)
 \end{code}
-\pause
+
+  \pause
   Our \emph{codes} will follow that structure:
 \begin{code}
 type family Code (x :: Star) :: PL (PL Star)
 type instance Code (Tree a) = PL (EMPTYL , PL (a , Tree a , Tree a))
 \end{code}
+
+  \pause
+  Given a map from |PL (PL Star)| into |Star|, call it |Rep|, package:
+\begin{code}
+class Generic a where
+  from  :: a -> Rep (Code a)
+  to    :: Rep (Code a) -> a
+\end{code}
+
 \end{frame}
 
 
 \begin{frame}
-  \frametitle{Interpreting Representations}
+  \frametitle{N-ary Sums and Products}
 
-   Must convert a |Code a| into a term of kind |Star|.
+%format x_1 = "\HV{x_1}"
+%format x_n = "\HV{x_n}"
+\begin{code}
+NS p (LIST (x_1 , dots , x_n)) isoto Either (p x_1) (Either dots (p x_n))
+NP p (LIST (x_1 , dots , x_n)) isoto (p x_1 , dots , p x_n)
+\end{code}
 \pause
 \begin{code}
 data NS :: (k -> Star) -> LISTKS -> Star where
@@ -99,31 +115,96 @@ space
 data NP :: (k -> Star) -> LISTKS -> Star where
   Nil   ::                    NP f EMPTYL
   Cons  :: f x -> NP f xs ->  NP f (x (P (:)) xs)
-space
-data I x = I x 
-space
-type SOP (c :: PL (PL Star)) = NS (NP I) c
 \end{code}
 
 \end{frame}
 
-
 \begin{frame}
-  \frametitle{generics-sop}
+  \frametitle{Interpreting Codes}
+\begin{code}
+data I x = I x 
+space
+type Rep (c :: PL (PL Star))  = NS (NP I) c
+\end{code}
+\pause
+Recall the |Tree| example:
+\begin{code}
+type instance Code (Tree a) = PL (EMPTYL , PL (a , Tree a , Tree a))
 
-  start on |NS| and |NP|
+leaf       :: Rep (Code (Tree a))
+leaf       = Here Nil
 
-  ppl might not be familiar with this black magic!
-
-  show |gsize|!
+bin        :: a -> Tree a -> Tree a -> Rep (Code (Tree a))
+bin e l r  = There (Here (Cons e (Cons l (Cons r Nil))))
+\end{code}
 \end{frame}
 
 \begin{frame}
-  \frametitle{Enlarging the language of types!}
+  \frametitle{Writing Generic Functions}
 
-  show figure 2!
+Package it in a class
+\begin{code}
+class Size a where
+  size :: a -> Int
+\end{code}
+\pause
+Then write the generic infrastructure:
+\begin{code}
+gsize  :: (Generic x , All2 Size (Code x)) 
+       => x -> Int
+gsize  = goS . from
+  where
+    goS (Here   x) = goP x
+    goS (There  x) = goS x
 
-  examples!
+    goP Nil          = 0
+    goP (Cons x xs)  = size x + goP xs
+\end{code}
+\end{frame}
+
+%format zeta = "\HV{\zeta}"
+\begin{frame}
+  \frametitle{Generics of All Kinds}
+
+   \begin{itemize}
+     \itemsep2em
+     \item So far, only handle types of kind |Star| with no parameters.
+     \pause
+     \item Consequence of little structure on |Code|s.
+     \pause
+     \item \emph{Solution:} Augment the language of codes!
+\begin{code}
+type DataType zeta = PL (PL (Atom zeta (Star)))
+\end{code}\vspace{-3em}
+     \pause
+     \item |Atom| is the applicative fragment of the $\lambda$-calculus
+           with de Bruijn indices.
+   \end{itemize}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Generics of All Kinds}
+
+%format :@: = "\mathbin{\HT{:\!\!@\!\!:}}"
+\begin{code}
+data Atom (zeta :: Kind) (k :: Kind) :: (Star) where
+  Var    :: TyVar zeta k                       -> Atom zeta k
+  Kon    :: k                                  -> Atom zeta k
+  (:@:)  :: Atom zeta (l -> k) -> Atom zeta l  -> Atom zeta k
+space
+data TyVar (zeta :: Kind) (k :: Kind) :: (Star) where
+  VZ  ::                TyVar (x -> xs) x
+  VS  :: TyVar xs k ->  TyVar (x -> xs) k
+\end{code}
+\pause
+Going back to our |Tree| example:
+\begin{code}
+type V0 = Var VZ
+type TreeCode 
+  = PL ( EMPTYL , PL (V0 , Kon Tree :@: V0 , Kon Tree :@: V0))
+  :: PL (PL (Atom (Star -> Star) Star))
+\end{code}
+
 \end{frame}
 
 \begin{frame}
