@@ -15,6 +15,7 @@ module Generics.MRSOP.Opaque where
 
 import Data.Function (on)
 import Data.Proxy
+import Data.Type.Equality
 
 import Generics.MRSOP.Util
 
@@ -64,3 +65,13 @@ instance Show1 Singl where
 eqSingl :: Singl k -> Singl k -> Bool
 eqSingl = (==)
 
+instance TestEquality Singl where
+  testEquality (SInt _) (SInt _)         = Just Refl
+  testEquality (SInteger _) (SInteger _) = Just Refl
+  testEquality (SFloat _) (SFloat _)     = Just Refl
+  testEquality (SDouble _) (SDouble _)   = Just Refl
+  testEquality (SBool _) (SBool _)       = Just Refl
+  testEquality (SChar _) (SChar _)       = Just Refl
+  testEquality (SString _) (SString _)   = Just Refl
+  testEquality _ _                       = Nothing
+  

@@ -64,6 +64,11 @@ zipNP :: NP f xs -> NP g xs -> NP (f :*: g) xs
 zipNP NP0       NP0       = NP0
 zipNP (f :* fs) (g :* gs) = (f :*: g) :* zipNP fs gs
 
+-- |Unzips a combined product into two separate products
+unzipNP :: NP (f :*: g) xs -> (NP f xs , NP g xs)
+unzipNP NP0                = (NP0 , NP0) 
+unzipNP ((f :*: g) :* fgs) = (f :*) *** (g :*) $ unzipNP fgs
+
 -- * Catamorphism
 
 -- |Consumes a value of type 'NP'.
