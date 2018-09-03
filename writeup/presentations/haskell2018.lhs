@@ -120,7 +120,7 @@ data NP :: (k -> Star) -> LISTKS -> Star where
 \end{frame}
 
 \begin{frame}
-  \frametitle{Interpreting Codes}
+  \frametitle{Interpreting Codes (\texttt{generics-sop})}
 \begin{code}
 data I x = I x 
 space
@@ -174,7 +174,7 @@ gsize  = goS . from
      \pause
      \item \emph{Solution:} Augment the language of codes!
 \begin{code}
-type DataType zeta = PL (PL (Atom zeta (Star)))
+type DataType (zeta :: Kind) = PL (PL (Atom zeta (Star)))
 \end{code}\vspace{-3em}
      \pause
      \item |Atom| is the applicative fragment of the $\lambda$-calculus
@@ -191,19 +191,26 @@ data Atom (zeta :: Kind) (k :: Kind) :: (Star) where
   Var    :: TyVar zeta k                       -> Atom zeta k
   Kon    :: k                                  -> Atom zeta k
   (:@:)  :: Atom zeta (l -> k) -> Atom zeta l  -> Atom zeta k
-space
+\end{code}
+\begin{overprint}
+\onslide<1>
+\begin{code}
 data TyVar (zeta :: Kind) (k :: Kind) :: (Star) where
   VZ  ::                TyVar (x -> xs) x
   VS  :: TyVar xs k ->  TyVar (x -> xs) k
 \end{code}
-\pause
+\onslide<2>
 Going back to our |Tree| example:
+\begin{code}
+data Tree a = Leaf | Bin a (Tree a) (Tree a)
+\end{code}
 \begin{code}
 type V0 = Var VZ
 type TreeCode 
   = PL ( EMPTYL , PL (V0 , Kon Tree :@: V0 , Kon Tree :@: V0))
   :: PL (PL (Atom (Star -> Star) Star))
 \end{code}
+\end{overprint}
 
 \end{frame}
 
