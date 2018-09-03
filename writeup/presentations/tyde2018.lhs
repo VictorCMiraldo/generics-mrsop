@@ -66,13 +66,17 @@
     \begin{itemize}
       \itemsep2em
       \pause
-      \item No combinator-based GP library for mutually recursive families.
+      \item No combinator-based GP library for mutually recursive families
       \pause
       \item GHC novel features allows combination of sucessful ideas
             from previous libraries
     \end{itemize}
   \end{block}
-
+\pause
+  \begin{block}{Goal}
+    Design and implement a ``user-friendly'' GP library for handling mutually recursive
+    families
+  \end{block}
 \end{frame}
 
 \begin{frame}
@@ -249,6 +253,9 @@ size = gsize . from
   \end{itemize}
 
 \begin{code}
+data Bin a   =    Leaf a 
+             |    Fork (Bin a) (Bin a)
+
 type family     Code (a :: Star)  :: SOPK
 type instance   Code (Bin a)      = PL (PL a , PL (Bin a , Bin a))
 \end{code}
@@ -280,7 +287,28 @@ data I x = I x
 \begin{code}
 type Rep = NS (NP I) :: SOPK -> Star
 \end{code}
+\end{frame}
 
+\begin{frame}
+  \frametitle{Interpreting Codes (\texttt{generics-sop})}
+\begin{code}
+type Rep = NS (NP I) :: SOPK -> Star
+
+data Bin a   =    Leaf a 
+             |    Fork (Bin a) (Bin a)
+
+\end{code}
+\pause
+Recall the |Tree| example:
+\begin{code}
+type instance   Code (Bin a)      = PL (PL a , PL (Bin a , Bin a))
+
+leaf     :: a -> Rep (Code (Tree a))
+leaf e   = Here (Cons e Nil)
+
+bin      :: Tree a -> Tree a -> Rep (Code (Tree a))
+bin l r  = There (Here (Cons l (Cons r Nil)))
+\end{code}
 \end{frame}
 
 \begin{frame}
@@ -333,9 +361,9 @@ type Rep (f :: SOPK)
 \begin{code}
 data Atom = I | KInt | dots
 data NA :: Star -> Atom -> Star where
-  NA_I :: x    -> NA x I
-  NA_K :: Int  -> NA x KInt
-space
+  NA_I  :: x    -> NA x I
+  NA_K  :: Int  -> NA x KInt
+space   
 type Rep (x :: Star) (f :: (P (LIST (P (LIST Atom)))))  
   = NS (NP (NA x)) f
 \end{code}
@@ -343,13 +371,36 @@ type Rep (x :: Star) (f :: (P (LIST (P (LIST Atom)))))
 \begin{code}
 data Atom = I Nat | KInt | dots
 data NA :: (Nat -> Star) -> Atom -> Star where
-  NA_I :: x n  -> NA x (I n)
-  NA_K :: Int  -> NA x KInt
+  NA_I  :: x n  -> NA x (I n)
+  NA_K  :: Int  -> NA x KInt
 space
 type Rep (x :: Nat -> Star) (f :: (P (LIST (P (LIST Atom)))))  
   = NS (NP (NA x)) f
 \end{code}
 \end{overprint}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Example (\mrsopName)}
+
+%format pause = "\pause"
+\begin{code}
+data RTree a   = RTree a (Forest a)
+data Forest a  = Nil | Cons (RTree a) (Forest a)
+space
+type Fam    = PL (RTree Int, Forest Int)
+\end{code} 
+\pause
+\begin{code}
+type CodeRTree   = PL (PL (KInt , I 1)) 
+type CodeForest  = PL (EMPTYL , PL (I 0 , I 1))
+type Codes  = PL (CodeRTree , CodeForest)
+\end{code} 
+\pause
+\begin{code}
+instance Family Fam Codes where
+  dots
+\end{code}
 \end{frame}
 
 \begin{frame}
@@ -397,29 +448,6 @@ class Family (fam :: PL Star) (codes :: PL (PL (PL Atom))) where
 \end{frame}
 
 \begin{frame}
-  \frametitle{Example (\mrsopName)}
-
-%format pause = "\pause"
-\begin{code}
-data RTree a   = RTree a (Forest a)
-data Forest a  = Nil | Cons (RTree a) (Forest a)
-space
-type Fam    = PL (RTree Int, Forest Int)
-\end{code} 
-\pause
-\begin{code}
-type CodeRTree   = PL (PL (KInt , I 1)) 
-type CodeForest  = PL (EMPTYL , PL (I 0 , I 1))
-type Codes  = PL (CodeRTree , CodeForest)
-\end{code} 
-\pause
-\begin{code}
-instance Family Fam Codes where
-  dots
-\end{code}
-\end{frame}
-
-\begin{frame}
   \frametitle{Well formed Representations Only}
 
   \begin{itemize}
@@ -447,30 +475,110 @@ instance Family Fam Codes where
 newtype Fix codes ix
   = Fix (Rep (Fix codes) (Lkup codes ix))
 \end{code}
+\vspace{-2em}
+\pause
+\begin{code}
+deep  :: (Family fam codes) 
+      => El fam ix -> Fix codes ix
+deep  = Fix . mapRep deep . from
+\end{code}
+\vspace{-2em}
+\pause
+  \begin{itemize}
+    \item provide recursion schemes (|cata|, |ana|, |synthesize|, etc)
+    \item No need to carry constraints around
+  \end{itemize}
+\vspace{-1em}
+\pause
+\begin{code}
+gsize  :: (Family fam codes)
+       => El fam ix -> Int
+gsize  = cata (succ . maximum . elimNP (elimNA id)) 
+       . deep
+\end{code}
+\end{frame}
+
+\begin{frame}
+\frametitle{Custom Opaque Types}
+
+\begin{overprint}
+\onslide<1>
+Recall our definition of |Atom|:
+\onslide<2->
+Add another parameter to it:
+\end{overprint}
+
+\begin{overprint}
+\onslide<1>%
+\begin{code}
+data Atom = I Nat | KInt | dots
+data NA  :: (Nat -> Star) -> Atom 
+         -> Star where
+  NA_I  :: x n  -> NA x (I n)
+  NA_K  :: Int  -> NA x KInt
+\end{code}
+\onslide<2->%
+\begin{code}
+data Atom kon = I Nat | K kon 
+data NA  :: (kon -> Star) -> (Nat -> Star) -> Atom kon 
+         -> Star where
+  NA_I  :: x   n  -> NA ki x (I n)
+  NA_K  :: ki  k  -> NA ki x (K k)
+\end{code}
+\end{overprint}
+
+\onslide<3->{
+Define a kind for opaque types and their interpretation:
+
+\begin{code}
+data Opaque = O_Int | O_Float
+data OpaqueSingl :: Opaque -> Star where
+  OS_Int    :: Int    -> OpaqueSingl O_Int
+  OS_Float  :: Float  -> OpaqueSingl O_Float
+\end{code}
+}
 
 \end{frame}
 
 \begin{frame}
-  \frametitle{Lessons and Conclusions}
+  \frametitle{Other Features from \texttt{generics-mrsop}}
+
   \begin{itemize}
-    \item Found two bugs in GHC: \#14987 and \#15517 (closed) 
+    \itemsep2em
+    \item Zippers for mutually recursive families.
+    \pause
+    \item Automatic |Family| generation with Template Haskell.
+    \pause
+    \item Metadata support inspired by \texttt{generics-sop}.
   \end{itemize}
 \end{frame}
 
-
 \begin{frame}
-\frametitle{skeleton}
-
-\begin{itemize}
-  \item Codes allows combinators as oposed to class dispatch
-  \item Define |NS| and |NP|.
-  \item Introduce mutual recursion for codes for allowing even more combinators
-  \item Deep versus shallow
-  \item Only well formed repr are accepted
-  \item Lessons and Conclusion
-\end{itemize}
+  \frametitle{Lessons and Discussion}
+  \begin{itemize}
+    \itemsep2em
+    \item Found two bugs in GHC: \#14987 and \#15517 (closed) 
+    \pause
+    \item Working with deep representations is simpler:
+      \begin{itemize}
+        \item Recursion schemes
+        \item No need to carry constraints around
+      \end{itemize}
+    \pause
+    \item Very powerful tool to work with generic AST's
+    \pause
+    \item Curious about handling GADTs?\\ 
+          Join Haskell Symposium tomorrow at 9h30!
+  \end{itemize}
 \end{frame}
-  
+
+\begin{frame}[plain,c]
+  \frametitle{Conclusions}
+\begin{center}
+\emph{ \Huge Fork and Hack it! }
+\end{center}
+\end{frame}
+
 
 \begin{frame}
   \titlepage
