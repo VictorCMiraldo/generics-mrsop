@@ -211,6 +211,88 @@ type TreeCode
   :: PL (PL (Atom (Star -> Star) Star))
 \end{code}
 \end{overprint}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Interpreting \texttt{Atom}s}
+
+Interpreting atoms needs environment.
+%format Gamma  = "\HT{\Gamma}"
+%format Gamma0 = "\HT{\epsilon}"
+%format :&&:   = "\mathbin{\HT{:\!\!\&\!\!:}}"
+\begin{code}
+data Gamma (zeta :: Kind) where
+  Gamma0  ::                   Gamma (Star)
+  (:&&:)  :: k -> Gamma ks ->  Gamma (k -> ks)
+\end{code}
+
+\begin{overprint}
+\onslide<2>
+For example,
+\begin{code}
+Int :&&: Maybe :&&: Char :&&: Gamma0
+\end{code}
+Is a well-formed enviroment of kind
+\begin{code}
+Gamma (Star -> (Star -> Star) -> Star -> Star)
+\end{code}
+\onslide<3>
+\begin{code}
+type family Ty zeta (tys :: Gamma zeta) (t :: Atom zeta k) :: k where
+  Ty (k -> ks) (t :&&: ts) (Var VZ)      = t
+  Ty (k -> ks) (t :&&: ts) (Var (VS v))  = Ty ks ts (Var v)
+  Ty zeta ts (Kon t)    = t
+  Ty zeta ts (f :@: x)  = (Ty zeta ts f) (Ty zeta ts x)
+\end{code}
+\end{overprint}
+\end{frame}
+
+\begin{frame}
+
+  Define |NA| and |Rep|
+
+\end{frame}
+
+\begin{frame}
+  \frametitle{Approaching a Unified API}
+
+  Usually, GP libraries provide a class:
+
+\begin{code}
+class Generic f where
+  type Code a :: CodeKind
+  from  :: f -> Rep (Code f)
+  to    :: Rep (Code f)
+\end{code}
+\pause
+
+  In our case, though, the number of arguments to |f| depend on it's kind!
+
+\begin{code}
+from :: f      -> Rep (Star) (Code f) Gamma0
+from :: f x    -> Rep (Star) (Code f) (x :&&: Gamma0)
+from :: f x y  -> Rep (Star) (Code f) (x :&&: y :&&: Gamma0)
+\end{code}
+
+\end{frame}
+
+\begin{frame}
+  \frametitle{Approaching a Unified API}
+
+  Write a GADT:
+
+\begin{code}
+data ApplyT zeta (f :: k) (alpha :: Gamma zeta) :: Star where
+  A0 :: f                   -> ApplyT (Star)     f Gamma0
+  AS :: ApplyT ks (f t) ts  -> ApplyT (k -> ks)  f (t :&&: ts)
+\end{code}
+
+\pause
+Which allows us to unify the interface:
+
+\begin{code}
+from :: ApplyT zeta f a -> Rep zeta (Code f) a
+\end{code}
 
 \end{frame}
 
