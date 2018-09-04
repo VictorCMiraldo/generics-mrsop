@@ -124,8 +124,31 @@ inherit f start (Fix rep) =
       zipWithNA (NA_K i1) (NA_K i2) = NA_K i1
    in AnnFix start (zipWithRep rep newFix)
 
--- | Synthesized attributes
 
+-- | We can take the product of two F-algebra's
+product
+  :: forall ki phi chi xs ix. IsNat ix
+  => (forall iy. IsNat iy => Rep ki phi xs               -> phi iy)
+  -> (forall iy. IsNat iy => Rep ki chi xs               -> chi iy)
+  ->                         Rep ki (Product phi chi) xs -> Product phi chi ix
+product f g rep =
+  let x = f (mapRep (\(Pair x y) -> x) rep)
+      y = g (mapRep (\(Pair x y) -> y) rep)
+  in Pair x y
+
+
+-- | Product of two F-algebra's that depend on the previous pass
+productAnn
+  :: forall ki psi phi chi xs ix. IsNat ix
+  => (forall iy. IsNat iy => psi iy -> Rep ki phi xs               -> phi iy)
+  -> (forall iy. IsNat iy => psi iy -> Rep ki chi xs               -> chi iy)
+  ->                         psi ix -> Rep ki (Product phi chi) xs -> Product phi chi ix
+productAnn f g ann rep =
+  let x = f ann (mapRep (\(Pair x y) -> x) rep)
+      y = g ann (mapRep (\(Pair x y) -> y) rep)
+  in Pair x y
+
+-- | Synthesized attributes
 synthesizeAnn ::
      forall ki codes chi phi ix.
      (forall iy. chi iy -> Rep ki phi (Lkup iy codes) -> phi iy)
