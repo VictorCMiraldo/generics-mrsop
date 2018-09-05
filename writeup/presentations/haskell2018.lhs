@@ -248,8 +248,23 @@ type family Ty zeta (tys :: Gamma zeta) (t :: Atom zeta k) :: k where
 \end{frame}
 
 \begin{frame}
+  \frametitle{Interpreting Codes}
 
-  Define |NA| and |Rep|
+  We are now ready to map a code, of kind |DataType zeta|,
+  into |Star|.
+
+  First, package |Ty| into a GADT:
+\begin{code}
+data NA (zeta :: Kind) :: Gamma zeta -> Atom zeta (Star) -> Star where
+  T :: forall zeta t a dot Ty zeta a t -> NA zeta a t
+\end{code}
+  \pause
+  Then, assemble |NS|, |NP| and |NA|:
+
+\begin{code}
+type Rep (zeta :: Kind) (c :: DataType zeta) (a :: Gamma zeta)
+  = NS (NP (NA zeta a)) c
+\end{code}
 
 \end{frame}
 
@@ -296,23 +311,86 @@ from :: ApplyT zeta f a -> Rep zeta (Code f) a
 
 \end{frame}
 
-\begin{frame}
-  \frametitle{Applying type-level types to types!}
-
-  Show |Ty|, and how it interprets |Atom| into a star for us.
-
-  Show the |Generic| type-class and mention the existence of |ApplyT|
-  and why you need such monster
-
-\end{frame}
-
+%format Set0 = "\HT{Set_0}"
+%format Set1 = "\HT{Set_1}"
+%format Set2 = "\HT{Set_2}"
 \begin{frame}
   \frametitle{Wait?! type-in-type?}
 
+  \begin{itemize}
+    \itemsep2em
+    \item We require \texttt{-XTypeInType} to type check our code
+          because we need to promote GADTs and work with kinds as
+          types.
+
+    \pause
+    \item We do not use require the |Star : Star| axiom
+
+    \pause
+    \item We provide an Agda model of our approach to prove so.
+          Basic types live in |Set0|, our codes inhabit |Set1| and
+          the interpretations inhabit |Set2|.
+  \end{itemize}
 \end{frame}
 
 \begin{frame}
   \frametitle{Constraints}
+
+With small modifications, we can handle constraints.
+\pause
+
+Add one layer on top of |Atom|:
+
+\begin{code}
+data Field (zeta :: Kind) where
+  Explicit  :: Atom zeta (Star)      -> Field zeta
+  Implicit  :: Atom zeta Constraint  -> Field zeta
+
+type DataType zeta = PL (PL (Field zeta))
+\end{code}
+\pause
+
+Adapt the interpretation of |Atom| to work on top of |Field|:
+\begin{code}
+data NA (zeta :: Kind) :: Gamma zeta -> Field zeta (Star) -> Star where
+  E  :: forall zeta t a dot Ty zeta a t -> NA zeta a (Explicit t)
+  I  :: forall zeta t a dot Ty zeta a t => NA zeta a (Implicit t)
+\end{code}
+\end{frame}
+
+%format EQ a b = "{" a "} \HS{~} {" b "}"
+\begin{frame}
+  \frametitle{Example: Representing a GADT}
+
+\begin{overprint}
+\onslide<1>
+\begin{code}
+data Expr :: Star -> Star where
+  Lit     :: a -> Expr a
+  IsZero  :: Expr Int -> Expr Bool
+  If      :: Expr Bool -> Expr a -> Expr a -> Expr a
+\end{code}
+\onslide<2->
+\begin{code}
+data Expr :: Star -> Star where
+  Lit     :: a -> Expr a
+  IsZero  :: (a ~ Bool) => Expr Int -> Expr a
+  If      :: Expr Bool -> Expr a -> Expr a -> Expr a
+\end{code}
+\end{overprint}
+
+%format POB = "\HS{''[}"
+%format COB = "\HS{]}"
+\onslide<3>{
+\begin{code}
+type CodeExpr
+  =  POB  POB  Explicit V0 COB
+     ,    POB  Implicit (Kon (~) :@: V0 :@: Kon Bool)
+          ,    Explicit (Kon Expr :@: Kon Int) COB
+     ,    dots
+     COB
+\end{code}
+}
 
 \end{frame}
 
