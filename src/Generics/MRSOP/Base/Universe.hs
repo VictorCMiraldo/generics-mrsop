@@ -299,7 +299,7 @@ cata f (Fix x) = f (mapRep (cata f) x)
 getAnn :: AnnFix ki codes ann ix -> ann ix
 getAnn (AnnFix a x) = a
 
-annCata :: (forall iy. chi iy -> Rep ki phi (Lkup iy codes) -> phi iy)
+annCata :: IsNat ix => (forall iy. IsNat iy => chi iy -> Rep ki phi (Lkup iy codes) -> phi iy)
         -> AnnFix ki codes chi ix
         -> phi ix
 annCata f (AnnFix a x) = f a (mapRep (annCata f) x)

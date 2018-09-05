@@ -44,7 +44,7 @@ zipAnn f (AnnFix a1 t1) (AnnFix a2 t2) = AnnFix (f a1 a2) (zipWithRep t1 t2)
     zipWithNA (NA_I t1) (NA_I t2) = NA_I (zipAnn f t1 t2)
     zipWithNA (NA_K i1) (NA_K i2) = NA_K i1  -- Should be the same!
 
-mapAnn :: (forall iy. chi iy -> phi iy)
+mapAnn :: IsNat ix => (forall iy. IsNat iy => chi iy -> phi iy)
        -> AnnFix ki codes chi ix
        -> AnnFix ki codes phi ix
 mapAnn f = synthesizeAnn (\x _ -> f x)
@@ -139,10 +139,11 @@ product f g rep =
 
 -- | Product of two F-algebra's that depend on the previous pass
 productAnn
-  :: forall ki psi phi chi xs ix. IsNat ix
-  => (forall iy. IsNat iy => psi iy -> Rep ki phi xs               -> phi iy)
+  :: forall ki psi phi chi xs ix. 
+     IsNat ix =>
+     (forall iy. IsNat iy => psi iy -> Rep ki phi xs               -> phi iy)
   -> (forall iy. IsNat iy => psi iy -> Rep ki chi xs               -> chi iy)
-  ->                         psi ix -> Rep ki (Product phi chi) xs -> Product phi chi ix
+  ->             psi ix -> Rep ki (Product phi chi) xs -> Product phi chi ix
 productAnn f g ann rep =
   let x = f ann (mapRep (\(Pair x y) -> x) rep)
       y = g ann (mapRep (\(Pair x y) -> y) rep)
@@ -151,13 +152,14 @@ productAnn f g ann rep =
 -- | Synthesized attributes
 synthesizeAnn ::
      forall ki codes chi phi ix.
-     (forall iy. chi iy -> Rep ki phi (Lkup iy codes) -> phi iy)
+     IsNat ix =>
+     (forall iy. IsNat iy => chi iy -> Rep ki phi (Lkup iy codes) -> phi iy)
   -> AnnFix ki codes chi ix
   -> AnnFix ki codes phi ix
 synthesizeAnn f = annCata alg
   where
     alg ::
-         forall iy.
+         forall iy. IsNat iy =>
          chi iy
       -> Rep ki (AnnFix ki codes phi) (Lkup iy codes)
       -> AnnFix ki codes phi iy
