@@ -64,6 +64,11 @@ zipNP :: NP f xs -> NP g xs -> NP (f :*: g) xs
 zipNP NP0       NP0       = NP0
 zipNP (f :* fs) (g :* gs) = (f :*: g) :* zipNP fs gs
 
+-- |Unzips a combined product into two separate products
+unzipNP :: NP (f :*: g) xs -> (NP f xs , NP g xs)
+unzipNP NP0                = (NP0 , NP0) 
+unzipNP ((f :*: g) :* fgs) = (f :*) *** (g :*) $ unzipNP fgs
+
 -- * Catamorphism
 
 -- |Consumes a value of type 'NP'.
@@ -72,6 +77,16 @@ cataNP :: (forall x xs . f x  -> r xs -> r (x : xs))
        -> NP f xs -> r xs
 cataNP fCons fNil NP0       = fNil
 cataNP fCons fNil (k :* ks) = fCons k (cataNP fCons fNil ks)
+
+
+-- |Consumes a value of type 'NP'.
+cataNPM :: (Monad m)
+        => (forall x xs . f x  -> r xs -> m (r (x : xs)))
+        -> m (r '[])
+        -> NP f xs -> m (r xs)
+cataNPM fCons fNil NP0       = fNil
+cataNPM fCons fNil (k :* ks) = cataNPM fCons fNil ks >>= fCons k 
+
 
 -- * Equality
 

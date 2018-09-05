@@ -14,7 +14,7 @@ module Generics.MRSOP.Util
   , (:->) , (<.>)
 
     -- * Poly-kind indexed product
-  , (:*:)(..) , curry' , uncurry'
+  , (:*:)(..) , curry' , uncurry' , delta'
 
     -- * Type-level Naturals
   , Nat(..) , proxyUnsuc
@@ -41,6 +41,10 @@ import Control.Arrow ((***) , (&&&))
 -- |Poly-kind-indexed product
 data (:*:) (f :: k -> *) (g :: k -> *) (x :: k)
   = f x :*: g x
+
+-- |Distributes the index over the product
+delta' :: (f :*: g) x -> (f x , g x)
+delta' (f :*: g) = (f , g)
 
 -- |Lifted curry
 curry' :: ((f :*: g) x -> a) -> f x -> g x -> a
