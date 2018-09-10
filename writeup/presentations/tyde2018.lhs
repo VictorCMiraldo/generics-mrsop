@@ -179,7 +179,7 @@ data (f :*: g)  x  = f x :*: g x
 data K1 a       x  = K1 x
 \end{code}
 \pause
-Note the absence of a pattern-functor for handling recursion.
+Note the absence of a pattern functor for handling recursion.
 \end{frame}
 
 \begin{frame}
@@ -246,7 +246,7 @@ size = gsize . from
 
   \begin{itemize}
     \itemsep1em
-    \item Addresses the issues with pattern-functors.
+    \item Addresses the issues with pattern functors.
     \pause
     \item The language that representations are defined
           over.
@@ -258,10 +258,6 @@ data Bin a   =    Leaf a
 
 type family     Code (a :: Star)  :: SOPK
 type instance   Code (Bin a)      = PL (PL a , PL (Bin a , Bin a))
-\end{code}
-\pause
-\begin{code}
-Rep :: SOPK -> Star
 \end{code}
 \end{frame}
 
@@ -327,7 +323,7 @@ class Size a where
   size :: a -> Int
 space
 gsize :: (Generic a, All2 Size (Code a)) => a -> Int
-gsize = sum . elimNS (elimNP (size . unI)) . from
+gsize = succ . sum . elimNS (elimNP (size . unI)) . from
   where unI (I x) = x
 \end{code}
 \pause
@@ -493,8 +489,7 @@ deep  = Fix . mapRep deep . from
 \begin{code}
 gsize  :: (Family fam codes)
        => El fam ix -> Int
-gsize  = cata (succ . maximum . elimNP (elimNA id)) 
-       . deep
+gsize  = cata (succ . sum . elimNP (elimNA id)) . deep
 \end{code}
 \end{frame}
 
@@ -545,6 +540,8 @@ data OpaqueSingl :: Opaque -> Star where
 
   \begin{itemize}
     \itemsep2em
+    \item Custom opaque types.
+    \pause
     \item Zippers for mutually recursive families.
     \pause
     \item Automatic |Family| generation with Template Haskell.
@@ -575,7 +572,8 @@ data OpaqueSingl :: Opaque -> Star where
 \begin{frame}[plain,c]
   \frametitle{Conclusions}
 \begin{center}
-\emph{ \Huge Fork and Hack it! }
+\emph{ \Huge Use it and Hack it! }
+\texttt{https://hackage.haskell.org/package/generics-mrsop}
 \end{center}
 \end{frame}
 
