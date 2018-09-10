@@ -197,7 +197,7 @@ which allows for explicit least fixpoints:
 |Bin a isoto Rep (Bin a) (Bin a)|
 
 \pause
-Permitting generic recursion shemes:
+Enabling generic recursion shemes:
 \begin{code}
 cata :: (Rep f a -> a) -> f -> a
 \end{code}
