@@ -53,7 +53,29 @@
 \end{frame}
 
 \begin{frame}
-  \frametitle{Motivation}
+  \frametitle{Context and Motivation}
+
+\begin{code}
+data Exp :: * -> * where
+  Val :: Int -> Exp Int
+  Add :: Exp Int -> Exp Int -> Exp Int
+  Eq  :: Exp Int -> Exp Int -> Exp Bool
+  dots
+
+deriving instance (Serialize a) => Serialize (Exp a)
+\end{code}
+
+\pause 
+We would like this feature!
+
+\pause
+Implementing it in a general fashion requires some \emph{generic
+programming over GADTs and arbitrarily kinded types}.
+
+\end{frame}
+
+\begin{frame}
+  \frametitle{Context and Motivation}
 
   \begin{itemize}
     \itemsep2em
@@ -275,7 +297,7 @@ type Rep (zeta :: Kind) (c :: DataType zeta) (a :: Gamma zeta)
 
 \begin{code}
 class Generic f where
-  type Code a :: CodeKind
+  type Code f :: CodeKind
   from  :: f -> Rep (Code f)
   to    :: Rep (Code f)
 \end{code}
@@ -324,7 +346,7 @@ from :: ApplyT zeta f a -> Rep zeta (Code f) a
           types.
 
     \pause
-    \item We do not use require the |Star : Star| axiom
+    \item We do not require the |Star : Star| axiom
 
     \pause
     \item We provide an Agda model of our approach to prove so.
@@ -334,7 +356,7 @@ from :: ApplyT zeta f a -> Rep zeta (Code f) a
 \end{frame}
 
 \begin{frame}
-  \frametitle{Constraints}
+  \frametitle{Representing Constraints}
 
 With small modifications, we can handle constraints.
 \pause
@@ -352,7 +374,7 @@ type DataType zeta = PL (PL (Field zeta))
 
 Adapt the interpretation of |Atom| to work on top of |Field|:
 \begin{code}
-data NA (zeta :: Kind) :: Gamma zeta -> Field zeta (Star) -> Star where
+data NA (zeta :: Kind) :: Gamma zeta -> Field zeta -> Star where
   E  :: forall zeta t a dot Ty zeta a t -> NA zeta a (Explicit t)
   I  :: forall zeta t a dot Ty zeta a t => NA zeta a (Implicit t)
 \end{code}
@@ -395,29 +417,65 @@ type CodeExpr
 \end{frame}
 
 \begin{frame}
-  \frametitle{Generic GADT}
-
-
-  limitations: |forall k (a :: k)| can't be represented by us
-\end{frame}
-
-\begin{frame}
-  \frametitle{Arity-generic fmap }
-
-\end{frame}
-
-
-\begin{frame}
-  \frametitle{Lessons discussion and conc}
+  \frametitle{Generic GADTs: Extensions Limitations}
 
   \begin{itemize}
-    \item Existentials are not a problem; check paper
-    \item Explicit recursion is not a problem unless you take fixpoints; check the paper
-    \item Mutual recursion? No biggie! MRSOP!
+    \itemsep2em
+    \item On our paper we discuss how to handle existential
+          types. \pause The resulting interface is not
+          user-friendly and make the writing of generic combinators
+          cumbersome.  
+    \pause
+    \item Existential kinds pose a problem on the other hand.
+          We can't represent telescopes like:
+\begin{code}
+data Problem :: k -> Star where
+  Constructor :: forall k (a :: k) dot X a -> Problem a
+\end{code}
   \end{itemize}
+\end{frame}
 
-  Conclusion: We rock!
+\begin{frame}
+  \frametitle{Arity-generic fmap}
+  
+  We are able to generalize |Functor| and |BiFunctor|
+  to |NFunctor|.
 
+  \vfill
+  \pause
+
+  That is, let |f| be of kind |Star -> Star -> dots -> Star|, we
+can then write:
+ 
+%format a1 = "\HV{a_1}"
+%format b1 = "\HV{b_1}"
+%format an = "\HV{a_n}"
+%format bn = "\HV{b_n}"
+\begin{code}
+fmapN  :: (a1 -> b1) 
+       -> dots 
+       -> (an -> bn)
+       -> f a1 dots an 
+       -> f b1 dots bn
+\end{code}
+\vfill  
+
+\end{frame}
+
+
+\begin{frame}
+  \frametitle{Discussion and Future Work}
+
+  \begin{itemize}
+    \itemsep2em
+    \item We are able to represent a reasonable amount of GADTs generically.
+    \pause
+    \item Our approach also extend to mutually recursive types as long
+          as we do not bring in explicit fixpoints. 
+    \pause
+    \item Fork \texttt{generics-mrsop} and package these ideas into
+          a usable library.
+  \end{itemize}
 \end{frame}
 
 \begin{frame}
