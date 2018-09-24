@@ -464,10 +464,12 @@ fmapN  :: (a1 -> b1)
 
 
 \begin{frame}
-  \frametitle{Discussion and Future Work}
+  \frametitle{Discussion, Future and Related Work}
 
   \begin{itemize}
     \itemsep2em
+    \item R. Scott ``Generalized Abstract GHC.Generics'' paper at HIW, last Sunday.
+    \pause
     \item We are able to represent a reasonable amount of GADTs generically.
     \pause
     \item Our approach also extend to mutually recursive types as long
