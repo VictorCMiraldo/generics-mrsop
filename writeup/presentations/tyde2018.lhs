@@ -51,7 +51,7 @@
 
 \title{Generic Programming for Mutually Recursive Families}
 \author{Victor Cacciari Miraldo, Alejandro Serrano Mena}
-\date{February 28, 2018}
+\date{September 27, 2018}
 
 \begin{document}
 
@@ -79,48 +79,50 @@
   \end{block}
 \end{frame}
 
-\begin{frame}
-\frametitle{Generic Programming Primer}
-
-  \begin{itemize}
-    \itemsep1em
-    \item<1-> Translate class of datatypes to uniform representation
-    \item<2-> Perform generic operation
-    \item<3-> Translate back to original representation
-  \end{itemize}
-
-\vspace{1em}
-
-\begin{overprint}
-\onslide<1>\begin{displaymath}
-\xymatrix@@C=4em{
-  |T| \ar[r]^(.4){|from|} & |Rep T| & &
-}
-\end{displaymath}
-\onslide<2>\begin{displaymath}
-\xymatrix@@C=4em{
-  |T| \ar[r]^(.4){|from|} & |Rep T| \ar[r]^{|f|} & |Rep U| & 
-}
-\end{displaymath}
-\onslide<3->\begin{displaymath}
-\xymatrix@@C=4em{
-  |T| \ar[r]^(.4){|from|} & |Rep T| \ar[r]^{|f|}
-                    & |Rep U| \ar[r]^{|to|}
-                    & |U|
-}
-\end{displaymath}
-\end{overprint}
-\onslide<4>
-\begin{code}
-class Generic t where
-  from  :: t      -> Rep t
-  to    :: Rep t  -> t
-\end{code}
-\end{frame}
+%% 
+%% \begin{frame}
+%% \frametitle{Generic Programming Primer}
+%% 
+%%   \begin{itemize}
+%%     \itemsep1em
+%%     \item<1-> Translate class of datatypes to uniform representation
+%%     \item<2-> Perform generic operation
+%%     \item<3-> Translate back to original representation
+%%   \end{itemize}
+%% 
+%% \vspace{1em}
+%% 
+%% \begin{overprint}
+%% \onslide<1>\begin{displaymath}
+%% \xymatrix@@C=4em{
+%%   |T| \ar[r]^(.4){|from|} & |Rep T| & &
+%% }
+%% \end{displaymath}
+%% \onslide<2>\begin{displaymath}
+%% \xymatrix@@C=4em{
+%%   |T| \ar[r]^(.4){|from|} & |Rep T| \ar[r]^{|f|} & |Rep U| & 
+%% }
+%% \end{displaymath}
+%% \onslide<3->\begin{displaymath}
+%% \xymatrix@@C=4em{
+%%   |T| \ar[r]^(.4){|from|} & |Rep T| \ar[r]^{|f|}
+%%                     & |Rep U| \ar[r]^{|to|}
+%%                     & |U|
+%% }
+%% \end{displaymath}
+%% \end{overprint}
+%% \onslide<4>
+%% \begin{code}
+%% class Generic t where
+%%   from  :: t      -> Rep t
+%%   to    :: Rep t  -> t
+%% \end{code}
+%% \end{frame}
 
 \begin{frame}
 \frametitle{The Design Space}
 
+\pause
 \begin{itemize}
 \itemsep2em
   \item Class of representable datatypes
@@ -204,11 +206,13 @@ cata :: (Rep f a -> a) -> f -> a
 \end{frame}
 
 \begin{frame}
-\frametitle{Pattern Functors}
+\frametitle{Pattern Functors Example}
+\pause
 
   Regardless of recursion, class dispatch is used
   for generic functions:
 
+\pause
 \begin{code}
 class GSize (rep :: Star -> Star) where
   gsize :: rep x -> Int
@@ -327,7 +331,7 @@ gsize = succ . sum . elimNS (elimNP (size . unI)) . from
   where unI (I x) = x
 \end{code}
 \pause
-Still: no explicit recursion: typeclass and complicated constraints.
+Still: no explicit recursion = typeclass and complicated constraints.
 \end{frame}
 
 \newcommand{\mrsopName}{\textbf{\texttt{generics-mrsop}}}
@@ -402,6 +406,7 @@ instance Family Fam Codes where
 \begin{frame}
   \frametitle{Closing the Recursive Knot (\mrsopName)}
 \vspace{-1em}
+\pause
   \begin{itemize}
     \item Define a family: |fam :: PL Star|
     \pause
@@ -425,6 +430,7 @@ Rep (Lkup fam) (Lkup i codes)
 
 \begin{frame}
   \frametitle{Wrapping it up (\mrsopName)}
+\pause
 
   Create an |El| type to be able to partially apply it
 and wrap it all in a typeclass:
@@ -446,6 +452,7 @@ class Family (fam :: PL Star) (codes :: PL (PL (PL Atom))) where
 \begin{frame}
   \frametitle{Well formed Representations Only}
 
+\pause
   \begin{itemize}
     \itemsep1em
     \item The |data Atom = I Nat || dots| type might seem too
@@ -465,6 +472,7 @@ class Family (fam :: PL Star) (codes :: PL (PL (PL Atom))) where
 
 \begin{frame}
   \frametitle{Deep versus Shallow}
+\pause
 
   Deep encoding comes for free!
 \begin{code}
@@ -495,16 +503,17 @@ gsize  = cata (succ . sum . elimNP (elimNA id)) . deep
 
 \begin{frame}
 \frametitle{Custom Opaque Types}
+\pause
 
 \begin{overprint}
-\onslide<1>
+\onslide<2>
 Recall our definition of |Atom|:
-\onslide<2->
+\onslide<3->
 Add another parameter to it:
 \end{overprint}
 
 \begin{overprint}
-\onslide<1>%
+\onslide<2>%
 \begin{code}
 data Atom = I Nat | KInt | dots
 data NA  :: (Nat -> Star) -> Atom 
@@ -512,7 +521,7 @@ data NA  :: (Nat -> Star) -> Atom
   NA_I  :: x n  -> NA x (I n)
   NA_K  :: Int  -> NA x KInt
 \end{code}
-\onslide<2->%
+\onslide<3->%
 \begin{code}
 data Atom kon = I Nat | K kon 
 data NA  :: (kon -> Star) -> (Nat -> Star) -> Atom kon 
@@ -522,7 +531,7 @@ data NA  :: (kon -> Star) -> (Nat -> Star) -> Atom kon
 \end{code}
 \end{overprint}
 
-\onslide<3->{
+\onslide<4->{
 Define a kind for opaque types and their interpretation:
 
 \begin{code}
@@ -537,6 +546,7 @@ data OpaqueSingl :: Opaque -> Star where
 
 \begin{frame}
   \frametitle{Other Features from \texttt{generics-mrsop}}
+\pause
 
   \begin{itemize}
     \itemsep2em

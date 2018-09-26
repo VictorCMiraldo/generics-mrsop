@@ -44,7 +44,7 @@
 
 \title{Generic Programming of All Kinds}
 \author{Alejandro Serrano Mena, Victor Cacciari Miraldo}
-\date{February 28, 2018}
+\date{September 28, 2018}
 
 \begin{document}
 
@@ -56,10 +56,10 @@
   \frametitle{Context and Motivation}
 
 \begin{code}
-data Exp :: * -> * where
-  Val :: Int -> Exp Int
-  Add :: Exp Int -> Exp Int -> Exp Int
-  Eq  :: Exp Int -> Exp Int -> Exp Bool
+data Exp :: Star -> Star where
+  Val  :: Int      -> Exp Int
+  Add  :: Exp Int  -> Exp Int -> Exp Int
+  Eq   :: Exp Int  -> Exp Int -> Exp Bool
   dots
 
 deriving instance (Serialize a) => Serialize (Exp a)
@@ -319,7 +319,7 @@ from :: f x y  -> Rep (Star) (Code f) (x :&&: y :&&: Gamma0)
   Write a GADT:
 
 \begin{code}
-data ApplyT zeta (f :: k) (alpha :: Gamma zeta) :: Star where
+data ApplyT zeta (f :: zeta) (alpha :: Gamma zeta) :: Star where
   A0 :: f                   -> ApplyT (Star)     f Gamma0
   AS :: ApplyT ks (f t) ts  -> ApplyT (k -> ks)  f (t :&&: ts)
 \end{code}
