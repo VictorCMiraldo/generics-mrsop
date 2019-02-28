@@ -33,7 +33,7 @@ data Ctxs (ki :: kon -> *) (codes :: [[[Atom kon]]]) :: Nat -> Nat -> * where
 -- |Analogous to 'Generics.MRSOP.Zipper.Ctx'
 data Ctx (ki :: kon -> *) (codes :: [[[Atom kon]]]) :: [[Atom kon]] -> Nat -> * where
   Ctx
-    :: Constr c n -> NPHole ki codes ix (Lkup n c) -> Ctx ki codes c ix
+    :: (IsNat n) => Constr c n -> NPHole ki codes ix (Lkup n c) -> Ctx ki codes c ix
 
 -- |Analogous to 'Generics.MRSOP.Zipper.NPHole', but uses a deep representation
 --  for generic values.

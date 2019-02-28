@@ -17,6 +17,7 @@ import Data.Monoid (Sum(..), (<>))
 import Generics.MRSOP.Base
 import Generics.MRSOP.Util
 
+{-
 zipAnn :: forall phi1 phi2 phi3 ki codes ix.
           (forall iy. phi1 iy -> phi2 iy -> phi3 iy)
        -> AnnFix ki codes phi1 ix
@@ -28,16 +29,22 @@ zipAnn f (AnnFix a1 t1) (AnnFix a2 t2) = AnnFix (f a1 a2) (zipWithRep t1 t2)
                -> Rep ki (AnnFix ki codes phi2) xs
                -> Rep ki (AnnFix ki codes phi3) xs
     zipWithRep (Rep x) (Rep y) = Rep $ zipWithNS x y
+
     zipWithNS :: NS (PoA ki (AnnFix ki codes phi1)) ys
               -> NS (PoA ki (AnnFix ki codes phi2)) ys
               -> NS (PoA ki (AnnFix ki codes phi3)) ys
-    zipWithNS (Here x) (Here y)   = Here $ zipWithNP x y
-    zipWithNS (There x) (There y) = There $ zipWithNS x y
+    zipWithNS x y = case zipNS x y of
+                      Nothing -> error "Generics.MRSOP.AG.zipAnn"
+                      Just r  -> _ r
+    -- zipWithNS (Here x) (Here y)   = Here $ zipWithNP x y
+    -- zipWithNS (There x) (There y) = There $ zipWithNS x y
+
     zipWithNP :: PoA ki (AnnFix ki codes phi1) zs
               -> PoA ki (AnnFix ki codes phi2) zs
               -> PoA ki (AnnFix ki codes phi3) zs
     zipWithNP NP0 NP0 = NP0
     zipWithNP (a :* as) (b :* bs) = zipWithNA a b :* zipWithNP as bs
+
     zipWithNA :: NA ki (AnnFix ki codes phi1) ws
               -> NA ki (AnnFix ki codes phi2) ws
               -> NA ki (AnnFix ki codes phi3) ws
@@ -77,6 +84,7 @@ inheritAnn f start (AnnFix ann rep) =
         -> NS (PoA ki (AnnFix ki codes phi)) ys
       zipWithNS (Here x) (Here y) = Here $ zipWithNP x y
       zipWithNS (There x) (There y) = There $ zipWithNS x y
+
       zipWithNP ::
            PoA ki (AnnFix ki codes chi) zs
         -> PoA ki phi zs
@@ -123,6 +131,7 @@ inherit f start (Fix rep) =
       zipWithNA (NA_I i1) (NA_I i2) = NA_I (inherit f i2 i1)
       zipWithNA (NA_K i1) (NA_K i2) = NA_K i1
    in AnnFix start (zipWithRep rep newFix)
+-}
 
 -- | Synthesized attributes
 

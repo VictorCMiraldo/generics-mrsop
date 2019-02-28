@@ -22,6 +22,7 @@ module Generics.MRSOP.TH
 import Data.Function (on)
 import Data.Char (ord , isAlphaNum)
 import Data.List (sortBy, foldl')
+import Data.Proxy
 
 import Control.Monad
 import Control.Monad.State
@@ -805,8 +806,9 @@ ci2PatExp opq dtiIx cIdx ci
        return (ConP (mkName "El") [pat] , bdy)
   where
     inj :: Int -> Q Exp -> Q Exp
-    inj 0 e = [e| Here $e              |]
-    inj n e = [e| There $(inj (n-1) e) |]
+    inj n e = [e| NS $(return (LitE (WordPrimL $ fromIntegral n))) Proxy $e |]
+    -- inj 0 e = [e| Here $e              |]
+    -- inj n e = [e| There $(inj (n-1) e) |]
 
     genBdy :: [(Name , IK)] -> Q Exp
     genBdy []       = [e| NP0 |]
@@ -830,8 +832,9 @@ ci2ExpPat opq dtiIx cIdx ci
        return (pat , AppE (ConE $ mkName "El") exp)
   where
     inj :: Int -> Q Pat -> Q Pat
-    inj 0 e = [p| Here $e              |]
-    inj n e = [p| There $(inj (n-1) e) |]
+    inj n e = [p| NS $(return (LitP (WordPrimL $ fromIntegral n))) _ $e  |]
+    -- inj 0 e = [p| Here $e              |]
+    -- inj n e = [p| There $(inj (n-1) e) |]
     
     genBdy :: [(Name , IK)] -> Q Pat
     genBdy []       = [p| NP0 |]

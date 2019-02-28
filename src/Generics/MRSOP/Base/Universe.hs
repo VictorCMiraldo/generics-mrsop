@@ -24,6 +24,8 @@ import Generics.MRSOP.Base.NS
 import Generics.MRSOP.Base.NP
 import Generics.MRSOP.Util
 
+import Unsafe.Coerce
+
 -- * Universe of Codes
 --
 -- $universeOfCodes
@@ -208,35 +210,9 @@ eqRep kp fp t = maybe False (elimRep (uncurry' kp) (uncurry' fp) and)
 -- as a constructor and its fields, instead of having to
 -- traverse the inner 'NS' structure.
 
--- |A value @c :: Constr ks n@ specifies a position
---  in a type-level list. It is, in fact, isomorphic to @Fin (length ks)@.
-data Constr :: [k] -> Nat -> * where
-  CS :: Constr xs n -> Constr (x : xs) (S n)
-  CZ ::                Constr (x : xs) Z
-
-instance TestEquality (Constr codes) where
-  testEquality CZ     CZ     = Just Refl
-  testEquality (CS x) (CS y) = apply (Refl :: S :~: S) <$> testEquality x y
-  testEquality _      _      = Nothing
-
-instance (IsNat n) => Show (Constr xs n) where
-  show _ = "C" ++ show (getNat (Proxy :: Proxy n))
-
--- |We can define injections into an n-ary sum from
---  its 'Constr'uctors
-injNS :: Constr sum n -> PoA ki fam (Lkup n sum) -> NS (NP (NA ki fam)) sum
-injNS CZ     poa = Here poa
-injNS (CS c) poa = There (injNS c poa)
-
 -- |Wrap it in a 'Rep' for convenience.
-inj :: Constr sum n -> PoA ki fam (Lkup n sum) -> Rep ki fam sum
+inj :: (IsNat n) => Constr sum n -> PoA ki fam (Lkup n sum) -> Rep ki fam sum
 inj c = Rep . injNS c
-
--- | Inverse of 'injNS'.  Given some Constructor, see if Rep is of this constructor
-matchNS :: Constr sum c -> NS (NP (NA ki fam)) sum -> Maybe (PoA ki fam (Lkup c sum))
-matchNS CZ (Here ps) = Just ps
-matchNS (CS c) (There x) = matchNS c x
-matchNS _ _ = Nothing
 
 -- | Inverse of 'inj'. Given some Constructor, see if Rep is of this constructor
 match :: Constr sum c -> Rep ki fam sum -> Maybe (PoA ki fam (Lkup c sum))
@@ -252,9 +228,11 @@ sop :: Rep ki fam sum -> View ki fam sum
 sop = go . unRep
   where
     go :: NS (NP (NA ki fam)) sum -> View ki fam sum
-    go (Here  poa) = Tag CZ poa
-    go (There s)   = case go s of
-                        Tag c poa -> Tag (CS c) poa
+    go (NS w p x) = Tag (i2c $ getSNat p) (unsafeCoerce p)
+
+    i2c :: SNat n -> Constr sum n
+    i2c SZ     = unsafeCoerce CZ
+    i2c (SS n) = unsafeCoerce $ CS (i2c n)
 
 -- |Wraps a 'View' into a 'Rep'
 fromView :: View ki fam sum -> Rep ki fam sum

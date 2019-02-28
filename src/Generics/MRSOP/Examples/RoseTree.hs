@@ -41,6 +41,10 @@ type FamRose   = '[ [R Int] , R Int]
 
 -- ** Instance Decl
 
+{-
+
+-- This example is deprecated while we work on https://github.com/VictorCMiraldo/generics-mrsop/issues/39
+
 instance Family Singl FamRose CodesRose where
   sfrom' (SS SZ) (El (a :>: as)) = Rep $ Here (NA_K (SInt a) :* NA_I (El as) :* NP0)
   sfrom' (SS SZ) (El (Leaf a))   = Rep $ There (Here (NA_K (SInt a) :* NP0))
@@ -97,3 +101,4 @@ sumTree = crush k sum . (into @FamRose)
 
 testSum :: Bool
 testSum = sumTree value3 == sumTree (normalize value3)
+-}
