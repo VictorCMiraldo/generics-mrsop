@@ -29,6 +29,8 @@ import Generics.MRSOP.TH
 import Control.Monad
 import Control.Monad.State
 
+import Unsafe.Coerce
+
 -- * Simple IMPerative Language:
 
 data Stmt var

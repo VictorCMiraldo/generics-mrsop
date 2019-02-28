@@ -23,6 +23,8 @@ import Generics.MRSOP.Base
 import Generics.MRSOP.Opaque
 import Generics.MRSOP.TH
 
+import Unsafe.Coerce
+
 -- |Standard Lambda Calculus.
 data Term = Var String
           | Abs String Term

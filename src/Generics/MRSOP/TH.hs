@@ -182,7 +182,10 @@ ci2Pat ci
 ci2Exp :: CI ty -> Q ([Name], Exp)
 ci2Exp ci
   = do ns <- mapM (const (newName "y")) (ci2ty ci)
-       return (ns , foldl (\e n -> AppE e (VarE n)) (ConE (ciName ci)) ns)
+       return (ns , foldl (\e n -> AppE e (mkUnsafeCoerce (VarE n))) (ConE (ciName ci)) ns)
+  where
+    mkUnsafeCoerce :: Exp -> Exp
+    mkUnsafeCoerce = AppE (VarE (mkName "unsafeCoerce"))
 
 -- * Simpler STy Language
 
@@ -799,14 +802,16 @@ genPiece3 opq first ls
 --  >   = ( El (Bin x_1 x_2)
 --  >     , Rep (There (There (Here (NA_I (El x_1) :* NA_I (El x_2) :* NP0))))
 --  >     )
-ci2PatExp :: OpaqueData -> Int -> Int -> CI IK -> Q (Pat , Exp)
-ci2PatExp opq dtiIx cIdx ci
+ci2PatExp :: OpaqueData -> Int -> Type -> Int -> CI IK -> Q (Pat , Exp)
+ci2PatExp opq dtiIx dtiCodesTy cIdx ci
   = do (vars , pat) <- ci2Pat ci
        bdy          <- [e| Rep $(inj cIdx $ genBdy (zip vars (ci2ty ci))) |]
        return (ConP (mkName "El") [pat] , bdy)
   where
     inj :: Int -> Q Exp -> Q Exp
-    inj n e = [e| NS $(return (LitE (WordPrimL $ fromIntegral n))) Proxy $e |]
+    inj n e = [e| NS (Constr' $(return (LitE (IntegerL $ fromIntegral n)))
+                          :: Constr' $(return dtiCodesTy) $(return (int2Type n)))
+                     $e |]
     -- inj 0 e = [e| Here $e              |]
     -- inj n e = [e| There $(inj (n-1) e) |]
 
@@ -832,7 +837,7 @@ ci2ExpPat opq dtiIx cIdx ci
        return (pat , AppE (ConE $ mkName "El") exp)
   where
     inj :: Int -> Q Pat -> Q Pat
-    inj n e = [p| NS $(return (LitP (WordPrimL $ fromIntegral n))) _ $e  |]
+    inj n e = [p| NS (Constr' $(return (LitP (IntegerL $ fromIntegral n)))) $e  |]
     -- inj 0 e = [p| Here $e              |]
     -- inj n e = [p| There $(inj (n-1) e) |]
     
@@ -874,7 +879,7 @@ genPiece3_1 opq input
                        <$> (LamCaseE <$> genMatchFor ix dti)
     
     genMatchFor :: Int -> DTI IK -> Q [Match]
-    genMatchFor ix dti = map (uncurry match) <$> mapM (uncurry $ ci2PatExp opq ix)
+    genMatchFor ix dti = map (uncurry match) <$> mapM (uncurry $ ci2PatExp opq ix (dti2Codes dti))
                                                       (zip [0..] $ dti2ci dti)
       
 genPiece3_2 :: OpaqueData -> Input -> Q Exp

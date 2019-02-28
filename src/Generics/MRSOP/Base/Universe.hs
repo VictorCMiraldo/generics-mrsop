@@ -212,11 +212,11 @@ eqRep kp fp t = maybe False (elimRep (uncurry' kp) (uncurry' fp) and)
 
 -- |Wrap it in a 'Rep' for convenience.
 inj :: (IsNat n) => Constr sum n -> PoA ki fam (Lkup n sum) -> Rep ki fam sum
-inj c = Rep . injNS c
+inj c = Rep . injNS (fromConstr c)
 
 -- | Inverse of 'inj'. Given some Constructor, see if Rep is of this constructor
 match :: Constr sum c -> Rep ki fam sum -> Maybe (PoA ki fam (Lkup c sum))
-match c (Rep x) = matchNS c x
+match c (Rep x) = matchNS (fromConstr c) x
 
 -- |Finally, we can view a sum-of-products as a constructor
 --  and a product-of-atoms.
@@ -228,11 +228,7 @@ sop :: Rep ki fam sum -> View ki fam sum
 sop = go . unRep
   where
     go :: NS (NP (NA ki fam)) sum -> View ki fam sum
-    go (NS w p x) = Tag (i2c $ getSNat p) (unsafeCoerce p)
-
-    i2c :: SNat n -> Constr sum n
-    i2c SZ     = unsafeCoerce CZ
-    i2c (SS n) = unsafeCoerce $ CS (i2c n)
+    go (NS c' x) = Tag (toConstr c') x
 
 -- |Wraps a 'View' into a 'Rep'
 fromView :: View ki fam sum -> Rep ki fam sum

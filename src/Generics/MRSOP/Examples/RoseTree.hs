@@ -20,6 +20,8 @@ import Generics.MRSOP.Base
 import Generics.MRSOP.Opaque
 import Generics.MRSOP.Util
 
+import Unsafe.Coerce
+
 -- * Standard Rose-Tree datatype
 
 data R a = a :>: [R a]
@@ -41,24 +43,38 @@ type FamRose   = '[ [R Int] , R Int]
 
 -- ** Instance Decl
 
-{-
 
 -- This example is deprecated while we work on https://github.com/VictorCMiraldo/generics-mrsop/issues/39
 
 instance Family Singl FamRose CodesRose where
-  sfrom' (SS SZ) (El (a :>: as)) = Rep $ Here (NA_K (SInt a) :* NA_I (El as) :* NP0)
-  sfrom' (SS SZ) (El (Leaf a))   = Rep $ There (Here (NA_K (SInt a) :* NP0))
-  sfrom' SZ (El [])              = Rep $ Here NP0
-  sfrom' SZ (El (x:xs))          = Rep $ There (Here (NA_I (El x) :* NA_I (El xs) :* NP0))
+  sfrom' (SS SZ) (El (a :>: as)) = Rep $ NS (Constr' 0 :: Constr' RTCode Z)
+                                            (NA_K (SInt a) :* NA_I (El as) :* NP0)
+  sfrom' (SS SZ) (El (Leaf a))   = Rep $ NS (Constr' 1 :: Constr' RTCode (S Z))
+                                            (NA_K (SInt a) :* NP0)
+  sfrom' SZ (El [])              = Rep $ NS (Constr' 0 :: Constr' ListCode Z)
+                                            NP0
+  sfrom' SZ (El (x:xs))          = Rep $ NS (Constr' 1 :: Constr' ListCode (S Z))
+                                            (NA_I (El x) :* NA_I (El xs) :* NP0)
 
-  sto' SZ (Rep (Here NP0))
-    = El []
-  sto' SZ (Rep (There (Here (NA_I (El x) :* NA_I (El xs) :* NP0))))
-    = El (x : xs)
-  sto' (SS SZ) (Rep (Here (NA_K (SInt a) :* NA_I (El as) :* NP0)))
-    = El (a :>: as)
-  sto' (SS SZ) (Rep (There (Here (NA_K (SInt a) :* NP0))))
-    = El (Leaf a)
+  sto' SZ (Rep (NS (Constr' i) x))
+    = case i of
+        0 -> case x of
+               NP0 -> El []
+               _   -> error "malformed val"
+        1 -> case x of
+               (NA_I (El x) :* NA_I (El xs) :* NP0)
+                 -> El (unsafeCoerce x : unsafeCoerce xs)
+               _ -> error "malformed val"
+  sto' (SS SZ) (Rep (NS (Constr' i) x))
+    = case i of
+        0 -> case x of
+               (NA_K (SInt a) :* NA_I (El as) :* NP0)
+                 -> El (unsafeCoerce a :>: unsafeCoerce as)
+               _ -> error "malformed val"
+        1 -> case x of
+               (NA_K (SInt a) :* NP0)
+                 -> El (Leaf (unsafeCoerce a))
+               _ -> error "malfored val"
 
 instance HasDatatypeInfo Singl FamRose CodesRose where
   datatypeInfo _ SZ
@@ -101,4 +117,3 @@ sumTree = crush k sum . (into @FamRose)
 
 testSum :: Bool
 testSum = sumTree value3 == sumTree (normalize value3)
--}

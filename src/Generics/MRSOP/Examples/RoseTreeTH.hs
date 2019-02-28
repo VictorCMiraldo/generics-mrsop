@@ -27,6 +27,7 @@ import Generics.MRSOP.TH
 
 import Control.Monad
 
+import Unsafe.Coerce
 
 -- * Defining the datatype
 --
