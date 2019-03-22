@@ -77,11 +77,17 @@ constructorName (Record c _)    = c
 data FieldInfo :: Atom kon -> * where
   FieldInfo :: { fieldName :: FieldName } -> FieldInfo k
 
-deriving instance Show (NP ConstructorInfo code)
-deriving instance Show (NP FieldInfo code)
-deriving instance Show (ConstructorInfo code)
-deriving instance Show (DatatypeInfo code)
 deriving instance Show (FieldInfo atom)
+
+instance ShowHO FieldInfo where
+  showHO = show
+
+deriving instance Show (ConstructorInfo code)
+
+instance ShowHO ConstructorInfo where
+  showHO = show
+
+deriving instance Show (DatatypeInfo code)
 
 -- |Given a 'Family', provides the 'DatatypeInfo' for the type
 --  with index @ix@ in family 'fam'.

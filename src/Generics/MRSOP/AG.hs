@@ -1,19 +1,16 @@
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE PolyKinds #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE PolyKinds           #-}
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE TypeApplications    #-}
+{-# LANGUAGE KindSignatures      #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE GADTs #-}
+{-# LANGUAGE GADTs               #-}
 
 -- | Attribute grammars over mutual recursive datatypes
 module Generics.MRSOP.AG where
 
 import Data.Coerce
-import Data.Foldable (fold)
 import Data.Functor.Const
-import Data.Functor.Product
-import Data.Monoid (Sum(..), (<>))
 import Generics.MRSOP.Base
 import Generics.MRSOP.Util
 
@@ -44,26 +41,19 @@ zipAnn f (AnnFix a1 t1) (AnnFix a2 t2) = AnnFix (f a1 a2) (zipWithRep t1 t2)
     zipWithNA (NA_I t1) (NA_I t2) = NA_I (zipAnn f t1 t2)
     zipWithNA (NA_K i1) (NA_K i2) = NA_K i1  -- Should be the same!
 
-mapAnn :: (forall iy. chi iy -> phi iy)
+mapAnn :: (IsNat ix)
+       => (forall iy. chi iy -> phi iy)
        -> AnnFix ki codes chi ix
        -> AnnFix ki codes phi ix
 mapAnn f = synthesizeAnn (\x _ -> f x)
 
--- HACK. why doesn't haskell have this instance?
-instance Show k => Show1 (Const k) where
-  show1 (Const x) = show x
-
-instance (Show1 f, Show1 g) => Show1 (Product f g) where
-  show1 (Pair x y) = "(" ++ show1 x ++ ", " ++ show1 y ++ ")"
-
 -- | Inherited attributes
-
-inheritAnn ::
-     forall ki codes chi phi ix.
-     (forall iy. chi iy -> Rep ki (Const ()) (Lkup iy codes) -> phi iy -> Rep ki phi (Lkup iy codes))
-  -> phi ix
-  -> AnnFix ki codes chi ix
-  -> AnnFix ki codes phi ix
+inheritAnn :: forall ki codes chi phi ix
+            . (forall iy. chi iy -> Rep ki (Const ()) (Lkup iy codes)
+                       -> phi iy -> Rep ki phi (Lkup iy codes))
+           -> phi ix
+           -> AnnFix ki codes chi ix
+           -> AnnFix ki codes phi ix
 inheritAnn f start (AnnFix ann rep) =
   let newFix = f ann (mapRep (const (Const ())) rep) start
       zipWithRep ::
@@ -91,12 +81,12 @@ inheritAnn f start (AnnFix ann rep) =
       zipWithNA (NA_K i1) (NA_K i2) = NA_K i1
    in AnnFix start (zipWithRep rep newFix)
 
-inherit ::
-     forall ki phi codes ix.
-     (forall iy. Rep ki (Const ()) (Lkup iy codes) -> phi iy -> Rep ki phi (Lkup iy codes))
-  -> phi ix
-  -> Fix ki codes ix
-  -> AnnFix ki codes phi ix
+inherit :: forall ki phi codes ix
+         . (forall iy. Rep ki (Const ()) (Lkup iy codes) -> phi iy
+                    -> Rep ki phi (Lkup iy codes))
+        -> phi ix
+        -> Fix ki codes ix
+        -> AnnFix ki codes phi ix
 inherit f start (Fix rep) =
   let newFix = (f (mapRep (const (Const ())) rep) start)
       zipWithRep ::
@@ -125,22 +115,39 @@ inherit f start (Fix rep) =
    in AnnFix start (zipWithRep rep newFix)
 
 -- | Synthesized attributes
-
-synthesizeAnn ::
-     forall ki codes chi phi ix.
-     (forall iy. chi iy -> Rep ki phi (Lkup iy codes) -> phi iy)
-  -> AnnFix ki codes chi ix
-  -> AnnFix ki codes phi ix
+synthesizeAnn :: forall ki codes chi phi ix
+               . (IsNat ix)
+              => 
+                 (forall iy. chi iy -> Rep ki phi (Lkup iy codes) -> phi iy)
+              -> AnnFix ki codes chi ix
+              -> AnnFix ki codes phi ix
 synthesizeAnn f = annCata alg
   where
-    alg ::
-         forall iy.
-         chi iy
-      -> Rep ki (AnnFix ki codes phi) (Lkup iy codes)
-      -> AnnFix ki codes phi iy
+    alg :: forall iy
+         . chi iy
+        -> Rep ki (AnnFix ki codes phi) (Lkup iy codes)
+        -> AnnFix ki codes phi iy
     alg ann rep = AnnFix (f ann (mapRep getAnn rep)) rep
     
 
+-- |Example of using 'synthesize' to annotate a tree with its size
+-- at every node.
+--
+--   > sizeAlgebra :: Rep ki (Const (Sum Int)) xs -> Const (Sum Int) iy
+--   > sizeAlgebra = (Const 1 <>) . monoidAlgebra
+--
+-- Annotate each node with the number of subtrees
+--
+--   > sizeGeneric' :: (IsNat ix)
+--   >              => Fix ki codes ix -> AnnFix ki codes (Const (Sum Int)) ix
+--   > sizeGeneric' = synthesize sizeAlgebra
+--
+-- Note how using just 'cata' will simply count the number of nodes
+--
+--   > sizeGeneric :: (IsNat ix)
+--   >             => Fix ki codes ix -> Const (Sum Int) ix
+--   > sizeGeneric = cata sizeAlgebra
+--
 synthesize :: forall ki phi codes ix
             . (IsNat ix)
            => (forall iy . (IsNat iy) => Rep ki phi (Lkup iy codes) -> phi iy)
@@ -154,26 +161,3 @@ synthesize f = cata alg
         -> AnnFix ki codes phi iy
     alg xs = AnnFix (f (mapRep getAnn xs)) xs
 
-monoidAlgebra :: Monoid m => Rep ki (Const m) xs -> Const m iy
-monoidAlgebra = elimRep mempty coerce fold
-
--- If haskell had semirings in base, or edward kmett had a package for it
--- we could do :
--- semiringAlgebra :: Semiring w => Rep ki (Const w) xs -> Const w iy
--- semiringAlgebra = (one <>) . monoidAlgebra
---
--- sizeAlgebra :: Rep ki (Const (Sum Int)) xs -> Const (Sum Int) iy
--- sizeAlgebra = semiringAlgebra
-
-sizeAlgebra :: Rep ki (Const (Sum Int)) xs -> Const (Sum Int) iy
-sizeAlgebra = (Const 1 <>) . monoidAlgebra
-
--- | Annotate each node with the number of subtrees
-sizeGeneric' :: (IsNat ix)
-             => Fix ki codes ix -> AnnFix ki codes (Const (Sum Int)) ix
-sizeGeneric' = synthesize sizeAlgebra
-
--- | Count the number of nodes
-sizeGeneric :: (IsNat ix)
-            => Fix ki codes ix -> Const (Sum Int) ix
-sizeGeneric = cata sizeAlgebra

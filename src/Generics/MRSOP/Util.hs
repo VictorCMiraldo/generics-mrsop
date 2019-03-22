@@ -7,14 +7,18 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE TypeApplications    #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE PatternSynonyms     #-}
 -- |Useful utilities we need accross multiple modules.
 module Generics.MRSOP.Util
   ( -- * Utility Functions and Types
     (&&&) , (***)
   , (:->) , (<.>)
 
-    -- * Poly-kind indexed product
-  , (:*:)(..) , curry' , uncurry' , delta'
+    -- * Poly-kind indexed product functionality
+  , Product(..), (:*:), pattern (:*:) , Delta , curry' , uncurry' , delta
+
+    -- * Poly-kind indexed sums
+  , Sum(..) , either'
 
     -- * Type-level Naturals
   , Nat(..) , proxyUnsuc
@@ -30,32 +34,42 @@ module Generics.MRSOP.Util
   , Lkup , Idx , El(..) , getElSNat , into
 
     -- * Higher-order Eq and Show
-  , Eq1(..) , Show1(..)
+  , EqHO(..) , ShowHO(..)
   ) where
 
 import Data.Proxy
 import Data.Type.Equality
+import Data.Functor.Product
+import Data.Functor.Sum
+import Data.Functor.Const
 import GHC.TypeLits (TypeError , ErrorMessage(..))
 import Control.Arrow ((***) , (&&&))
 
--- |Poly-kind-indexed product
-data (:*:) (f :: k -> *) (g :: k -> *) (x :: k)
-  = f x :*: g x
-
--- |Distributes the index over the product
-delta' :: (f :*: g) x -> (f x , g x)
-delta' (f :*: g) = (f , g)
+type    (:*:)     = Product
+pattern (:*:) x y = Pair x y
 
 -- |Lifted curry
-curry' :: ((f :*: g) x -> a) -> f x -> g x -> a
-curry' f fx gx = f (fx :*: gx)
+curry' :: (Product f g x -> a) -> f x -> g x -> a
+curry' f fx gx = f (Pair fx gx)
 
 -- |Lifted uncurry
-uncurry' :: (f x -> g x -> a) -> (f :*: g) x -> a
-uncurry' f (fx :*: gx) = f fx gx
+uncurry' :: (f x -> g x -> a) -> Product f g x -> a
+uncurry' f (Pair fx gx) = f fx gx
 
 -- |Natural transformations
 type f :-> g = forall n . f n -> g n
+
+-- |Diagonal indexed functor
+type Delta f = Product f f
+
+-- |Duplicates its argument
+delta :: f :-> Delta f
+delta fx = Pair fx fx
+
+-- |Higher-order sum eliminator
+either' :: (f :-> r) -> (g :-> r) -> Sum f g :-> r
+either' f _ (InL x) = f x
+either' _ g (InR x) = g x
 
 infixr 8 <.>
 -- |Kleisli Composition
@@ -126,7 +140,6 @@ into :: forall fam ty ix
      => ty -> El fam ix
 into = El
 
-
 -- |An inhabitant of @ListPrf ls@ is *not* a singleton!
 --  It only proves that @ls@ is, in fact, a type level list.
 --  This is useful since it enables us to pattern match on
@@ -164,10 +177,31 @@ type L4 xs ys zs as = (IsList xs, IsList ys, IsList zs, IsList as)
 --            in Generics.MRSOP.Opaque, it seems like we don't really need this.
 
 -- |Higher order version of 'Eq'
-class Eq1 (f :: k -> *) where
-  eq1 :: forall k . f k -> f k -> Bool
+class EqHO (f :: k -> *) where
+  eqHO :: forall k . f k -> f k -> Bool
+
+instance Eq a => EqHO (Const a) where
+  eqHO (Const a) (Const b) = a == b
+
+instance (EqHO f, EqHO g) => EqHO (Product f g) where
+  eqHO (Pair fx gx) (Pair fy gy) = eqHO fx fy && eqHO gx gy
+
+instance (EqHO f, EqHO g) => EqHO (Sum f g) where
+  eqHO (InL fx) (InL fy) = eqHO fx fy
+  eqHO (InR gx) (InR gy) = eqHO gx gy
+  eqHO _        _        = False
 
 -- |Higher order version of 'Show'
-class Show1 (f :: k -> *) where
-  show1 :: forall k . f k -> String
+class ShowHO (f :: k -> *) where
+  showHO :: forall k . f k -> String
+
+instance Show a => ShowHO (Const a) where
+  showHO (Const a) = show a
+
+instance (ShowHO f , ShowHO g) => ShowHO (Product f g) where
+  showHO (Pair x y) = "(" ++ showHO x ++ ", " ++ showHO y ++ ")"
+
+instance (ShowHO f , ShowHO g) => ShowHO (Sum f g) where
+  showHO (InL fx) = "InL " ++ showHO fx
+  showHO (InR gx) = "InR " ++ showHO gx
 

@@ -48,9 +48,18 @@ data NA  :: (kon -> *) -> (Nat -> *) -> Atom kon -> * where
   NA_I :: (IsNat k) => phi k -> NA ki phi (I k) 
   NA_K ::              ki  k -> NA ki phi (K k)
 
-instance (Eq1 phi, Eq1 ki) => Eq1 (NA ki phi) where
-  eq1 = eqNA eq1 eq1
+instance (EqHO phi, EqHO ki) => EqHO (NA ki phi) where
+  eqHO = eqNA eqHO eqHO
 
+instance (EqHO phi, EqHO ki) => Eq (NA ki phi at) where
+  (==) = eqHO
+
+instance (ShowHO phi, ShowHO ki) => ShowHO (NA ki phi) where
+  showHO (NA_I i) = "(NA_I " ++ showHO i ++ ")"
+  showHO (NA_K k) = "(NA_K " ++ showHO k ++ ")"
+
+instance (ShowHO phi, ShowHO ki) => Show (NA ki phi at) where
+  show = showHO
 
 instance (TestEquality ki) => TestEquality (NA ki phi) where
   testEquality (NA_I i) (NA_K k) = Nothing
@@ -89,7 +98,7 @@ mapNAM fk fi (NA_K k) = NA_K <$> fk k
 mapNAM fk fi (NA_I f) = NA_I <$> fi f
 
 -- |Eliminates an atom interpretation
-elimNA :: (forall k . ki  k -> b)
+elimNA :: (forall k .            ki  k -> b)
        -> (forall k . IsNat k => phi k -> b)
        -> NA ki phi a -> b
 elimNA kp fp (NA_I x) = fp x
@@ -120,8 +129,11 @@ eqNA kp fp x = elimNA (uncurry' kp) (uncurry' fp) . zipNA x
 newtype Rep (ki :: kon -> *) (phi :: Nat -> *) (code :: [[Atom kon]])
   = Rep { unRep :: NS (PoA ki phi) code }
 
-instance (Eq1 phi, Eq1 ki) => Eq1 (Rep ki phi) where
-  eq1 = eqRep eq1 eq1
+instance (EqHO phi, EqHO ki) => EqHO (Rep ki phi) where
+  eqHO = eqRep eqHO eqHO
+
+instance (EqHO phi, EqHO ki) => Eq (Rep ki phi at) where
+  (==) = eqHO
   
 -- |Product of Atoms is a handy synonym to have.
 type PoA (ki :: kon -> *) (phi :: Nat -> *) = NP (NA ki phi)
@@ -299,7 +311,8 @@ cata f (Fix x) = f (mapRep (cata f) x)
 getAnn :: AnnFix ki codes ann ix -> ann ix
 getAnn (AnnFix a x) = a
 
-annCata :: (forall iy. chi iy -> Rep ki phi (Lkup iy codes) -> phi iy)
+annCata :: IsNat ix
+        => (forall iy. IsNat iy => chi iy -> Rep ki phi (Lkup iy codes) -> phi iy)
         -> AnnFix ki codes chi ix
         -> phi ix
 annCata f (AnnFix a x) = f a (mapRep (annCata f) x)
@@ -308,8 +321,8 @@ annCata f (AnnFix a x) = f a (mapRep (annCata f) x)
 forgetAnn :: AnnFix ki codes a ix -> Fix ki codes ix
 forgetAnn (AnnFix _ rep) = Fix (mapRep forgetAnn rep)
 
-instance Eq1 ki => Eq1 (Fix ki codes) where
-  eq1 = eqFix eq1
+instance EqHO ki => EqHO (Fix ki codes) where
+  eqHO = eqFix eqHO
 
 -- |Retrieves the index of a 'Fix'
 proxyFixIdx :: phi ix -> Proxy ix
@@ -330,8 +343,8 @@ eqFix :: (forall k. ki k -> ki k -> Bool)
       -> Fix ki fam ix -> Fix ki fam ix -> Bool
 eqFix p = eqRep p (eqFix p) `on` unFix
 
-instance Eq1 ki => Eq  (Fix ki codes ix) where
-  (==) = eqFix eq1
+instance EqHO ki => Eq (Fix ki codes ix) where
+  (==) = eqFix eqHO
 
 -- |Compare two indexes of two fixpoints
 --  Note we can't use a 'testEquality' instance because

@@ -20,8 +20,21 @@ data NS :: (k -> *) -> [k] -> * where
   There :: NS p xs -> NS p (x : xs)
   Here  :: p x     -> NS p (x : xs)
 
-instance Eq1 ki => Eq1 (NS ki) where
-  eq1 = eqNS eq1
+instance EqHO phi => EqHO (NS phi) where
+  eqHO = eqNS eqHO
+
+instance EqHO phi => Eq (NS phi xs) where
+  (==) = eqHO
+
+instance ShowHO phi => ShowHO (NS phi) where
+  showHO x = concat ["(" , go 0 x , ")"]
+    where
+      go :: ShowHO phi => Int -> NS phi xs -> String
+      go n (Here r)  = "C" ++ show n ++ " " ++ showHO r
+      go n (There r) = go (n+1) r
+
+instance ShowHO phi => Show (NS phi xs) where
+  show = showHO
 
 -- * Map, Zip and Elim
 

@@ -18,10 +18,18 @@ data NP :: (k -> *) -> [k] -> * where
   NP0  :: NP p '[]
   (:*) :: p x -> NP p xs -> NP p (x : xs)
 
+instance EqHO phi => EqHO (NP phi) where
+  eqHO = eqNP eqHO
 
-instance Eq1 ki => Eq1 (NP ki) where
-  eq1 = eqNP eq1
-  
+instance EqHO phi => Eq (NP phi xs) where
+  (==) = eqHO
+
+instance ShowHO phi => ShowHO (NP phi) where
+  showHO NP0 = "NP0"
+  showHO (a :* b) = showHO a ++ " :* " ++ showHO b
+
+instance ShowHO phi => Show (NP phi xs) where
+  show = showHO
 
 -- * Relation to IsList predicate
 
@@ -77,7 +85,6 @@ cataNP :: (forall x xs . f x  -> r xs -> r (x : xs))
        -> NP f xs -> r xs
 cataNP fCons fNil NP0       = fNil
 cataNP fCons fNil (k :* ks) = fCons k (cataNP fCons fNil ks)
-
 
 -- |Consumes a value of type 'NP'.
 cataNPM :: (Monad m)

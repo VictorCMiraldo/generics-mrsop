@@ -55,11 +55,11 @@ data Singl (kon :: Kon) :: * where
 deriving instance Show (Singl k)
 deriving instance Eq   (Singl k)
 
-instance Eq1 Singl where
-  eq1 = (==)
+instance EqHO Singl where
+  eqHO = (==)
 
-instance Show1 Singl where
-  show1 = show
+instance ShowHO Singl where
+  showHO = show
 
 -- |Equality over singletons
 eqSingl :: Singl k -> Singl k -> Bool
