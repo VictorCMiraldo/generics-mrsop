@@ -1,11 +1,13 @@
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE FlexibleInstances   #-}
-{-# LANGUAGE GADTs               #-}
-{-# LANGUAGE TypeOperators       #-}
-{-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE PolyKinds           #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE RankNTypes             #-}
+{-# LANGUAGE FlexibleContexts       #-}
+{-# LANGUAGE FlexibleInstances      #-}
+{-# LANGUAGE GADTs                  #-}
+{-# LANGUAGE TypeOperators          #-}
+{-# LANGUAGE DataKinds              #-}
+{-# LANGUAGE PolyKinds              #-}
+{-# LANGUAGE ScopedTypeVariables    #-}
+{-# OPTIONS_GHC -Wno-name-shadowing #-}
+
 -- | Standard representation of n-ary sums.
 module Generics.MRSOP.Base.NS where
 
@@ -62,12 +64,13 @@ zipNS _         _         = mzero
 
 -- * Catamorphism
 
+
 -- |Consumes a value of type 'NS'
 cataNS :: (forall x xs . f x  -> r (x ': xs))
        -> (forall x xs . r xs -> r (x ': xs))
        -> NS f xs -> r xs
-cataNS fHere fThere (Here x)  = fHere x
-cataNS fHere fThere (There x) = fThere (cataNS fHere fThere x)
+cataNS fHere _fThere (Here x)  = fHere x
+cataNS fHere fThere  (There x) = fThere (cataNS fHere fThere x)
 
 -- * Equality
 

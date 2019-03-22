@@ -49,22 +49,22 @@ listPrfNP (_ :* xs) = Cons $ listPrfNP xs
 
 -- |Maps a natural transformation over a n-ary product
 mapNP :: f :-> g -> NP f ks -> NP g ks
-mapNP f NP0       = NP0
+mapNP _ NP0       = NP0
 mapNP f (k :* ks) = f k :* mapNP f ks
 
 -- |Maps a monadic natural transformation over a n-ary product
 mapNPM :: (Monad m) => (forall x . f x -> m (g x)) -> NP f ks -> m (NP g ks)
-mapNPM f NP0       = return NP0
+mapNPM _ NP0       = return NP0
 mapNPM f (k :* ks) = (:*) <$> f k <*> mapNPM f ks
 
 -- |Eliminates the product using a provided function.
 elimNP :: (forall x . f x -> a) -> NP f ks -> [a]
-elimNP f NP0       = []
+elimNP _ NP0       = []
 elimNP f (k :* ks) = f k : elimNP f ks
 
 -- |Monadic eliminator
 elimNPM :: (Monad m) => (forall x . f x -> m a) -> NP f ks -> m [a]
-elimNPM f NP0       = return []
+elimNPM _ NP0       = return []
 elimNPM f (k :* ks) = (:) <$> f k <*> elimNPM f ks
 
 -- |Combines two products into one.
@@ -74,24 +74,24 @@ zipNP (f :* fs) (g :* gs) = (f :*: g) :* zipNP fs gs
 
 -- |Unzips a combined product into two separate products
 unzipNP :: NP (f :*: g) xs -> (NP f xs , NP g xs)
-unzipNP NP0                = (NP0 , NP0) 
-unzipNP ((f :*: g) :* fgs) = (f :*) *** (g :*) $ unzipNP fgs
+unzipNP NP0               = (NP0 , NP0) 
+unzipNP (Pair f g :* fgs) = (f :*) *** (g :*) $ unzipNP fgs
 
 -- * Catamorphism
 
 -- |Consumes a value of type 'NP'.
-cataNP :: (forall x xs . f x  -> r xs -> r (x : xs))
+cataNP :: (forall a as . f a  -> r as -> r (a : as))
        -> r '[]
        -> NP f xs -> r xs
-cataNP fCons fNil NP0       = fNil
-cataNP fCons fNil (k :* ks) = fCons k (cataNP fCons fNil ks)
+cataNP _fCons fNil NP0       = fNil
+cataNP fCons  fNil (k :* ks) = fCons k (cataNP fCons fNil ks)
 
 -- |Consumes a value of type 'NP'.
 cataNPM :: (Monad m)
-        => (forall x xs . f x  -> r xs -> m (r (x : xs)))
+        => (forall a as . f a  -> r as -> m (r (a : as)))
         -> m (r '[])
         -> NP f xs -> m (r xs)
-cataNPM fCons fNil NP0       = fNil
+cataNPM _fCons fNil NP0       = fNil
 cataNPM fCons fNil (k :* ks) = cataNPM fCons fNil ks >>= fCons k 
 
 

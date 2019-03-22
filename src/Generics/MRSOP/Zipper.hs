@@ -12,7 +12,6 @@
 --  universe.
 module Generics.MRSOP.Zipper where
 
-import Data.Type.Equality
 import Generics.MRSOP.Base hiding (Cons , Nil)
 
 -- |In a @Zipper@, a Location is a a pair of a one hole context
@@ -40,7 +39,7 @@ data Ctx :: (kon -> *) -> [*] -> [[Atom kon]] -> Nat -> * where
 -- |A @NPHole ki fam ix prod@ is a recursive position
 --  of type @ix@ in @prod@.
 data NPHole :: (kon -> *) -> [*] -> Nat -> [Atom kon] -> * where
-  H :: PoA ki (El fam) xs -> NPHole ki fam ix (I ix : xs)
+  H :: PoA ki (El fam) xs -> NPHole ki fam ix ('I ix : xs)
   T :: NA ki (El fam) x -> NPHole ki fam ix xs -> NPHole ki fam ix (x : xs)
 
 -- |Existential abstraction; needed for walking the possible
@@ -81,8 +80,8 @@ walkNPHole el (T na xs)
 first :: (forall ix . IsNat ix => El fam ix -> Ctx ki fam c ix -> a)
       -> Rep ki (El fam) c -> Maybe a
 first f el | Tag c p <- sop el
-  = do (ExistsIX el nphole) <- mkNPHole p
-       return (f el (Ctx c nphole))
+  = do (ExistsIX el0 nphole) <- mkNPHole p
+       return (f el0 (Ctx c nphole))
 
 
 -- |Fills up a hole.
@@ -118,13 +117,13 @@ down (Loc el ctx)
 -- |Move one layer upwards within the recursive structure
 up :: (Family ki fam codes, IsNat ix)
    => Loc ki fam codes ix -> Maybe (Loc ki fam codes ix)
-up (Loc el Nil)             = Nothing
+up (Loc _  Nil)             = Nothing
 up (Loc el (Cons ctx ctxs)) = Just (Loc (sto $ fill el ctx) ctxs)
 
 -- |More one hole to the right
 right :: (Family ki fam codes, IsNat ix)
       => Loc ki fam codes ix -> Maybe (Loc ki fam codes ix)
-right (Loc el Nil)             = Nothing
+right (Loc _  Nil)             = Nothing
 right (Loc el (Cons ctx ctxs)) = next (\el' ctx' -> Loc el' (Cons ctx' ctxs)) el ctx
 
 -- * Interface
@@ -142,6 +141,6 @@ leave loc         = maybe undefined leave $ up loc -- up returns a just!
 
 -- |Updates the value in the hole.
 update :: (Family ki fam codes , IsNat ix)
-       => (forall ix . SNat ix -> El fam ix -> El fam ix)
+       => (forall iy . SNat iy -> El fam iy -> El fam iy)
        -> Loc ki fam codes ix -> Loc ki fam codes ix
 update f (Loc el ctxs) = Loc (f (getElSNat el) el) ctxs

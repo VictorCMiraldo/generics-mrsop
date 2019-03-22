@@ -12,9 +12,6 @@
 -- |Provides the main class of the library, 'Family'.
 module Generics.MRSOP.Base.Class where
 
-import Data.Functor.Const
-import Data.Function (on)
-
 import Generics.MRSOP.Base.Universe
 import Generics.MRSOP.Util
 

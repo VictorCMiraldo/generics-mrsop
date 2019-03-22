@@ -12,7 +12,6 @@ module Generics.MRSOP.Base.Metadata where
 import Data.Proxy
 
 import Generics.MRSOP.Util
-import Generics.MRSOP.Base.NS
 import Generics.MRSOP.Base.NP
 import Generics.MRSOP.Base.Universe
 import Generics.MRSOP.Base.Class
@@ -115,8 +114,8 @@ constrInfoLkup :: Constr sum c -> DatatypeInfo sum -> ConstructorInfo (Lkup c su
 constrInfoLkup c = go c . constructorInfo
   where
     go :: Constr sum c -> NP ConstructorInfo sum -> ConstructorInfo (Lkup c sum)
-    go CZ     (ci :* _)   = ci
-    go (CS c) (_  :* cis) = go c cis
+    go CZ      (ci :* _)   = ci
+    go (CS c0) (_  :* cis) = go c0 cis
 
 
 -- |Returns the constructor information for a given

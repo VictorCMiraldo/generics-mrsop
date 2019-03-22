@@ -14,12 +14,8 @@ module Generics.MRSOP.Base.Combinators where
 
 import Data.Function (on)
 
-import Control.Applicative
-import Control.Monad
 import Control.Monad.Identity
 
-import Generics.MRSOP.Base.NS          
-import Generics.MRSOP.Base.NP          
 import Generics.MRSOP.Base.Universe    
 import Generics.MRSOP.Base.Class       
 import Generics.MRSOP.Util

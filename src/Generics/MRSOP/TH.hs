@@ -4,7 +4,9 @@
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE DeriveFunctor     #-}
 {-# LANGUAGE TemplateHaskell   #-}
-{-# OPTIONS_GHC -cpp           #-}
+{-# OPTIONS_GHC -cpp                      #-}
+{-# OPTIONS_GHC -Wno-name-shadowing       #-}
+{-# OPTIONS_GHC -Wno-unused-pattern-binds #-}
 -- | Provides a simple way for the end-user deriving
 --   the mechanical, yet long, Element instances
 --   for a family.
@@ -20,19 +22,18 @@ module Generics.MRSOP.TH
   ) where
 
 import Data.Function (on)
-import Data.Char (ord , isAlphaNum)
-import Data.List (sortBy, foldl')
+import Data.Char (isAlphaNum)
+import Data.List (sortBy)
 
 import Control.Monad
 import Control.Monad.State
-import Control.Monad.Writer
-import Control.Monad.Identity
+import Control.Monad.Writer   (WriterT, tell, runWriterT)
+import Control.Monad.Identity (runIdentity)
 
 import Language.Haskell.TH hiding (match)
 import Language.Haskell.TH.Syntax (liftString)
 
 import Generics.MRSOP.Util
-import Generics.MRSOP.Opaque
 import Generics.MRSOP.Base.Class
 import Generics.MRSOP.Base.NS
 import Generics.MRSOP.Base.NP
@@ -73,7 +74,7 @@ deriveFamilyWith opqName t
   where
     second (_ , x , _) = x
     
-    extractDTI (sty , (ix , Nothing))
+    extractDTI (sty , (_ix , Nothing))
       = fail $ "Type " ++ show sty ++ " has no datatype information."
     extractDTI (sty , (ix , Just dti))
       = return (sty , ix , dti)
@@ -155,9 +156,10 @@ dtiMapM :: (Monad m) => (ty -> m tw) -> DTI ty -> m (DTI tw)
 dtiMapM f (ADT name args ci) = ADT name args <$> mapM (ciMapM f) ci
 dtiMapM f (New name args ci) = New name args <$> ciMapM f ci
 
-dtiName :: DTI ty -> DataName
-dtiName (ADT name _ _) = name
-dtiName (New name _ _) = name
+-- defined but not used
+-- dtiName :: DTI ty -> DataName
+-- dtiName (ADT name _ _) = name
+-- dtiName (New name _ _) = name
 
 dti2ci :: DTI ty -> [CI ty]
 dti2ci (ADT _ _ cis) = cis
@@ -194,8 +196,8 @@ data STy
 
 styFold :: (a -> a -> a) -> (Name -> a) -> (Name -> a) -> STy -> a
 styFold app var con (AppST a b) = app (styFold app var con a) (styFold app var con b)
-styFold app var con (VarST n)   = var n
-styFold app var con (ConST n)   = con n
+styFold _   var _   (VarST n)   = var n
+styFold _   _   con (ConST n)   = con n
 
 -- |Does a STy have a varible name?
 isClosed :: STy -> Bool
@@ -220,14 +222,14 @@ trevnocType (ConST n)
   | n == mkName "[]" = ListT
   | isTupleN n       = TupleT $ length (show n) - 1
   | otherwise        = ConT n
-  where isTupleN n = take 2 (show n) == "(,"
+  where isTupleN n0 = take 2 (show n0) == "(,"
 
 -- |Handy substitution function.
 --
 --  @stySubst t m n@ substitutes m for n within t, that is: t[m/n]
 stySubst :: STy -> Name -> STy -> STy
 stySubst (AppST a b) m n = AppST (stySubst a m n) (stySubst b m n)
-stySubst (ConST a)   m n = ConST a
+stySubst (ConST a)   _ _ = ConST a
 stySubst (VarST x)   m n
   | x == m    = n
   | otherwise = VarST x
@@ -257,7 +259,7 @@ argInfo (KindedTV n _) = n
 
 -- Extracts a DTI from a Dec
 decInfo :: Dec -> Q (DTI STy)
-decInfo (TySynD     name args      ty)     = fail "Type Synonyms not supported"
+decInfo (TySynD     _name _args _ty)       = fail "Type Synonyms not supported"
 decInfo (DataD    _ name args    _ cons _) = ADT name (map argInfo args) <$> mapM conInfo cons
 decInfo (NewtypeD _ name args    _ con _)  = New name (map argInfo args) <$> conInfo con
 decInfo _                                  = fail "Only type declarations are supported"
@@ -300,9 +302,10 @@ data IK
   | AtomK Name
   deriving (Eq , Show)
 
-ikElim :: (Int -> a) -> (Name -> a) -> IK -> a
-ikElim i k (AtomI n) = i n
-ikElim i k (AtomK n) = k n
+-- defined but not used
+-- ikElim :: (Int -> a) -> (Name -> a) -> IK -> a
+-- ikElim i k (AtomI n) = i n
+-- ikElim i k (AtomK n) = k n
 
 data Idxs 
   = Idxs { idxsNext :: Int
@@ -344,8 +347,9 @@ register ty info = indexOf ty -- the call to indexOf guarantees the
 lkup :: (Monad m) => STy -> IdxsM m (Maybe (Int , Maybe (DTI IK)))
 lkup ty = M.lookup ty . idxsMap <$> get
 
-lkupInfo :: (Monad m) => STy -> IdxsM m (Maybe Int)
-lkupInfo ty = fmap fst <$> lkup ty
+-- defined but not used
+-- lkupInfo :: (Monad m) => STy -> IdxsM m (Maybe Int)
+-- lkupInfo ty = fmap fst <$> lkup ty
 
 lkupData :: (Monad m) => STy -> IdxsM m (Maybe (DTI IK))
 lkupData ty = join . fmap snd <$> lkup ty
@@ -402,7 +406,8 @@ reifyOpaqueType opq
 -- |Performs step 2 of the sketch;
 reifySTy :: OpaqueData -> STy -> M ()
 reifySTy opq sty
-  = do ix <- indexOf sty
+  = do _ <- indexOf sty -- we don't care about the index of sty now, but we
+                        -- need to register it
        uncurry go (styFlatten sty)
   where
     go :: STy -> [STy] -> M ()
@@ -413,6 +418,7 @@ reifySTy opq sty
            (final , todo) <- runWriterT $ dtiMapM (convertSTy (opaqueTable opq)) res
            register sty final
            mapM_ (reifySTy opq) todo
+    go _ _ = fail "I can't convert appST or varST in reifySTy"
     
     -- Convert the STy's in the fields of the constructors;
     -- tells a list of STy's we still need to process.
@@ -434,7 +440,7 @@ reifySTy opq sty
 
     makeCons :: M.Map Name Name -> STy -> Maybe Name
     makeCons opqTable (ConST n) = M.lookup n opqTable
-    makeCons opqTable _         = Nothing
+    makeCons _        _         = Nothing
 
 -----------------------------
 -- * Generating the Code * --
@@ -525,8 +531,8 @@ int2Type n = AppT tyS (int2Type (n - 1))
 
 -- generate the name of the type synonym corresponding to
 -- this int.
-int2TySynName :: Int -> Name
-int2TySynName i = mkName $ "D" ++ show i ++ "_"
+-- int2TySynName :: Int -> Name
+-- int2TySynName i = mkName $ "D" ++ show i ++ "_"
 
 -- generates a Snat for the given Int
 int2SNatPat :: Int -> Pat
@@ -534,6 +540,7 @@ int2SNatPat 0 = ConP (mkName "SZ") []
 int2SNatPat n = ConP (mkName "SS") [int2SNatPat $ n-1]
 
 -- Our promoted type constructors
+tyS , tyZ , tyI , tyK :: Type
 tyS = PromotedT (mkName "S")
 tyZ = PromotedT (mkName "Z")
 tyI = PromotedT (mkName "I")
@@ -697,7 +704,7 @@ genIdxPatSyn sty ix
 --
 genPiece2 :: OpaqueData -> STy -> Input -> Q [Dec]
 genPiece2 opq first ls
-  = do p21  <- mapM (\(sty , ix , dti) -> genIdxPatSyn sty ix) ls
+  = do p21  <- mapM (\(sty , ix , _dti) -> genIdxPatSyn sty ix) ls
        p22  <- genPiece2_2 opq first ls
        -- p211 <- genHereTherePatSyn opq first ls
        return $ p21 ++ p22
@@ -715,7 +722,7 @@ genPiece2 opq first ls
 --  will be named @OpInt_Ifx4@.
 --
 genPiece2_2 :: OpaqueData -> STy -> Input -> Q [Dec]
-genPiece2_2 opq first ls
+genPiece2_2 _opq first ls
   = concat <$> mapM (\(sty , ix , dti) -> genTagPatSyns sty ix dti) ls
   where
     genTagPatSyns :: STy -> Int -> DTI IK -> Q [Dec]
@@ -799,14 +806,14 @@ genPiece3 opq first ls
 --  >     , Rep (There (There (Here (NA_I (El x_1) :* NA_I (El x_2) :* NP0))))
 --  >     )
 ci2PatExp :: OpaqueData -> Int -> Int -> CI IK -> Q (Pat , Exp)
-ci2PatExp opq dtiIx cIdx ci
+ci2PatExp opq _dtiIx cIdx ci
   = do (vars , pat) <- ci2Pat ci
-       bdy          <- [e| Rep $(inj cIdx $ genBdy (zip vars (ci2ty ci))) |]
+       bdy          <- [e| Rep $(mkInj cIdx $ genBdy (zip vars (ci2ty ci))) |]
        return (ConP (mkName "El") [pat] , bdy)
   where
-    inj :: Int -> Q Exp -> Q Exp
-    inj 0 e = [e| Here $e              |]
-    inj n e = [e| There $(inj (n-1) e) |]
+    mkInj :: Int -> Q Exp -> Q Exp
+    mkInj 0 e = [e| Here $e                |]
+    mkInj n e = [e| There $(mkInj (n-1) e) |]
 
     genBdy :: [(Name , IK)] -> Q Exp
     genBdy []       = [e| NP0 |]
@@ -824,14 +831,14 @@ ci2PatExp opq dtiIx cIdx ci
 --        , El (Bin x_1 x_2)
 --  >     )
 ci2ExpPat :: OpaqueData -> Int -> Int -> CI IK -> Q (Pat , Exp)
-ci2ExpPat opq dtiIx cIdx ci 
-  = do (vars , exp) <- ci2Exp ci
-       pat          <- [p| Rep $(inj cIdx $ genBdy (zip vars (ci2ty ci))) |]
-       return (pat , AppE (ConE $ mkName "El") exp)
+ci2ExpPat opq _dtiIx cIdx ci 
+  = do (vars , myexp) <- ci2Exp ci
+       pat            <- [p| Rep $(mkInj cIdx $ genBdy (zip vars (ci2ty ci))) |]
+       return (pat , AppE (ConE $ mkName "El") myexp)
   where
-    inj :: Int -> Q Pat -> Q Pat
-    inj 0 e = [p| Here $e              |]
-    inj n e = [p| There $(inj (n-1) e) |]
+    mkInj :: Int -> Q Pat -> Q Pat
+    mkInj 0 e = [p| Here $e                |]
+    mkInj n e = [p| There $(mkInj (n-1) e) |]
     
     genBdy :: [(Name , IK)] -> Q Pat
     genBdy []       = [p| NP0 |]
@@ -960,7 +967,7 @@ genFamilyDebug :: STy -> [(STy , Int , DTI IK)] -> Q [Dec]
 genFamilyDebug _ ms = concat <$> mapM genDec ms
   where
     genDec :: (STy , Int , DTI IK) -> Q [Dec]
-    genDec (sty , ix , dti)
+    genDec (_sty , ix , dti)
       = [d| $( genPat ix ) = $(mkBody dti) |]
 
     mkBody :: DTI IK -> Q Exp

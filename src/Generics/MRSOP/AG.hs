@@ -9,10 +9,8 @@
 -- | Attribute grammars over mutual recursive datatypes
 module Generics.MRSOP.AG where
 
-import Data.Coerce
 import Data.Functor.Const
 import Generics.MRSOP.Base
-import Generics.MRSOP.Util
 
 -- | Annotated version of Fix.   This is basically the 'Cofree' datatype,
 -- but for n-ary functors
@@ -21,7 +19,7 @@ data AnnFix (ki :: kon -> *) (codes :: [[[Atom kon]]]) (phi :: Nat -> *) (n :: N
          (Rep ki (AnnFix ki codes phi) (Lkup n codes))
 
 getAnn :: AnnFix ki codes ann ix -> ann ix
-getAnn (AnnFix a x) = a
+getAnn (AnnFix a _) = a
 
 annCata :: IsNat ix
         => (forall iy. IsNat iy => chi iy -> Rep ki phi (Lkup iy codes) -> phi iy)
@@ -58,8 +56,8 @@ zipAnn f (AnnFix a1 t1) (AnnFix a2 t2) = AnnFix (f a1 a2) (zipWithRep t1 t2)
     zipWithNA :: NA ki (AnnFix ki codes phi1) ws
               -> NA ki (AnnFix ki codes phi2) ws
               -> NA ki (AnnFix ki codes phi3) ws
-    zipWithNA (NA_I t1) (NA_I t2) = NA_I (zipAnn f t1 t2)
-    zipWithNA (NA_K i1) (NA_K i2) = NA_K i1  -- Should be the same!
+    zipWithNA (NA_I u1) (NA_I u2) = NA_I (zipAnn f u1 u2)
+    zipWithNA (NA_K i1) (NA_K _)  = NA_K i1  -- Should be the same!
 
 mapAnn :: (IsNat ix)
        => (forall iy. chi iy -> phi iy)
@@ -99,7 +97,7 @@ inheritAnn f start (AnnFix ann rep) =
         -> NA ki phi ws
         -> NA ki (AnnFix ki codes phi) ws
       zipWithNA (NA_I i1) (NA_I i2) = NA_I (inheritAnn f i2 i1)
-      zipWithNA (NA_K i1) (NA_K i2) = NA_K i1
+      zipWithNA (NA_K i1) (NA_K _)  = NA_K i1
    in AnnFix start (zipWithRep rep newFix)
 
 inherit :: forall ki phi codes ix
@@ -133,7 +131,7 @@ inherit f start (Fix rep) =
         -> NA ki phi ws
         -> NA ki (AnnFix ki codes phi) ws
       zipWithNA (NA_I i1) (NA_I i2) = NA_I (inherit f i2 i1)
-      zipWithNA (NA_K i1) (NA_K i2) = NA_K i1
+      zipWithNA (NA_K i1) (NA_K _)  = NA_K i1
    in AnnFix start (zipWithRep rep newFix)
 
 -- | Synthesized attributes

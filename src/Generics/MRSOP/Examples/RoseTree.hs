@@ -10,6 +10,9 @@
 {-# LANGUAGE ScopedTypeVariables     #-}
 {-# LANGUAGE FunctionalDependencies  #-}
 {-# LANGUAGE PatternSynonyms         #-}
+{-# OPTIONS_GHC -Wno-missing-pattern-synonym-signatures #-}
+{-# OPTIONS_GHC -Wno-incomplete-patterns                #-}
+{-# OPTIONS_GHC -Wno-orphans                            #-}
 -- |This module is analogous to 'Generics.MRSOP.Examples.RoseTreeTH',
 --  but we use no Template Haskell here.
 module Generics.MRSOP.Examples.RoseTree where
@@ -18,7 +21,6 @@ import Data.Function (on)
 
 import Generics.MRSOP.Base
 import Generics.MRSOP.Opaque
-import Generics.MRSOP.Util
 
 -- * Standard Rose-Tree datatype
 
@@ -26,15 +28,15 @@ data R a = a :>: [R a]
          | Leaf a
          deriving Show
 
-value1, value2 :: R Int
+value1, value2, value3 :: R Int
 value1 = 1 :>: [2 :>: [], 3 :>: []]
 value2 = 1 :>: [2 :>: [] , Leaf 12]
 value3 = 3 :>: [Leaf 23 , value1 , value2]
 
 -- ** Family Structure
 
-type ListCode = '[ '[] , '[I (S Z) , I Z] ]
-type RTCode   = '[ '[K KInt , I Z] , '[K KInt] ]
+type ListCode = '[ '[] , '[ 'I ('S 'Z) , 'I 'Z] ]
+type RTCode   = '[ '[ 'K 'KInt , 'I 'Z] , '[ 'K 'KInt] ]
 
 type CodesRose = '[ListCode , RTCode]
 type FamRose   = '[ [R Int] , R Int] 
@@ -46,6 +48,7 @@ instance Family Singl FamRose CodesRose where
   sfrom' (SS SZ) (El (Leaf a))   = Rep $ There (Here (NA_K (SInt a) :* NP0))
   sfrom' SZ (El [])              = Rep $ Here NP0
   sfrom' SZ (El (x:xs))          = Rep $ There (Here (NA_I (El x) :* NA_I (El xs) :* NP0))
+  sfrom' _ _ = error "unreachable"
 
   sto' SZ (Rep (Here NP0))
     = El []
@@ -55,6 +58,7 @@ instance Family Singl FamRose CodesRose where
     = El (a :>: as)
   sto' (SS SZ) (Rep (There (Here (NA_K (SInt a) :* NP0))))
     = El (Leaf a)
+  sto' _ _ = error "unreachable"
 
 instance HasDatatypeInfo Singl FamRose CodesRose where
   datatypeInfo _ SZ
@@ -67,6 +71,8 @@ instance HasDatatypeInfo Singl FamRose CodesRose where
       $  (Infix ":>:" NotAssociative 0)
       :* (Constructor "Leaf")
       :* NP0
+  datatypeInfo _ _
+    = error "unreachable"
 
 -- * Eq Instance
 

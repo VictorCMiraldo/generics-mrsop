@@ -46,6 +46,8 @@ import GHC.TypeLits (TypeError , ErrorMessage(..))
 import Control.Arrow ((***) , (&&&))
 
 type    (:*:)     = Product
+
+pattern (:*:) :: f a -> g a -> Product f g a
 pattern (:*:) x y = Pair x y
 
 -- |Lifted curry
@@ -80,13 +82,13 @@ f <.> g = (>>= f) . g
 data Nat = S Nat | Z
   deriving (Eq , Show)
 
-proxyUnsuc :: Proxy (S n) -> Proxy n
+proxyUnsuc :: Proxy ('S n) -> Proxy n
 proxyUnsuc _ = Proxy
 
 -- |Singleton Term-level natural
 data SNat :: Nat -> * where
-  SZ ::           SNat Z
-  SS :: SNat n -> SNat (S n)
+  SZ ::           SNat 'Z
+  SS :: SNat n -> SNat ('S n)
 
 snat2int :: SNat n -> Integer
 snat2int SZ     = 0
@@ -95,9 +97,9 @@ snat2int (SS n) = 1 + snat2int n
 -- |And their conversion to term-level integers.
 class IsNat (n :: Nat) where
   getSNat :: Proxy n -> SNat n
-instance IsNat Z where
-  getSNat p = SZ
-instance IsNat n => IsNat (S n) where
+instance IsNat 'Z where
+  getSNat _ = SZ
+instance IsNat n => IsNat ('S n) where
   getSNat p = SS (getSNat $ proxyUnsuc p)
 
 getNat :: (IsNat n) => Proxy n -> Integer
@@ -116,15 +118,15 @@ instance TestEquality SNat where
 
 -- |Type-level list lookup
 type family Lkup (n :: Nat) (ks :: [k]) :: k where
-  Lkup Z     (k : ks) = k
-  Lkup (S n) (k : ks) = Lkup n ks
-  Lkup _     '[]      = TypeError (Text "Lkup index too big")
+  Lkup 'Z     (k : ks) = k
+  Lkup ('S n) (k : ks) = Lkup n ks
+  Lkup _      '[]      = TypeError ('Text "Lkup index too big")
 
 -- |Type-level list index
 type family Idx (ty :: k) (xs :: [k]) :: Nat where
-  Idx x (x ': ys) = Z
-  Idx x (y ': ys) = S (Idx x ys)
-  Idx x '[]       = TypeError (Text "Element not found")
+  Idx x (x ': ys) = 'Z
+  Idx x (y ': ys) = 'S (Idx x ys)
+  Idx x '[]       = TypeError ('Text "Element not found")
 
 -- |Also list lookup, but for kind * only.
 data El :: [*] -> Nat -> * where
@@ -177,7 +179,7 @@ type L4 xs ys zs as = (IsList xs, IsList ys, IsList zs, IsList as)
 --            in Generics.MRSOP.Opaque, it seems like we don't really need this.
 
 -- |Higher order version of 'Eq'
-class EqHO (f :: k -> *) where
+class EqHO (f :: ki -> *) where
   eqHO :: forall k . f k -> f k -> Bool
 
 instance Eq a => EqHO (Const a) where
@@ -192,7 +194,7 @@ instance (EqHO f, EqHO g) => EqHO (Sum f g) where
   eqHO _        _        = False
 
 -- |Higher order version of 'Show'
-class ShowHO (f :: k -> *) where
+class ShowHO (f :: ki -> *) where
   showHO :: forall k . f k -> String
 
 instance Show a => ShowHO (Const a) where
