@@ -14,6 +14,25 @@ import Data.Functor.Const
 import Generics.MRSOP.Base
 import Generics.MRSOP.Util
 
+-- | Annotated version of Fix.   This is basically the 'Cofree' datatype,
+-- but for n-ary functors
+data AnnFix (ki :: kon -> *) (codes :: [[[Atom kon]]]) (phi :: Nat -> *) (n :: Nat) =
+  AnnFix (phi n)
+         (Rep ki (AnnFix ki codes phi) (Lkup n codes))
+
+getAnn :: AnnFix ki codes ann ix -> ann ix
+getAnn (AnnFix a x) = a
+
+annCata :: IsNat ix
+        => (forall iy. IsNat iy => chi iy -> Rep ki phi (Lkup iy codes) -> phi iy)
+        -> AnnFix ki codes chi ix
+        -> phi ix
+annCata f (AnnFix a x) = f a (mapRep (annCata f) x)
+
+-- | Forget the annotations
+forgetAnn :: AnnFix ki codes a ix -> Fix ki codes ix
+forgetAnn (AnnFix _ rep) = Fix (mapRep forgetAnn rep)
+
 zipAnn :: forall phi1 phi2 phi3 ki codes ix.
           (forall iy. phi1 iy -> phi2 iy -> phi3 iy)
        -> AnnFix ki codes phi1 ix
