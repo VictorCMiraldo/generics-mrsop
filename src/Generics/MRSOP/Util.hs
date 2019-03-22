@@ -74,8 +74,8 @@ either' f _ (InL x) = f x
 either' _ g (InR x) = g x
 
 -- |Just like 'either'', but the result type is of kind Star
-either'' :: (f :-> Const a) -> (g :-> Const a) -> Sum f g x -> a
-either'' f g = getConst . either' f g
+either'' :: (forall x . f x -> a) -> (forall y . g y -> a) -> Sum f g r -> a
+either'' f g = getConst . either' (Const . f) (Const . g)
 
 infixr 8 <.>
 -- |Kleisli Composition
