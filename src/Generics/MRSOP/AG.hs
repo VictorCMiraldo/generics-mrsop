@@ -49,6 +49,7 @@ zipAnn f (AnnFix a1 t1) (AnnFix a2 t2) = AnnFix (f a1 a2) (zipWithRep t1 t2)
               -> NS (PoA ki (AnnFix ki codes phi3)) ys
     zipWithNS (Here x) (Here y)   = Here $ zipWithNP x y
     zipWithNS (There x) (There y) = There $ zipWithNS x y
+    zipWithNS _         _         = error "Can't have this!"
     zipWithNP :: PoA ki (AnnFix ki codes phi1) zs
               -> PoA ki (AnnFix ki codes phi2) zs
               -> PoA ki (AnnFix ki codes phi3) zs
@@ -86,6 +87,7 @@ inheritAnn f start (AnnFix ann rep) =
         -> NS (PoA ki (AnnFix ki codes phi)) ys
       zipWithNS (Here x) (Here y) = Here $ zipWithNP x y
       zipWithNS (There x) (There y) = There $ zipWithNS x y
+      zipWithNS _ _ = error "Can't have this"
       zipWithNP ::
            PoA ki (AnnFix ki codes chi) zs
         -> PoA ki phi zs
@@ -119,6 +121,7 @@ inherit f start (Fix rep) =
         -> NS (PoA ki (AnnFix ki codes phi)) ys
       zipWithNS (Here x) (Here y) = Here $ zipWithNP x y
       zipWithNS (There x) (There y) = There $ zipWithNS x y
+      zipWithNS _ _ = error "Can't have this"
       zipWithNP ::
            PoA ki (Fix ki codes) zs
         -> PoA ki phi zs
