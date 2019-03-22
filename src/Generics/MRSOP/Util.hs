@@ -18,7 +18,7 @@ module Generics.MRSOP.Util
   , Product(..), (:*:), pattern (:*:) , Delta , curry' , uncurry' , delta
 
     -- * Poly-kind indexed sums
-  , Sum(..) , either'
+  , Sum(..) , either' , either''
 
     -- * Type-level Naturals
   , Nat(..) , proxyUnsuc
@@ -72,6 +72,10 @@ delta fx = Pair fx fx
 either' :: (f :-> r) -> (g :-> r) -> Sum f g :-> r
 either' f _ (InL x) = f x
 either' _ g (InR x) = g x
+
+-- |Just like 'either'', but the result type is of kind Star
+either'' :: (f :-> Const a) -> (g :-> Const a) -> Sum f g x -> a
+either'' f g = getConst . either' f g
 
 infixr 8 <.>
 -- |Kleisli Composition
