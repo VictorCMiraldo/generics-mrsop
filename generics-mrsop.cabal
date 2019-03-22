@@ -80,4 +80,4 @@ source-repository head
 source-repository this
   type:     git
   location: https://github.com/VictorCMiraldo/generics-mrsop
-  tag: v1.2.2
+  tag: v2.0.0
