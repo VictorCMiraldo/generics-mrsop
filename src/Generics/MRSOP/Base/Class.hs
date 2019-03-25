@@ -12,9 +12,6 @@
 -- |Provides the main class of the library, 'Family'.
 module Generics.MRSOP.Base.Class where
 
-import Data.Functor.Const
-import Data.Function (on)
-
 import Generics.MRSOP.Base.Universe
 import Generics.MRSOP.Util
 
@@ -90,5 +87,5 @@ shallow = sfrom . into
 deep :: forall fam ty ki codes ix
       . (Family ki fam codes,
          ix ~ Idx ty fam, Lkup ix fam ~ ty, IsNat ix)
-     => ty -> AnnFix ki codes (Const ()) ix
+     => ty -> Fix ki codes ix
 deep = dfrom . into

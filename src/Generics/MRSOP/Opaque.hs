@@ -13,10 +13,7 @@
 --   by the everyday Haskell programmer.
 module Generics.MRSOP.Opaque where
 
-import Data.Function (on)
-import Data.Proxy
 import Data.Type.Equality
-
 import Generics.MRSOP.Util
 
 -- * Opaque Types
@@ -44,22 +41,22 @@ data Kon
 
 -- |A singleton GADT for the allowed 'Kon'stants.
 data Singl (kon :: Kon) :: * where
-  SInt     :: Int     -> Singl KInt
-  SInteger :: Integer -> Singl KInteger
-  SFloat   :: Float   -> Singl KFloat
-  SDouble  :: Double  -> Singl KDouble
-  SBool    :: Bool    -> Singl KBool
-  SChar    :: Char    -> Singl KChar
-  SString  :: String  -> Singl KString
+  SInt     :: Int     -> Singl 'KInt
+  SInteger :: Integer -> Singl 'KInteger
+  SFloat   :: Float   -> Singl 'KFloat
+  SDouble  :: Double  -> Singl 'KDouble
+  SBool    :: Bool    -> Singl 'KBool
+  SChar    :: Char    -> Singl 'KChar
+  SString  :: String  -> Singl 'KString
 
 deriving instance Show (Singl k)
 deriving instance Eq   (Singl k)
 
-instance Eq1 Singl where
-  eq1 = (==)
+instance EqHO Singl where
+  eqHO = (==)
 
-instance Show1 Singl where
-  show1 = show
+instance ShowHO Singl where
+  showHO = show
 
 -- |Equality over singletons
 eqSingl :: Singl k -> Singl k -> Bool

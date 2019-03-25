@@ -1,5 +1,5 @@
 name:                generics-mrsop
-version:             1.2.2
+version:             2.0.0
 
 synopsis:            Generic Programming with Mutually Recursive Sums of Products.
 
@@ -33,7 +33,6 @@ library
     Generics.MRSOP.Base.Class,
     Generics.MRSOP.Base.Combinators,
     Generics.MRSOP.Base.Metadata,
-    Generics.MRSOP.Base.Show,
     Generics.MRSOP.Base,
     Generics.MRSOP.Opaque,
     Generics.MRSOP.Util,
@@ -62,6 +61,8 @@ library
     FunctionalDependencies,
     ScopedTypeVariables
 
+  ghc-options: -O2 -Wall
+
   build-depends:       base >= 4.9 && <= 5,
                        containers,
                        template-haskell,
@@ -79,4 +80,4 @@ source-repository head
 source-repository this
   type:     git
   location: https://github.com/VictorCMiraldo/generics-mrsop
-  tag: v1.2.2
+  tag: v2.0.0

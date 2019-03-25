@@ -1,11 +1,13 @@
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE FlexibleInstances   #-}
-{-# LANGUAGE GADTs               #-}
-{-# LANGUAGE TypeOperators       #-}
-{-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE PolyKinds           #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE RankNTypes             #-}
+{-# LANGUAGE FlexibleContexts       #-}
+{-# LANGUAGE FlexibleInstances      #-}
+{-# LANGUAGE GADTs                  #-}
+{-# LANGUAGE TypeOperators          #-}
+{-# LANGUAGE DataKinds              #-}
+{-# LANGUAGE PolyKinds              #-}
+{-# LANGUAGE ScopedTypeVariables    #-}
+{-# OPTIONS_GHC -Wno-name-shadowing #-}
+
 -- | Standard representation of n-ary sums.
 module Generics.MRSOP.Base.NS where
 
@@ -20,8 +22,21 @@ data NS :: (k -> *) -> [k] -> * where
   There :: NS p xs -> NS p (x : xs)
   Here  :: p x     -> NS p (x : xs)
 
-instance Eq1 ki => Eq1 (NS ki) where
-  eq1 = eqNS eq1
+instance EqHO phi => EqHO (NS phi) where
+  eqHO = eqNS eqHO
+
+instance EqHO phi => Eq (NS phi xs) where
+  (==) = eqHO
+
+instance ShowHO phi => ShowHO (NS phi) where
+  showHO x = concat ["(" , go 0 x , ")"]
+    where
+      go :: ShowHO phi => Int -> NS phi xs -> String
+      go n (Here r)  = "C" ++ show n ++ " " ++ showHO r
+      go n (There r) = go (n+1) r
+
+instance ShowHO phi => Show (NS phi xs) where
+  show = showHO
 
 -- * Map, Zip and Elim
 
@@ -49,12 +64,13 @@ zipNS _         _         = mzero
 
 -- * Catamorphism
 
+
 -- |Consumes a value of type 'NS'
 cataNS :: (forall x xs . f x  -> r (x ': xs))
        -> (forall x xs . r xs -> r (x ': xs))
        -> NS f xs -> r xs
-cataNS fHere fThere (Here x)  = fHere x
-cataNS fHere fThere (There x) = fThere (cataNS fHere fThere x)
+cataNS fHere _fThere (Here x)  = fHere x
+cataNS fHere fThere  (There x) = fThere (cataNS fHere fThere x)
 
 -- * Equality
 

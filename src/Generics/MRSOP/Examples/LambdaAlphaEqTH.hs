@@ -10,12 +10,15 @@
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE PatternSynonyms       #-}
+{-# OPTIONS_GHC -Wno-missing-pattern-synonym-signatures #-}
+{-# OPTIONS_GHC -Wno-missing-signatures                 #-}
+{-# OPTIONS_GHC -Wno-incomplete-patterns                #-}
+{-# OPTIONS_GHC -Wno-orphans                            #-}
 -- This is the minimun language extensions we
 -- need for using the library.
 -- |Provide a generic alpha equality decider for the lambda calculus.
 module Generics.MRSOP.Examples.LambdaAlphaEqTH where
 
-import Control.Monad
 import Control.Monad.State
 
 import Generics.MRSOP.Util
@@ -27,7 +30,6 @@ import Generics.MRSOP.TH
 data Term = Var String
           | Abs String Term
           | App Term Term
-
 
 deriveFamily [t| Term |]
 
@@ -51,7 +53,7 @@ class Monad m => MonadAlphaEq m where
 
 onHead :: (a -> a) -> [a] -> [a]
 onHead f (x : xs) = f x : xs
-onHead f []       = []
+onHead _ []       = []
 
 -- |Given a list of scopes, which consist in a list of pairs each, checks
 --  whether or not two names are equivalent.
@@ -89,12 +91,12 @@ alphaEq x y = runAlpha $ galphaEqT (deep @FamTerm x) (deep @FamTerm y)
     galphaEqT :: forall ix m . (MonadAlphaEq m , IsNat ix)
               => FIX ix -> FIX ix
               -> m Bool
-    galphaEqT x y = galphaEq (getSNat' @ix) x y
+    galphaEqT i j = galphaEq (getSNat' @ix) i j
 
     galphaEq :: forall ix m . (MonadAlphaEq m , IsNat ix)
              => SNat ix -> FIX ix -> FIX ix
              -> m Bool
-    galphaEq ix (Fix x) (Fix y) = maybe (return False) (go ix) (zipRep x y)
+    galphaEq ix (Fix x0) (Fix y0) = maybe (return False) (go ix) (zipRep x0 y0)
 
     step :: forall m c . (MonadAlphaEq m)
          => Rep (Singl :*: Singl) (FIX :*: FIX) c -> m Bool
@@ -106,13 +108,13 @@ alphaEq x y = runAlpha $ galphaEqT (deep @FamTerm x) (deep @FamTerm y)
        => SNat ix -> Rep (Singl :*: Singl) (FIX :*: FIX)
                          (Lkup ix CodesTerm)
        -> m Bool
-    go IdxTerm x = case sop x of
+    go IdxTerm x0 = case sop x0 of
       -- Without -XPolyKinds this is impossible; weird errors all over the place.
       Var_ (SString v1 :*: SString v2)
         -> v1 =~= v2
-      Abs_ (SString v1 :*: SString v2) (t1 :*: t2)
-        -> onNewScope (addRule v1 v2 >> galphaEq IdxTerm t1 t2)
-      _ -> step x
+      Abs_ (SString v1 :*: SString v2) (c1 :*: c2)
+        -> onNewScope (addRule v1 v2 >> galphaEq IdxTerm c1 c2)
+      _ -> step x0
 
 -- * Tests
 --

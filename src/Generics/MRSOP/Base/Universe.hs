@@ -17,7 +17,6 @@ import Data.Function (on)
 import Data.Type.Equality
 import Data.Proxy
 
-import Data.Functor.Const
 import Control.Monad
 
 import Generics.MRSOP.Base.NS
@@ -45,16 +44,25 @@ data Atom kon
 --  using either @ki@ or @phi@ to interpret the type variable
 --  or opaque type.
 data NA  :: (kon -> *) -> (Nat -> *) -> Atom kon -> * where
-  NA_I :: (IsNat k) => phi k -> NA ki phi (I k) 
-  NA_K ::              ki  k -> NA ki phi (K k)
+  NA_I :: (IsNat k) => phi k -> NA ki phi ('I k) 
+  NA_K ::              ki  k -> NA ki phi ('K k)
 
-instance (Eq1 phi, Eq1 ki) => Eq1 (NA ki phi) where
-  eq1 = eqNA eq1 eq1
+instance (EqHO phi, EqHO ki) => EqHO (NA ki phi) where
+  eqHO = eqNA eqHO eqHO
 
+instance (EqHO phi, EqHO ki) => Eq (NA ki phi at) where
+  (==) = eqHO
+
+instance (ShowHO phi, ShowHO ki) => ShowHO (NA ki phi) where
+  showHO (NA_I i) = "(NA_I " ++ showHO i ++ ")"
+  showHO (NA_K k) = "(NA_K " ++ showHO k ++ ")"
+
+instance (ShowHO phi, ShowHO ki) => Show (NA ki phi at) where
+  show = showHO
 
 instance (TestEquality ki) => TestEquality (NA ki phi) where
-  testEquality (NA_I i) (NA_K k) = Nothing
-  testEquality (NA_K i) (NA_I k) = Nothing
+  testEquality (NA_I _) (NA_K _) = Nothing
+  testEquality (NA_K _) (NA_I _) = Nothing
   testEquality (NA_I i) (NA_I i') =
     case testEquality (sNatFixIdx i) (sNatFixIdx i') of
       Just Refl -> Just Refl
@@ -77,23 +85,23 @@ instance (TestEquality ki) => TestEquality (NA ki phi) where
 mapNA :: (forall k  .             ki k  -> kj k)
       -> (forall ix . IsNat ix => f  ix -> g  ix)
       -> NA ki f a -> NA kj g a
-mapNA fk fi (NA_I f) = NA_I (fi f)
-mapNA fk fi (NA_K k) = NA_K (fk k)
+mapNA _  fi (NA_I f) = NA_I (fi f)
+mapNA fk _  (NA_K k) = NA_K (fk k)
 
 -- |Maps a monadic natural transformation over an atom interpretation
 mapNAM :: (Monad m)
        => (forall k  .             ki k  -> m (kj k))
        -> (forall ix . IsNat ix => f  ix -> m (g  ix))
        -> NA ki f a -> m (NA kj g a)
-mapNAM fk fi (NA_K k) = NA_K <$> fk k
-mapNAM fk fi (NA_I f) = NA_I <$> fi f
+mapNAM fk _  (NA_K k) = NA_K <$> fk k
+mapNAM _  fi (NA_I f) = NA_I <$> fi f
 
 -- |Eliminates an atom interpretation
-elimNA :: (forall k . ki  k -> b)
+elimNA :: (forall k .            ki  k -> b)
        -> (forall k . IsNat k => phi k -> b)
        -> NA ki phi a -> b
-elimNA kp fp (NA_I x) = fp x
-elimNA kp fp (NA_K x) = kp x
+elimNA _  fp (NA_I x) = fp x
+elimNA kp _  (NA_K x) = kp x
 
 -- |Combines two atoms into one
 zipNA :: NA ki f a -> NA kj g a -> NA (ki :*: kj) (f :*: g) a
@@ -120,8 +128,11 @@ eqNA kp fp x = elimNA (uncurry' kp) (uncurry' fp) . zipNA x
 newtype Rep (ki :: kon -> *) (phi :: Nat -> *) (code :: [[Atom kon]])
   = Rep { unRep :: NS (PoA ki phi) code }
 
-instance (Eq1 phi, Eq1 ki) => Eq1 (Rep ki phi) where
-  eq1 = eqRep eq1 eq1
+instance (EqHO phi, EqHO ki) => EqHO (Rep ki phi) where
+  eqHO = eqRep eqHO eqHO
+
+instance (EqHO phi, EqHO ki) => Eq (Rep ki phi at) where
+  (==) = eqHO
   
 -- |Product of Atoms is a handy synonym to have.
 type PoA (ki :: kon -> *) (phi :: Nat -> *) = NP (NA ki phi)
@@ -211,12 +222,12 @@ eqRep kp fp t = maybe False (elimRep (uncurry' kp) (uncurry' fp) and)
 -- |A value @c :: Constr ks n@ specifies a position
 --  in a type-level list. It is, in fact, isomorphic to @Fin (length ks)@.
 data Constr :: [k] -> Nat -> * where
-  CS :: Constr xs n -> Constr (x : xs) (S n)
-  CZ ::                Constr (x : xs) Z
+  CS :: Constr xs n -> Constr (x : xs) ('S n)
+  CZ ::                Constr (x : xs) 'Z
 
 instance TestEquality (Constr codes) where
   testEquality CZ     CZ     = Just Refl
-  testEquality (CS x) (CS y) = apply (Refl :: S :~: S) <$> testEquality x y
+  testEquality (CS x) (CS y) = apply (Refl :: 'S :~: 'S) <$> testEquality x y
   testEquality _      _      = Nothing
 
 instance (IsNat n) => Show (Constr xs n) where
@@ -270,23 +281,14 @@ fromView (Tag c x) = inj c x
 -- the representation of the code indexed by ix
 
 -- |Indexed least fixpoints
-{-newtype Fix (ki :: kon -> *) (codes :: [[[ Atom kon ]]]) (n :: Nat)
+newtype Fix (ki :: kon -> *) (codes :: [[[ Atom kon ]]]) (n :: Nat)
   = Fix { unFix :: Rep ki (Fix ki codes) (Lkup n codes) }
--}
 
+instance EqHO ki => EqHO (Fix ki codes) where
+  eqHO = eqFix eqHO
 
--- | Annotated version of Fix.   This is basically the 'Cofree' datatype,
--- but for n-ary functors
-data AnnFix (ki :: kon -> *) (codes :: [[[Atom kon]]]) (phi :: Nat -> *) (n :: Nat) =
-  AnnFix (phi n)
-         (Rep ki (AnnFix ki codes phi) (Lkup n codes))
-
-type Fix ki codes = AnnFix ki codes (Const ())
-
-pattern Fix x = AnnFix (Const ()) x
-
-unFix :: Fix ki codes ix -> Rep ki (Fix ki codes) (Lkup ix codes)
-unFix (Fix x) = x
+instance EqHO ki => Eq (Fix ki codes ix) where
+  (==) = eqFix eqHO
 
 -- | Catamorphism over fixpoints
 cata :: (IsNat ix)
@@ -294,22 +296,6 @@ cata :: (IsNat ix)
   -> Fix ki codes ix
   -> phi ix
 cata f (Fix x) = f (mapRep (cata f) x)
-
-
-getAnn :: AnnFix ki codes ann ix -> ann ix
-getAnn (AnnFix a x) = a
-
-annCata :: (forall iy. chi iy -> Rep ki phi (Lkup iy codes) -> phi iy)
-        -> AnnFix ki codes chi ix
-        -> phi ix
-annCata f (AnnFix a x) = f a (mapRep (annCata f) x)
-
--- | Forget the annotations
-forgetAnn :: AnnFix ki codes a ix -> Fix ki codes ix
-forgetAnn (AnnFix _ rep) = Fix (mapRep forgetAnn rep)
-
-instance Eq1 ki => Eq1 (Fix ki codes) where
-  eq1 = eqFix eq1
 
 -- |Retrieves the index of a 'Fix'
 proxyFixIdx :: phi ix -> Proxy ix
@@ -330,13 +316,10 @@ eqFix :: (forall k. ki k -> ki k -> Bool)
       -> Fix ki fam ix -> Fix ki fam ix -> Bool
 eqFix p = eqRep p (eqFix p) `on` unFix
 
-instance Eq1 ki => Eq  (Fix ki codes ix) where
-  (==) = eqFix eq1
-
 -- |Compare two indexes of two fixpoints
 --  Note we can't use a 'testEquality' instance because
 --  of the 'IsNat' constraint.
 heqFixIx :: (IsNat ix , IsNat ix')
          => Fix ki fam ix -> Fix ki fam ix' -> Maybe (ix :~: ix')
-heqFixIx fa fb = testEquality (getSNat Proxy) (getSNat Proxy)
+heqFixIx _fa _fb = testEquality (getSNat Proxy) (getSNat Proxy)
 

@@ -12,7 +12,6 @@ module Generics.MRSOP.Base.Metadata where
 import Data.Proxy
 
 import Generics.MRSOP.Util
-import Generics.MRSOP.Base.NS
 import Generics.MRSOP.Base.NP
 import Generics.MRSOP.Base.Universe
 import Generics.MRSOP.Base.Class
@@ -77,11 +76,17 @@ constructorName (Record c _)    = c
 data FieldInfo :: Atom kon -> * where
   FieldInfo :: { fieldName :: FieldName } -> FieldInfo k
 
-deriving instance Show (NP ConstructorInfo code)
-deriving instance Show (NP FieldInfo code)
-deriving instance Show (ConstructorInfo code)
-deriving instance Show (DatatypeInfo code)
 deriving instance Show (FieldInfo atom)
+
+instance ShowHO FieldInfo where
+  showHO = show
+
+deriving instance Show (ConstructorInfo code)
+
+instance ShowHO ConstructorInfo where
+  showHO = show
+
+deriving instance Show (DatatypeInfo code)
 
 -- |Given a 'Family', provides the 'DatatypeInfo' for the type
 --  with index @ix@ in family 'fam'.
@@ -109,8 +114,8 @@ constrInfoLkup :: Constr sum c -> DatatypeInfo sum -> ConstructorInfo (Lkup c su
 constrInfoLkup c = go c . constructorInfo
   where
     go :: Constr sum c -> NP ConstructorInfo sum -> ConstructorInfo (Lkup c sum)
-    go CZ     (ci :* _)   = ci
-    go (CS c) (_  :* cis) = go c cis
+    go CZ      (ci :* _)   = ci
+    go (CS c0) (_  :* cis) = go c0 cis
 
 
 -- |Returns the constructor information for a given

@@ -12,21 +12,20 @@
 {-# LANGUAGE TemplateHaskell         #-}
 {-# LANGUAGE LambdaCase              #-}
 {-# LANGUAGE PatternSynonyms         #-}
+{-# OPTIONS_GHC -Wno-missing-pattern-synonym-signatures #-}
+{-# OPTIONS_GHC -Wno-missing-signatures                 #-}
+{-# OPTIONS_GHC -Wno-incomplete-patterns                #-}
+{-# OPTIONS_GHC -Wno-orphans                            #-}
 -- |Usage example with template haskell support.
 module Generics.MRSOP.Examples.RoseTreeTH where
 
 {-# OPTIONS_GHC -ddump-splices #-}
 import Data.Function (on)
-import Data.Proxy
 
 import Generics.MRSOP.Base
 import Generics.MRSOP.Opaque
-import Generics.MRSOP.Util
 
 import Generics.MRSOP.TH
-
-import Control.Monad
-
 
 -- * Defining the datatype
 --

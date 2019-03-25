@@ -11,6 +11,10 @@
 {-# LANGUAGE TemplateHaskell         #-}
 {-# LANGUAGE LambdaCase              #-}
 {-# LANGUAGE PatternSynonyms         #-}
+{-# OPTIONS_GHC -Wno-missing-pattern-synonym-signatures #-}
+{-# OPTIONS_GHC -Wno-missing-signatures                 #-}
+{-# OPTIONS_GHC -Wno-incomplete-patterns                #-}
+{-# OPTIONS_GHC -Wno-orphans                            #-}
 -- |Uses a more involved example to test some
 --  of the functionalities of @generics-mrsop@.
 module Generics.MRSOP.Examples.SimpTH where
@@ -19,7 +23,6 @@ import Data.Function (on)
 
 import Generics.MRSOP.Base
 import Generics.MRSOP.Opaque
-import Generics.MRSOP.Util
 import Generics.MRSOP.Zipper
 
 import Generics.MRSOP.Examples.LambdaAlphaEqTH hiding (FIX, alphaEq)
@@ -27,7 +30,6 @@ import Generics.MRSOP.Examples.LambdaAlphaEqTH hiding (FIX, alphaEq)
 import Generics.MRSOP.TH
 
 import Control.Monad
-import Control.Monad.State
 
 -- * Simple IMPerative Language:
 
@@ -78,9 +80,6 @@ alphaEqD = (galphaEq IdxDeclString) `on` (deep @FamStmtString)
     galphaEq' iy (Fix x)
       = maybe (return False) (go iy) . zipRep x . unFix
 
-    unSString :: Singl k -> String
-    unSString (SString s) = s
-
     -- Performs one default ste by eliminating the topmost Rep
     -- using galphaEqT on the recursive positions and isEqv
     -- on the atoms.
@@ -102,8 +101,7 @@ alphaEqD = (galphaEq IdxDeclString) `on` (deep @FamStmtString)
       = case sop x of
           StmtStringSAssign_ (SString v1 :*: SString v2) e1e2
             -> addRule v1 v2 >> uncurry' (galphaEq' IdxExpString) e1e2
-          otherwise
-            -> step x
+          _ -> step x
     go IdxDeclString x
       = case sop x of
           DeclStringDVar_ (SString v1 :*: SString v2)
