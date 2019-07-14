@@ -1,5 +1,5 @@
 name:                generics-mrsop
-version:             2.0.0
+version:             2.1.0
 
 synopsis:            Generic Programming with Mutually Recursive Sums of Products.
 
@@ -36,6 +36,8 @@ library
     Generics.MRSOP.Base,
     Generics.MRSOP.Opaque,
     Generics.MRSOP.Util,
+    Generics.MRSOP.Holes.Simple
+    Generics.MRSOP.Holes
     Generics.MRSOP.TH,
     Generics.MRSOP.Zipper,
     Generics.MRSOP.Zipper.Deep,
