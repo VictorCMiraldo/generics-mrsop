@@ -36,7 +36,6 @@ library
     Generics.MRSOP.Base,
     Generics.MRSOP.Opaque,
     Generics.MRSOP.Util,
-    Generics.MRSOP.Holes.Simple
     Generics.MRSOP.Holes
     Generics.MRSOP.TH,
     Generics.MRSOP.Zipper,
