@@ -10,6 +10,7 @@
 {-# LANGUAGE ScopedTypeVariables     #-}
 {-# LANGUAGE FunctionalDependencies  #-}
 {-# LANGUAGE PatternSynonyms         #-}
+{-# OPTIONS_HADDOCK hide, prune, ignore-exports #-}
 {-# OPTIONS_GHC -Wno-missing-pattern-synonym-signatures #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns                #-}
 {-# OPTIONS_GHC -Wno-orphans                            #-}
