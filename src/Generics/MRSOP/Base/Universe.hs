@@ -64,7 +64,7 @@ instance (TestEquality ki) => TestEquality (NA ki phi) where
   testEquality (NA_I _) (NA_K _) = Nothing
   testEquality (NA_K _) (NA_I _) = Nothing
   testEquality (NA_I i) (NA_I i') =
-    case testEquality (sNatFixIdx i) (sNatFixIdx i') of
+    case testEquality (snatFixIdx i) (snatFixIdx i') of
       Just Refl -> Just Refl
       Nothing -> Nothing
   testEquality (NA_K k) (NA_K k') =
@@ -301,8 +301,9 @@ cata f (Fix x) = f (mapRep (cata f) x)
 proxyFixIdx :: phi ix -> Proxy ix
 proxyFixIdx _ = Proxy
 
-sNatFixIdx :: IsNat ix => phi ix -> SNat ix
-sNatFixIdx x = getSNat (proxyFixIdx x)
+-- |Retrieves the index of a 'Fix' as a singleton.
+snatFixIdx :: IsNat ix => phi ix -> SNat ix
+snatFixIdx x = getSNat (proxyFixIdx x)
 
 -- |Maps over the values of opaque types within the
 --  fixpoint.
