@@ -1,3 +1,4 @@
+{-# LANGUAGE PatternSynonyms       #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE TypeOperators         #-}
@@ -229,17 +230,17 @@ holesSynthesize hF oF cF = runIdentity
 --  @Const ()@
 type Holes = HolesAnn (Const ())
 
-hole :: phi at -> Holes ki codes phi at
-hole = Hole (Const ())
+pattern Hole' :: phi at -> Holes ki codes phi at
+pattern Hole' x = Hole (Const ()) x
 
-hopq :: ki k -> Holes ki codes phi ('K k)
-hopq = HOpq (Const ())
+pattern HOpq' :: ki k -> Holes ki codes phi ('K k)
+pattern HOpq' x = HOpq (Const ()) x
 
-hpeel :: (IsNat n, IsNat i)
-      => Constr (Lkup i codes) n
-      -> NP (Holes ki codes phi) (Lkup n (Lkup i codes))
-      -> Holes ki codes phi ('I i)
-hpeel = HPeel (Const ())
+pattern HPeel' :: () => (IsNat n, IsNat i)
+               => Constr (Lkup i codes) n
+               -> NP (Holes ki codes phi) (Lkup n (Lkup i codes))
+               -> Holes ki codes phi ('I i)
+pattern HPeel' c p = HPeel (Const ()) c p
 
 -- |Factors out the largest common prefix of two treefixes.
 --  This is also known as the anti-unification of two
@@ -257,21 +258,21 @@ holesLCP :: (EqHO ki)
          -> Holes ki codes g at
          -> Holes ki codes (Holes ki codes f :*: Holes ki codes g) at
 holesLCP (HOpq _ kx) (HOpq _ ky)
-  | eqHO kx ky = hopq kx
-  | otherwise  = hole (hopq kx :*: hopq ky)
+  | eqHO kx ky = HOpq' kx
+  | otherwise  = Hole' (HOpq' kx :*: HOpq' ky)
 holesLCP (HPeel a cx px) (HPeel b cy py)
   = case testEquality cx cy of
-      Nothing   -> hole  (HPeel a cx px :*: HPeel b cy py)
-      Just Refl -> hpeel cx $ mapNP (uncurry' holesLCP) (zipNP px py)
-holesLCP x y = hole (x :*: y)
+      Nothing   -> Hole'  (HPeel a cx px :*: HPeel b cy py)
+      Just Refl -> HPeel' cx $ mapNP (uncurry' holesLCP) (zipNP px py)
+holesLCP x y = Hole' (x :*: y)
 
 -- * Translating between 'NA' and 'HolesAnn'
 
 -- |A stiff treefix is one with no holes anywhere.
 na2holes :: NA ki (Fix ki codes) at -> HolesAnn (Const ()) ki codes f at
-na2holes (NA_K k) = hopq k
+na2holes (NA_K k) = HOpq' k
 na2holes (NA_I x) = case sop (unFix x) of
-  Tag cx px -> hpeel cx (mapNP na2holes px)
+  Tag cx px -> HPeel' cx (mapNP na2holes px)
 
 -- |Reduces a treefix back to a tree; we use a monadic
 --  function here to allow for custom failure confitions.
