@@ -1,12 +1,9 @@
 {-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE ConstraintKinds       #-}
-{-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE TypeOperators         #-}
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE PolyKinds             #-}
 {-# LANGUAGE GADTs                 #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 module Generics.MRSOP.Holes where
 
@@ -19,10 +16,6 @@ import Control.Monad.State
 
 import Generics.MRSOP.Util
 import Generics.MRSOP.Base
-
--- * Questions
-
--- Maybe the 'Hole' constructor should have no annotation
 
 -- * Generic Treefixes
 
@@ -116,11 +109,11 @@ holesJoin (HPeel a c p) = HPeel a c (mapNP holesJoin p)
 -- in a pre-order style and the holes inserted in the sturcture
 -- as they are visited.
 holesGetHolesAnnWith :: forall f r ann ki codes phi at
-                   . f r
-                  -> (r -> f r -> f r)
-                  -> (forall ix . phi ix -> r)
-                  -> HolesAnn ann ki codes phi at
-                  -> f r
+                      . f r
+                     -> (r -> f r -> f r)
+                     -> (forall ix . phi ix -> r)
+                     -> HolesAnn ann ki codes phi at
+                     -> f r
 holesGetHolesAnnWith empty ins tr
   = flip execState empty . holesMapM getHole
   where
@@ -129,12 +122,14 @@ holesGetHolesAnnWith empty ins tr
     getHole x = modify (ins $ tr x) >> return x
 
 -- |Instantiates 'holesGetHolesAnnWith' to use a list.
-holesGetHolesAnnWith' :: (forall ix . phi ix -> r) -> HolesAnn ann ki codes phi at -> [r]
+holesGetHolesAnnWith' :: (forall ix . phi ix -> r)
+                      -> HolesAnn ann ki codes phi at -> [r]
 holesGetHolesAnnWith' = holesGetHolesAnnWith [] (:)
 
 -- |Instantiates 'holesGetHolesAnnWith' to use a set.
 holesGetHolesAnnWith'' :: (Ord r)
-                    => (forall ix . phi ix -> r) -> HolesAnn ann ki codes phi at -> S.Set r
+                       => (forall ix . phi ix -> r)
+                       -> HolesAnn ann ki codes phi at -> S.Set r
 holesGetHolesAnnWith'' = holesGetHolesAnnWith S.empty S.insert
 
 -- * Refining 'HolesAnn'
@@ -164,6 +159,69 @@ holesRefineAnn :: (forall ix . ann ix     -> f ix -> HolesAnn ann ki codes g ix)
                -> HolesAnn ann ki codes f at 
                -> HolesAnn ann ki codes g at
 holesRefineAnn f g = runIdentity . holesRefineAnnM (\a -> return . f a) (\a -> return . g a)
+
+-- * Annotation Catamorphism and Synthesized Attributes
+
+-- |Standard monadic catamorphism for holes. The algebra can take the
+--  annotation into account.
+holesAnnCataM :: (Monad m)
+              => (forall at  . ann at     -> phi at -> m (res at))
+              -> (forall k   . ann ('K k) -> ki k   -> m (res ('K k)))
+              -> (forall i n . (IsNat i, IsNat n)
+                            => ann ('I i) -> Constr (Lkup i codes) n
+                                          -> NP res (Lkup n (Lkup i codes))
+                                          -> m (res ('I i)))
+              -> HolesAnn ann ki codes phi ix
+              -> m (res ix)
+holesAnnCataM hF _  _  (Hole a x) = hF a x
+holesAnnCataM _  oF _  (HOpq a x) = oF a x
+holesAnnCataM hF oF cF (HPeel a c p)
+  = mapNPM (holesAnnCataM hF oF cF) p >>= cF a c 
+
+-- |Pure variant of 'holesAnnCataM'
+holesAnnCata :: (forall at  . ann at     -> phi at -> res at)
+             -> (forall k   . ann ('K k) -> ki k   -> res ('K k))
+             -> (forall i n . (IsNat i, IsNat n)
+                           => ann ('I i) -> Constr (Lkup i codes) n
+                                         -> NP res (Lkup n (Lkup i codes))
+                                         -> res ('I i))
+             -> HolesAnn ann ki codes phi ix
+             -> res ix
+holesAnnCata hF oF cF = runIdentity
+                      . holesAnnCataM (\a phi -> return $ hF a phi)
+                                      (\a o   -> return $ oF a o)
+                                      (\a c p -> return $ cF a c p)
+
+-- |Synthesizes attributes over a value of type 'HolesAnn'. This
+-- is extremely useful for easily annotating a value with auxiliar
+-- annotations.
+holesSynthesizeM :: (Monad m)
+                 => (forall at  . ann at     -> phi at -> m (res at))
+                 -> (forall k   . ann ('K k) -> ki k   -> m (res ('K k)))
+                 -> (forall i n . (IsNat i, IsNat n)
+                              => ann ('I i) -> Constr (Lkup i codes) n
+                                            -> NP res (Lkup n (Lkup i codes))
+                                            -> m (res ('I i)))
+                 -> HolesAnn ann  ki codes phi atom
+                 -> m (HolesAnn res ki codes phi atom)
+holesSynthesizeM hF oF cF
+  = holesAnnCataM (\a phi -> flip Hole phi <$> hF a phi)
+                  (\a o   -> flip HOpq o   <$> oF a o)
+                  (\a c p -> (\r -> HPeel r c p) <$> cF a c (mapNP holesAnn p))
+
+-- |Pure variant of 'holesSynthesize'
+holesSynthesize :: (forall at  . ann at     -> phi at -> res at)
+                -> (forall k   . ann ('K k) -> ki k   -> res ('K k))
+                -> (forall i n . (IsNat i, IsNat n)
+                              => ann ('I i) -> Constr (Lkup i codes) n
+                                            -> NP res (Lkup n (Lkup i codes))
+                                            -> res ('I i))
+             -> HolesAnn ann ki codes phi ix
+             -> HolesAnn res ki codes phi ix
+holesSynthesize hF oF cF = runIdentity
+                         . holesSynthesizeM (\a phi -> return $ hF a phi)
+                                            (\a o   -> return $ oF a o)
+                                            (\a c p -> return $ cF a c p)
 
 -- * Using 'Holes' with no annotations
 
