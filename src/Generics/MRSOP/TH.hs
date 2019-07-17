@@ -7,11 +7,55 @@
 {-# OPTIONS_GHC -cpp                      #-}
 {-# OPTIONS_GHC -Wno-name-shadowing       #-}
 {-# OPTIONS_GHC -Wno-unused-pattern-binds #-}
--- | Provides a simple way for the end-user deriving
---   the mechanical, yet long, Element instances
---   for a family.
+-- | Provides a simple way for the end-user to derive
+--   the 'Family' instance for a mutually recursive family.
 --
---   We are borrowing a some code from generic-sop
+--   For example,
+--
+--   > data Rose a = a :>: [Rose a] | Leaf a
+--   > deriveFamily [t| Rose Int |]
+--
+--  Will derive the following code:
+--
+--  > type ListCode = '[ '[] , '[ 'I ('S 'Z) , 'I 'Z] ]
+--  > type RTCode   = '[ '[ 'K 'KInt , 'I 'Z] , '[ 'K 'KInt] ]
+--  > 
+--  > type CodesRose = '[ListCode , RTCode]
+--  > type FamRose   = '[ [R Int] , R Int] 
+--  > 
+--  > instance Family Singl FamRose CodesRose where
+--  >   sfrom' (SS SZ) (El (a :>: as)) = Rep $ Here (NA_K (SInt a) :* NA_I (El as) :* NP0)
+--  >   sfrom' (SS SZ) (El (Leaf a))   = Rep $ There (Here (NA_K (SInt a) :* NP0))
+--  >   sfrom' SZ (El [])              = Rep $ Here NP0
+--  >   sfrom' SZ (El (x:xs))          = Rep $ There (Here (NA_I (El x) :* NA_I (El xs) :* NP0))
+--  >   sfrom' _ _ = error "unreachable"
+--  > 
+--  >   sto' SZ (Rep (Here NP0))
+--  >     = El []
+--  >   sto' SZ (Rep (There (Here (NA_I (El x) :* NA_I (El xs) :* NP0))))
+--  >     = El (x : xs)
+--  >   sto' (SS SZ) (Rep (Here (NA_K (SInt a) :* NA_I (El as) :* NP0)))
+--  >     = El (a :>: as)
+--  >   sto' (SS SZ) (Rep (There (Here (NA_K (SInt a) :* NP0))))
+--  >     = El (Leaf a)
+--  >   sto' _ _ = error "unreachable"
+--  > 
+--  > instance HasDatatypeInfo Singl FamRose CodesRose where
+--  >   datatypeInfo _ SZ
+--  >     = ADT "module" (Name "[]" :@: (Name "R" :@: Name "Int"))
+--  >       $  (Constructor "[]")
+--  >       :* (Infix ":" RightAssociative 5)
+--  >       :* NP0
+--  >   datatypeInfo _ (SS SZ)
+--  >     = ADT "module" (Name "R" :@: Name "Int")
+--  >       $  (Infix ":>:" NotAssociative 0)
+--  >       :* (Constructor "Leaf")
+--  >       :* NP0
+--  >   datatypeInfo _ _
+--  >     = error "unreachable"
+--
+--
+--   We did inspire this module in the TH generication from generic-sop
 --   ( https://hackage.haskell.org/package/generics-sop-0.3.2.0/docs/src/Generics-SOP-TH.html )
 --
 module Generics.MRSOP.TH

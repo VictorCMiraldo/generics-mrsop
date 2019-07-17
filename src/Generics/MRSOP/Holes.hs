@@ -18,7 +18,40 @@ import Control.Monad.State
 import Generics.MRSOP.Util
 import Generics.MRSOP.Base
 
--- * Generic Treefixes
+-- * Annotating a Mutually Recursive Family with Holes
+
+-- $withholes
+--
+-- It is often the case that we must perform some sort of symbolic
+-- processing over our datatype. Take /unification/ for example.
+-- For that to work, we must either have a dedicated constructor
+-- in the datatype for representing a /metavariable/, which would
+-- be difficult to access in a generic fashion, or we must augment
+-- the definition an add those.
+--
+-- In this module we provide the 'Holes' datatype, which
+-- enables this very functionality. Imagine the following
+-- family:
+--
+-- > data Exp     = Add Exp Exp | Let Decls Exp | Var Exp
+-- > data Decls   = Decl VarDecl Decls | Empty
+-- > data VarDecl = VarD String Exp
+--
+-- The values that inhabit the type @Holes ki FamExp phi@ are
+-- essentially isomorphic to:
+--
+-- > data Exp'     = Add Exp' Exp' | Let Decls' Exp' | Var Exp' | EHole (phi IdxExp)
+-- > data Decls'   = Decl VarDecl' Decls' | Empty | DHole (phi IdxDecls)
+-- > data VarDecl' = VarD String Exp' | VHole (phi IdxVarDecl)
+--
+-- If we want to, say, forbid holes on the declaration bit, we
+-- can do so in the definition of phi. For example:
+--
+-- > data OnlyExpAndVarHoles :: Atom kon -> * where
+-- >   ExpHole :: OnlyExpAndVarHoles ('I IdxExp)
+-- >   VarHole :: OnlyExpAndVarHoles ('I IdxVar)
+--
+-- 
 
 -- |A value of type 'HolesAnn' augments a mutually recursive
 --  family with holes. This is useful for writing generic
@@ -49,10 +82,10 @@ data HolesAnn :: (Atom kon -> *)
   -- |An opaque value
   HOpq  :: ann ('K k) -> ki k   -> HolesAnn ann ki codes phi ('K k) 
   -- |A view over a constructor with its fields replaced
-  --  by treefixes.
+  --  by treefixes. This already comes in a SOP flavour.
   HPeel :: (IsNat n , IsNat i)
         => ann ('I i)
-        -> Constr (Lkup i codes) n
+        -> Constr (Lkup i codes) n 
         -> NP (HolesAnn ann ki codes phi) (Lkup n (Lkup i codes))
         -> HolesAnn ann ki codes phi ('I i)
 
@@ -66,8 +99,8 @@ holesAnn (HPeel a _ _) = a
 
 -- |Our 'HolesAnn' is a higher order functor and can be mapped over.
 holesMapAnnM :: (Monad m)
-             => (forall a . f a   -> m (g a))
-             -> (forall a . ann a -> m (bnn a))
+             => (forall a . f a   -> m (g a))    -- ^ Function to map over holes
+             -> (forall a . ann a -> m (bnn a))  -- ^ Function to map over annotations
              -> HolesAnn ann ki codes f at
              -> m (HolesAnn bnn ki codes g at)
 holesMapAnnM f g (Hole  a x)   = Hole <$> g a <*> f x
@@ -110,10 +143,10 @@ holesJoin (HPeel a c p) = HPeel a c (mapNP holesJoin p)
 -- in a pre-order style and the holes inserted in the sturcture
 -- as they are visited.
 holesGetHolesAnnWith :: forall f r ann ki codes phi at
-                      . f r
-                     -> (r -> f r -> f r)
-                     -> (forall ix . phi ix -> r)
-                     -> HolesAnn ann ki codes phi at
+                      . f r                           -- ^ Empty structure
+                     -> (r -> f r -> f r)             -- ^ Insertion function
+                     -> (forall ix . phi ix -> r)     -- ^ How to get rid of the existential type
+                     -> HolesAnn ann ki codes phi at 
                      -> f r
 holesGetHolesAnnWith empty ins tr
   = flip execState empty . holesMapM getHole
@@ -123,11 +156,14 @@ holesGetHolesAnnWith empty ins tr
     getHole x = modify (ins $ tr x) >> return x
 
 -- |Instantiates 'holesGetHolesAnnWith' to use a list.
+-- It's implementation is trivial:
+--
+-- > holesGetHolesAnnWith' = holesGetHolesAnnWith [] (:)
 holesGetHolesAnnWith' :: (forall ix . phi ix -> r)
                       -> HolesAnn ann ki codes phi at -> [r]
 holesGetHolesAnnWith' = holesGetHolesAnnWith [] (:)
 
--- |Instantiates 'holesGetHolesAnnWith' to use a set.
+-- |Instantiates 'holesGetHolesAnnWith' to use a set instead of a list.
 holesGetHolesAnnWith'' :: (Ord r)
                        => (forall ix . phi ix -> r)
                        -> HolesAnn ann ki codes phi at -> S.Set r
@@ -136,7 +172,10 @@ holesGetHolesAnnWith'' = holesGetHolesAnnWith S.empty S.insert
 -- * Refining 'HolesAnn'
 
 -- |Similar to 'holesMapM', but allows to refine the structure of
---  a treefix if need be.
+--  a treefix if need be. One could implement 'holesMapM' as:
+--
+--  > holesMapM f = holesRefineAnn (\a h -> Hole a <$> f h) HOpq'
+--
 holesRefineAnnM :: (Monad m)
                 => (forall ix . ann ix     -> f ix -> m (HolesAnn ann ki codes g ix))
                 -> (forall k  . ann ('K k) -> ki k -> m (HolesAnn ann ki codes g ('K k)))
@@ -147,15 +186,19 @@ holesRefineAnnM _ g (HOpq a k) = g a k
 holesRefineAnnM f g (HPeel a c holesnp)
   = HPeel a c <$> mapNPM (holesRefineAnnM f g) holesnp
 
--- |Just like 'holesRefineM', but only refines variables.
+-- |Just like 'holesRefineM', but only refines variables. One example is to implement
+-- 'holesJoin' with it.
+--
+-- > holesJoin = runIdentity . holesRefineVarsM (\_ -> return)
+--
 holesRefineVarsM :: (Monad m)
-                 => (forall ix . ann ix -> f ix -> m (HolesAnn ann ki codes g ix))
+                 => (forall ix . ann ix -> f ix -> m (HolesAnn ann ki codes g ix)) -- ^ How to produce a 'HolesAnn' from the previous hole.
                  -> HolesAnn ann ki codes f at
                  -> m (HolesAnn ann ki codes g at)
 holesRefineVarsM f = holesRefineAnnM f (\a -> return . HOpq a)
 
 -- |Pure version of 'holesRefineM'
-holesRefineAnn :: (forall ix . ann ix     -> f ix -> HolesAnn ann ki codes g ix)
+holesRefineAnn :: (forall ix . ann ix     -> f ix -> HolesAnn ann ki codes g ix) -- ^
                -> (forall k  . ann ('K k) -> ki k -> HolesAnn ann ki codes g ('K k))
                -> HolesAnn ann ki codes f at 
                -> HolesAnn ann ki codes g at
@@ -166,12 +209,12 @@ holesRefineAnn f g = runIdentity . holesRefineAnnM (\a -> return . f a) (\a -> r
 -- |Standard monadic catamorphism for holes. The algebra can take the
 --  annotation into account.
 holesAnnCataM :: (Monad m)
-              => (forall at  . ann at     -> phi at -> m (res at))
-              -> (forall k   . ann ('K k) -> ki k   -> m (res ('K k)))
+              => (forall at  . ann at     -> phi at -> m (res at))      -- ^ Action to perform at 'Hole'
+              -> (forall k   . ann ('K k) -> ki k   -> m (res ('K k)))  -- ^ Action to perform at 'HOpq'
               -> (forall i n . (IsNat i, IsNat n)
                             => ann ('I i) -> Constr (Lkup i codes) n
                                           -> NP res (Lkup n (Lkup i codes))
-                                          -> m (res ('I i)))
+                                          -> m (res ('I i)))            -- ^ Action to perform at 'HPeel'
               -> HolesAnn ann ki codes phi ix
               -> m (res ix)
 holesAnnCataM hF _  _  (Hole a x) = hF a x
@@ -180,12 +223,12 @@ holesAnnCataM hF oF cF (HPeel a c p)
   = mapNPM (holesAnnCataM hF oF cF) p >>= cF a c 
 
 -- |Pure variant of 'holesAnnCataM'
-holesAnnCata :: (forall at  . ann at     -> phi at -> res at)
-             -> (forall k   . ann ('K k) -> ki k   -> res ('K k))
+holesAnnCata :: (forall at  . ann at     -> phi at -> res at)     -- ^ Action to perform at 'Hole'
+             -> (forall k   . ann ('K k) -> ki k   -> res ('K k)) -- ^ Action to perform at 'HOpq'
              -> (forall i n . (IsNat i, IsNat n)
                            => ann ('I i) -> Constr (Lkup i codes) n
                                          -> NP res (Lkup n (Lkup i codes))
-                                         -> res ('I i))
+                                         -> res ('I i))           -- ^ Action to perform at 'HPeel'
              -> HolesAnn ann ki codes phi ix
              -> res ix
 holesAnnCata hF oF cF = runIdentity
@@ -197,13 +240,13 @@ holesAnnCata hF oF cF = runIdentity
 -- is extremely useful for easily annotating a value with auxiliar
 -- annotations.
 holesSynthesizeM :: (Monad m)
-                 => (forall at  . ann at     -> phi at -> m (res at))
-                 -> (forall k   . ann ('K k) -> ki k   -> m (res ('K k)))
+                 => (forall at  . ann at     -> phi at -> m (res at))     -- ^ Action to perform at 'Hole'
+                 -> (forall k   . ann ('K k) -> ki k   -> m (res ('K k))) -- ^ Action to perform at 'HOpq'
                  -> (forall i n . (IsNat i, IsNat n)
                               => ann ('I i) -> Constr (Lkup i codes) n
                                             -> NP res (Lkup n (Lkup i codes))
-                                            -> m (res ('I i)))
-                 -> HolesAnn ann  ki codes phi atom
+                                            -> m (res ('I i)))            -- ^ Action to perform at 'HPeel'
+                 -> HolesAnn ann  ki codes phi atom                       -- ^ Input value
                  -> m (HolesAnn res ki codes phi atom)
 holesSynthesizeM hF oF cF
   = holesAnnCataM (\a phi -> flip Hole phi <$> hF a phi)
@@ -211,7 +254,7 @@ holesSynthesizeM hF oF cF
                   (\a c p -> (\r -> HPeel r c p) <$> cF a c (mapNP holesAnn p))
 
 -- |Pure variant of 'holesSynthesize'
-holesSynthesize :: (forall at  . ann at     -> phi at -> res at)
+holesSynthesize :: (forall at  . ann at     -> phi at -> res at) -- ^
                 -> (forall k   . ann ('K k) -> ki k   -> res ('K k))
                 -> (forall i n . (IsNat i, IsNat n)
                               => ann ('I i) -> Constr (Lkup i codes) n
@@ -277,14 +320,14 @@ na2holes (NA_I x) = case sop (unFix x) of
 -- |Reduces a treefix back to a tree; we use a monadic
 --  function here to allow for custom failure confitions.
 holes2naM :: (Monad m)
-          => (forall ix . f ix -> m (NA ki (Fix ki codes) ix))
+          => (forall ix . f ix -> m (NA ki (Fix ki codes) ix)) -- ^
           -> Holes ki codes f at
           -> m (NA ki (Fix ki codes) at)
 holes2naM red (Hole  _ x)   = red x
 holes2naM _   (HOpq  _ k)   = return (NA_K k)
 holes2naM red (HPeel _ c p) = (NA_I . Fix . inj c) <$> mapNPM (holes2naM red) p
 
--- * Instances
+-- -* Instances
 
 instance (EqHO phi , EqHO ki) => Eq (Holes ki codes phi ix) where
   utx == uty = and $ holesGetHolesAnnWith' (uncurry' cmp) $ holesLCP utx uty
