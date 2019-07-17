@@ -1,3 +1,4 @@
+{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE PatternSynonyms       #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE RankNTypes            #-}
@@ -8,6 +9,7 @@
 {-# LANGUAGE ScopedTypeVariables   #-}
 module Generics.MRSOP.Holes where
 
+import Data.Proxy
 import Data.Functor.Const
 import Data.Type.Equality
 import qualified Data.Set as S (insert , empty , Set)
@@ -15,7 +17,6 @@ import qualified Data.Set as S (insert , empty , Set)
 import Control.Monad.Identity
 import Control.Monad.State
 
-import Generics.MRSOP.Util
 import Generics.MRSOP.Base
 
 -- * Annotating a Mutually Recursive Family with Holes
@@ -327,6 +328,22 @@ holes2naM red (Hole  _ x)   = red x
 holes2naM _   (HOpq  _ k)   = return (NA_K k)
 holes2naM red (HPeel _ c p) = (NA_I . Fix . inj c) <$> mapNPM (holes2naM red) p
 
+-- |Returns how many holes are inside a treefix
+holesArity :: HolesAnn ann ki codes f at -> Int
+holesArity = length . holesGetHolesAnnWith' (const ())
+
+-- |Returns the size of a treefix. Holes have size 0.
+holesSize :: HolesAnn ann ki codes f at -> Int
+holesSize (Hole _ _)    = 0
+holesSize (HOpq _  _)   = 1
+holesSize (HPeel _ _ p) = 1 + sum (elimNP holesSize p)
+
+-- |Returns the singleton identifying the index of a 'HolesAnn'
+holesSNat :: (IsNat ix)
+          => HolesAnn ann ki codes f ('I ix)
+          -> SNat ix
+holesSNat _ = getSNat (Proxy :: Proxy ix)
+
 -- -* Instances
 
 instance (EqHO phi , EqHO ki) => Eq (Holes ki codes phi ix) where
@@ -340,3 +357,50 @@ instance (EqHO phi , EqHO ki) => Eq (Holes ki codes phi ix) where
 instance (EqHO phi , EqHO ki) => EqHO (Holes ki codes phi) where
   eqHO utx uty = utx == uty
 
+holesShow :: forall ki ann f fam codes ix
+           . (HasDatatypeInfo ki fam codes , ShowHO ki , ShowHO f)
+          => Proxy fam
+          -> (forall at . ann at -> ShowS)
+          -> HolesAnn ann ki codes f ix
+          -> ShowS
+holesShow _ f (Hole a x)       = ('`':) . f a . showString (showHO x) 
+holesShow _ f (HOpq a k)       = f a . showString (showHO k)
+holesShow p f h@(HPeel a c rest)
+  = showParen (needParens h) $ showString cname
+                             . f a
+                             . showString " "
+                             . withSpaces (elimNP (holesShow p f) rest)
+  where
+    withSpaces :: [ShowS] -> ShowS
+    withSpaces ls = foldl (\r ss -> ss . showString " " . r) id ls
+    
+    cname = case constrInfoFor p (holesSNat h) c of
+      (Record name _)    -> name
+      (Constructor name) -> name
+      (Infix name _ _)   -> "(" ++ name ++ ")"
+ 
+    needParens :: HolesAnn ann ki codes f iy -> Bool
+    needParens (Hole _ _) = False
+    needParens (HOpq _ _) = False
+    needParens (HPeel _ _ NP0) = False
+    needParens _          = True
+
+instance {-# OVERLAPPABLE #-} (HasDatatypeInfo ki fam codes , ShowHO ki , ShowHO f , ShowHO ann)
+    => ShowHO (HolesAnn ann ki codes f) where
+  showHO h = holesShow (Proxy :: Proxy fam) showsAnn h ""
+    where
+      showsAnn ann = showString "{"
+                   . showString (showHO ann)
+                   . showString "}"
+
+instance {-# OVERLAPPABLE #-} (HasDatatypeInfo ki fam codes , ShowHO ki , ShowHO f , ShowHO ann)
+    => Show (HolesAnn ann ki codes f at) where
+  show = showHO
+
+instance {-# OVERLAPPING #-} (HasDatatypeInfo ki fam codes , ShowHO ki , ShowHO f)
+    => ShowHO (Holes ki codes f) where
+  showHO h = holesShow (Proxy :: Proxy fam) (const id) h ""
+
+instance {-# OVERLAPPING #-} (HasDatatypeInfo ki fam codes , ShowHO ki , ShowHO f)
+    => Show (Holes ki codes f at) where
+  show = showHO
