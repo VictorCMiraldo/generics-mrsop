@@ -64,8 +64,9 @@ mapAnn :: (IsNat ix)
 mapAnn f = synthesizeAnn (\x _ -> f x)
 
 
--- |Example of using 'synthesize' to annotate a tree with its size
--- at every node.
+-- |Annotates a tree at every node with the result
+-- of the catamorphism with the supplied algebra called at
+-- each node.
 synthesize :: forall ki phi codes ix
             . (IsNat ix)
            => (forall iy . (IsNat iy) => Rep ki phi (Lkup iy codes) -> phi iy) -- ^

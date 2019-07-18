@@ -71,6 +71,9 @@ import Generics.MRSOP.Base
 --  The annotations are ignored in most of the functions and are here
 --  only as a means of helping algorithms keep intermediate values
 --  directly in the datatype. They have no semantic meaning.
+--
+--  Note that @HolesAnn ann ki codes@, of kind @(Atom kon -> *) -> Atom kon -> *@
+--  forms an indexed free monad.
 data HolesAnn :: (Atom kon -> *)
               -> (kon -> *)
               -> [[[Atom kon]]]
