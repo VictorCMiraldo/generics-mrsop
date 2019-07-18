@@ -80,6 +80,21 @@ synthesize f = cata alg
         -> AnnFix ki codes phi iy
     alg xs = AnnFix (f (mapRep getAnn xs)) xs
 
+
+-- |Monadic variant of 'synthesize'
+synthesizeM :: forall ki phi codes ix m
+              . (Monad m , IsNat ix)
+             => (forall iy  . IsNat iy => Rep ki phi (Lkup iy codes) -> m (phi iy)) -- ^
+             -> Fix ki codes ix
+             -> m (AnnFix ki codes phi ix)
+synthesizeM f = cataM alg
+  where
+    alg :: forall iy
+         . (IsNat iy)
+        => Rep ki (AnnFix ki codes phi) (Lkup iy codes)
+        -> m (AnnFix ki codes phi iy)
+    alg xs = flip AnnFix xs <$> f (mapRep getAnn xs)
+
 -- | Synthesized attributes with an algebra that has access to the annotations.
 synthesizeAnn :: forall ki codes chi phi ix
                . (IsNat ix)
@@ -93,38 +108,4 @@ synthesizeAnn f = annCata alg
         -> Rep ki (AnnFix ki codes phi) (Lkup iy codes)
         -> AnnFix ki codes phi iy
     alg ann rep = AnnFix (f ann (mapRep getAnn rep)) rep
-    
--- * Monadic Variants
-
--- $monadicvariants
---
--- These will rarely be needed. And are not /catamorphisms/ or /synthesized attributes/
--- per se, but have shown to be incredibly useful in some other internal projects
--- where we use /generics-mrsop/. We are leaving them in the library in case
--- they see some other usecases.
-
--- |Generalized catamorphism, with an auxiliary function that can
--- modify the result or perform a monadic action based on the value 
--- being processed. Care must be taken to /not/ consume the value in the
--- first argument.
-cataM' :: (Monad m , IsNat ix)
-       => (forall iy a. IsNat iy => Fix ki codes iy -> m a -> m a) -- ^
-       -> (forall iy  . IsNat iy => Rep ki phi (Lkup iy codes) -> m (phi iy))
-       -> Fix ki codes ix
-       -> m (phi ix)
-cataM' p f xo@(Fix x) = mapRepM (p xo . cataM' p f) x >>= f
-
--- |Synthesizes an annotated fixpoint based on 'cataM''
-synthesizeM' :: forall ki phi codes ix m
-              . (Monad m , IsNat ix)
-             => (forall iy a. IsNat iy => Fix ki codes iy -> m a -> m a) -- ^
-             -> (forall iy  . IsNat iy => Rep ki phi (Lkup iy codes) -> m (phi iy))
-             -> Fix ki codes ix
-             -> m (AnnFix ki codes phi ix)
-synthesizeM' p f = cataM' p alg
-  where
-    alg :: forall iy
-         . (IsNat iy)
-        => Rep ki (AnnFix ki codes phi) (Lkup iy codes)
-        -> m (AnnFix ki codes phi iy)
-    alg xs = flip AnnFix xs <$> f (mapRep getAnn xs)
+ 

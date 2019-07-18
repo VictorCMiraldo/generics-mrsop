@@ -292,10 +292,18 @@ instance EqHO ki => Eq (Fix ki codes ix) where
 
 -- | Catamorphism over fixpoints
 cata :: (IsNat ix)
-  => (forall iy. IsNat iy => Rep ki phi (Lkup iy codes) -> phi iy)
+  => (forall iy. IsNat iy => Rep ki phi (Lkup iy codes) -> phi iy) -- ^ 
   -> Fix ki codes ix
   -> phi ix
 cata f (Fix x) = f (mapRep (cata f) x)
+
+-- |Monadic variant
+cataM :: (Monad m , IsNat ix)
+      => (forall iy  . IsNat iy => Rep ki phi (Lkup iy codes) -> m (phi iy)) -- ^
+      -> Fix ki codes ix
+      -> m (phi ix)
+cataM f (Fix x) = mapRepM (cataM f) x >>= f
+
 
 -- |Retrieves the index of a 'Fix'
 proxyFixIdx :: phi ix -> Proxy ix
