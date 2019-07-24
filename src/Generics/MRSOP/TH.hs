@@ -203,7 +203,7 @@ deriveFamilyWith opqName t
        let final = sortBy (compare `on` second) m' 
        -- dbg <- genFamilyDebug sty final
        res <- genFamily opqData sty final 
-       return (dbg ++ res)
+       return res -- (dbg ++ res)
   where
     second (_ , x , _) = x
     
