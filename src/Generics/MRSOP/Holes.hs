@@ -375,7 +375,7 @@ holesShow p f h@(HPeel a c rest)
                              . withSpaces (elimNP (holesShow p f) rest)
   where
     withSpaces :: [ShowS] -> ShowS
-    withSpaces ls = foldl (\r ss -> ss . showString " " . r) id ls
+    withSpaces ls = foldl (\r ss -> r . showString " " . ss) id ls
     
     cname = case constrInfoFor p (holesSNat h) c of
       (Record name _)    -> name
