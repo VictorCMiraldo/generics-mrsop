@@ -1,5 +1,11 @@
 # Revision history for generics-mrsop
 
+## 2.1.0 -- Jul 2019
+
+- Added datatype `Holes` for representing families annotated with holes.
+- Brought in some monadic attribute grammar combinators
+- Big documentation update on a number of places
+
 ## 2.0.0 -- Mar 2019
 
 - `Eq1` and `Show1` are now called `EqHO` and `ShowHO`. This avoids clashing with the
@@ -20,4 +26,4 @@ already existing `Eq1` in `Prelude`.
 
 ## 1.0.0.0  -- May 2018
 
-* First version. Released on an unsuspecting world.
+- First version. Released on an unsuspecting world.
