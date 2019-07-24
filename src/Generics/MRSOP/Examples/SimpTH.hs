@@ -11,6 +11,7 @@
 {-# LANGUAGE TemplateHaskell         #-}
 {-# LANGUAGE LambdaCase              #-}
 {-# LANGUAGE PatternSynonyms         #-}
+{-# OPTIONS_HADDOCK hide, prune, ignore-exports #-}
 {-# OPTIONS_GHC -Wno-missing-pattern-synonym-signatures #-}
 {-# OPTIONS_GHC -Wno-missing-signatures                 #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns                #-}
@@ -20,8 +21,10 @@
 module Generics.MRSOP.Examples.SimpTH where
 
 import Data.Function (on)
+import Data.Functor.Const
 
 import Generics.MRSOP.Base
+import Generics.MRSOP.Holes
 import Generics.MRSOP.Opaque
 import Generics.MRSOP.Zipper
 
@@ -172,7 +175,6 @@ test4 :: Int -> Decl String
 test4 n = DFun "test" "n"
         $ (SAssign "x" (EAdd (ELit 10) (ELit n)))
         `SSeq` (SReturn (EVar "x"))
-        
 
 test5 :: Maybe (Decl String)
 test5 = enter
@@ -190,3 +192,16 @@ test5 = enter
     mk42 IdxExpString _ = El $ ELit 42
     mk42 _            x = x
 
+-- ** Holes test
+
+test6 :: Holes Singl CodesStmtString (Const Int) ('I ('S 'Z))
+test6 = HPeel' (CS (CS CZ))
+          (  (HPeel' CZ (HOpq' (SString "lol") :* NP0))
+          :* (Hole' (Const 42))
+          :* NP0)
+
+test7 :: HolesAnn (Const Int) Singl CodesStmtString (Const Int) ('I ('S 'Z))
+test7 = HPeel (Const 1) (CS (CS CZ))
+          (  (HPeel (Const 2) CZ (HOpq (Const 4) (SString "lol") :* NP0))
+          :* (Hole (Const 3) (Const 42))
+          :* NP0)

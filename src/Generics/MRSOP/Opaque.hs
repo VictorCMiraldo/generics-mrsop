@@ -49,8 +49,16 @@ data Singl (kon :: Kon) :: * where
   SChar    :: Char    -> Singl 'KChar
   SString  :: String  -> Singl 'KString
 
-deriving instance Show (Singl k)
 deriving instance Eq   (Singl k)
+
+instance Show (Singl k) where
+ show (SInt      a) = show a 
+ show (SInteger  a) = show a
+ show (SFloat    a) = show a
+ show (SDouble   a) = show a
+ show (SBool     a) = show a
+ show (SChar     a) = show a
+ show (SString   a) = show a
 
 instance EqHO Singl where
   eqHO = (==)
