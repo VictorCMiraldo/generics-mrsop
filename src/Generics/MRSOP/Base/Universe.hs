@@ -304,7 +304,6 @@ cataM :: (Monad m , IsNat ix)
       -> m (phi ix)
 cataM f (Fix x) = mapRepM (cataM f) x >>= f
 
-
 -- |Retrieves the index of a 'Fix'
 proxyFixIdx :: phi ix -> Proxy ix
 proxyFixIdx _ = Proxy

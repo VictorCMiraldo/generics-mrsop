@@ -10,18 +10,35 @@
 -- | Provides a simple way for the end-user to derive
 --   the 'Family' instance for a mutually recursive family.
 --
---   For example,
+--   Let's take a simple example:
 --
 --   > data Rose a = a :>: [Rose a] | Leaf a
 --   > deriveFamily [t| Rose Int |]
 --
 --  Will derive the following code:
 --
---  > type ListCode = '[ '[] , '[ 'I ('S 'Z) , 'I 'Z] ]
---  > type RTCode   = '[ '[ 'K 'KInt , 'I 'Z] , '[ 'K 'KInt] ]
+--  > type FamRoseInt   = '[Rose Int, [Rose Int]]
+--  > type CodesRoseInt = '['['[K KInt, I (S Z)], '[K KInt]], '['[], '[I Z, I (S Z)]]]
 --  > 
---  > type CodesRose = '[ListCode , RTCode]
---  > type FamRose   = '[ [R Int] , R Int] 
+--  > -- Type index SNat synonyms
+--  > pattern IdxRoseInt     = SZ
+--  > pattern IdxListRoseInt = SS SZ
+--  > 
+--  > -- (:>:) pattern syn
+--  > pattern RoseInt_Ifx0 :: kon KInt -> phi (S Z) -> View kon phi (Lkup Z CodesRoseInt)
+--  > pattern RoseInt_Ifx0 p q = Tag CZ (NA_K p :* (NA_I q :* NP0))
+--  > 
+--  > -- Leaf pattern syn
+--  > pattern RoseIntLeaf_ :: kon KInt -> View kon phi (Lkup Z CodesRoseInt)
+--  > pattern RoseIntLeaf_ p = Tag (CS CZ) (NA_K p :* NP0)
+--  > 
+--  > -- [] pattern syn
+--  > pattern ListRoseInt_Ifx0 :: View kon phi (Lkup (S Z) CodesRoseInt)
+--  > pattern ListRoseInt_Ifx0 = Tag CZ NP0
+--  > 
+--  > -- (:) pattern syn
+--  > pattern ListRoseInt_Ifx1 :: phi Z -> phi (S Z) -> View kon phi (Lkup (S Z) CodesRoseInt)
+--  > pattern ListRoseInt_Ifx1 p q = Tag (CS CZ) (NA_I p :* (NA_I q :* NP0))
 --  > 
 --  > instance Family Singl FamRose CodesRose where
 --  >   sfrom' (SS SZ) (El (a :>: as)) = Rep $ Here (NA_K (SInt a) :* NA_I (El as) :* NP0)
@@ -54,8 +71,80 @@
 --  >   datatypeInfo _ _
 --  >     = error "unreachable"
 --
+--  To illustrate the pattern synonym generation, let us look at a selection
+--  of a more involved example
+--  
+--  Consider the following family:
 --
---   We did inspire this module in the TH generication from generic-sop
+--  > data Stmt var
+--  >   = SAssign var (Exp var)
+--  >   | SIf     (Exp var) (Stmt var) (Stmt var)
+--  >   | SSeq    (Stmt var) (Stmt var)
+--  >   | SReturn (Exp var)
+--  >   | SDecl (Decl var)
+--  >   | SSkip
+--  >   deriving Show
+--  > 
+--  > data Decl var
+--  >   = DVar var
+--  >   | DFun var var (Stmt var)
+--  >   deriving Show
+--  > 
+--  > data Exp var
+--  >   = EVar  var
+--  >   | ECall var (Exp var)
+--  >   | EAdd (Exp var) (Exp var)
+--  >   | ESub (Exp var) (Exp var)
+--  >   | ELit Int
+--  >   deriving Show
+--  > 
+--
+--  In this case, running @deriveFamily [t| Stmt String |]@ will
+--  generate the following types:
+--
+--  > type FamStmtString   = '[Stmt String, Exp String, Decl String]
+--  > type CodesStmtString =
+--  >     '['['[K KString, I (S Z)],
+--  >         '[I (S Z), I Z, I Z],
+--  >         '[I Z, I Z],
+--  >         '[I (S Z)],
+--  >         '[I (S (S Z))],
+--  >         '[]],
+--  >       '['[K KString],
+--  >         '[K KString, I (S Z)],
+--  >         '[I (S Z), I (S Z)],
+--  >         '[I (S Z), I (S Z)],
+--  >         '[K KInt]],
+--  >       '['[K KString], '[K KString, K KString, I Z]]]
+--  > pattern IdxStmtString = SZ
+--  > pattern IdxExpString = SS SZ
+--  > pattern IdxDeclString = SS (SS SZ)
+--  >
+--  > -- Here are the declared patterns for 'View'
+--  > pattern StmtStringSAssign_ 
+--  > pattern StmtStringSIf_ 
+--  > pattern StmtStringSSeq_ 
+--  > pattern StmtStringSReturn_ 
+--  > pattern StmtStringSDecl_ 
+--  > pattern StmtStringSSkip_ 
+--  > pattern ExpStringEVar_ 
+--  > pattern ExpStringECall_ 
+--  > pattern ExpStringEAdd_ 
+--  > pattern ExpStringESub_ 
+--  > pattern ExpStringELit_ 
+--  > pattern DeclStringDVar_ 
+--  > pattern DeclStringDFun_ 
+--
+--  We did ommit the definitions and 'Family' and 'HasDatatypeInfo' instances
+--  for brevity here. If you want to see the actual generated code, compile with
+--  
+--  > stack build ghc-options="-ddump-splices -ddump-to-file"
+--  
+--  You can find the spliced files with
+--
+--  > find -name "*.dump-splices"
+--
+--   This module was based in the TH generication from /generic-sop/
 --   ( https://hackage.haskell.org/package/generics-sop-0.3.2.0/docs/src/Generics-SOP-TH.html )
 --
 module Generics.MRSOP.TH
@@ -112,7 +201,7 @@ deriveFamilyWith opqName t
        -- types
        m' <- mapM extractDTI (M.toList m)
        let final = sortBy (compare `on` second) m' 
-       dbg <- genFamilyDebug sty final
+       -- dbg <- genFamilyDebug sty final
        res <- genFamily opqData sty final 
        return (dbg ++ res)
   where
@@ -123,6 +212,7 @@ deriveFamilyWith opqName t
     extractDTI (sty , (ix , Just dti))
       = return (sty , ix , dti)
 
+-- |Reifies the type given for opaque types, then calls 'deriveFamilyWith'
 deriveFamilyWithTy :: Q Type -> Q Type -> Q [Dec]
 deriveFamilyWithTy opq ty
   = do opqTy <- opq
@@ -130,6 +220,7 @@ deriveFamilyWithTy opq ty
          ConT opqName -> deriveFamilyWith opqName ty
          _            -> fail $ "Type " ++ show opqTy ++ " must be a name!"
 
+-- |Same as @deriveFamilyWith ''Singl@
 deriveFamily :: Q Type -> Q [Dec]
 deriveFamily = deriveFamilyWith (mkName "Singl")
 
@@ -660,14 +751,13 @@ familyName = return . onBaseName ("Fam" ++) . styToName
 
 genPiece1 :: STy -> Input -> Q [Dec]
 genPiece1 first ls
-  = do -- nums  <- inputToTySynNums ls -- TODO: Remove this hack
-       codes <- TySynD <$> codesName first
+  = do codes <- TySynD <$> codesName first
                        <*> return []
                        <*> inputToCodes ls
        fam   <- TySynD <$> familyName first
                        <*> return []
                        <*> inputToFam ls
-       return [fam , codes] -- (nums ++ [fam , codes])
+       return [fam , codes] 
 
 idxPatSynName :: STy -> Name
 idxPatSynName = styToName . (AppST (ConST (mkName "Idx")))
@@ -905,13 +995,15 @@ match :: Pat -> Exp -> Match
 match pat bdy = Match pat (NormalB bdy) []
 
 -- Adds a matchall clause; for instance:
+-- VCM: Jul24: We used this to try to bypass the coverage checker, with no luck.
+-- I'll comment this out
 --
 -- > matchAll [Just x -> 1] = [Just x -> 1 , _ -> error "matchAll"]
 --
-matchAll :: [Match] -> [Match]
-matchAll = (++ [match WildP err])
-  where
-    err = AppE (VarE (mkName "error")) (LitE (StringL "matchAll"))
+-- matchAll :: [Match] -> [Match]
+-- matchAll = (++ [match WildP err])
+--   where
+--     err = AppE (VarE (mkName "error")) (LitE (StringL "matchAll"))
 
 genPiece3_1 :: OpaqueData -> Input -> Q Exp
 genPiece3_1 opq input
@@ -927,16 +1019,17 @@ genPiece3_1 opq input
       
 genPiece3_2 :: OpaqueData -> Input -> Q Exp
 genPiece3_2 opq input
-  = LamCaseE . matchAll <$> mapM (\(sty , ix , dti) -> clauseForIx sty ix dti) input
+  = LamCaseE <$> mapM (\(sty , ix , dti) -> clauseForIx sty ix dti) input
   where    
     clauseForIx :: STy -> Int -> DTI IK -> Q Match
     clauseForIx sty ix dti = match (idxPatSyn sty)
-                       <$> (LamCaseE . matchAll <$> genMatchFor ix dti)
+                       <$> (LamCaseE <$> genMatchFor ix dti)
       
     genMatchFor :: Int -> DTI IK -> Q [Match]
     genMatchFor ix dti = map (uncurry match) <$> mapM (uncurry $ ci2ExpPat opq ix)
                                                       (zip [0..] $ dti2ci dti)
 
+-- Metadata generation
 genPiece4 :: OpaqueData -> STy -> Input -> Q [Dec]
 genPiece4 opq first ls
   = [d| instance Meta.HasDatatypeInfo $opqName
@@ -995,18 +1088,19 @@ genPiece4 opq first ls
 
 -- |@genFamily opq init fam@ generates a type-level list
 --  of the codes for the family. It also generates
---  the necessary 'Element' instances.
+--  the necessary 'Family' and 'HasDatatypeInfo' instances.
 --
 --  Precondition, input is sorted on second component.
 genFamily :: OpaqueData -> STy -> Input -> Q [Dec]
 genFamily opq first ls
-  = do p1 <- genPiece1 first ls
-       p2 <- genPiece2 opq first ls
-       p3 <- genPiece3 opq first ls
-       p4 <- genPiece4 opq first ls
+  = do p1 <- genPiece1 first ls      -- Family and codes
+       p2 <- genPiece2 opq first ls  -- Pattern Synonyms
+       p3 <- genPiece3 opq first ls  -- Family instance
+       p4 <- genPiece4 opq first ls  -- Metadata instance
        return $ p1 ++ p2 ++ [p3] ++ p4
 
 -- |Generates a bunch of strings for debug purposes.
+--  The generated strings are named @tyInfo_0, tyInfo_1, ...@
 genFamilyDebug :: STy -> [(STy , Int , DTI IK)] -> Q [Dec]
 genFamilyDebug _ ms = concat <$> mapM genDec ms
   where
