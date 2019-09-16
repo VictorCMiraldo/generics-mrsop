@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: e7921d4fefc37ee2071a8e9c928bbb00d6a2b92ada8786573a91494ab3a8b228
+-- hash: 6e4f3e6671cfaeff58301e7f3a59013225b8995b0e8cb2fbb43c1d48c1158cf0
 
 name:           generics-mrsop
 version:        2.2.0
@@ -42,7 +42,6 @@ library
       Generics.MRSOP.TH
       Generics.MRSOP.Util
       Generics.MRSOP.Zipper
-      Generics.MRSOP.Zipper.Deep
   other-modules:
       Paths_generics_mrsop
   hs-source-dirs:
