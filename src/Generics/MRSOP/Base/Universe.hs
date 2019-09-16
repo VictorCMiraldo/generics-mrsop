@@ -1,13 +1,15 @@
-{-# LANGUAGE RankNTypes           #-}
-{-# LANGUAGE FlexibleContexts     #-}
-{-# LANGUAGE FlexibleInstances    #-}
-{-# LANGUAGE GADTs                #-}
-{-# LANGUAGE TypeOperators        #-}
-{-# LANGUAGE DataKinds            #-}
-{-# LANGUAGE PolyKinds            #-}
-{-# LANGUAGE PatternSynonyms      #-}
-{-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE TypeApplications     #-}
+{-# LANGUAGE QuantifiedConstraints       #-}
+{-# LANGUAGE RankNTypes                  #-}
+{-# LANGUAGE FlexibleContexts            #-}
+{-# LANGUAGE FlexibleInstances           #-}
+{-# LANGUAGE GADTs                       #-}
+{-# LANGUAGE TypeOperators               #-}
+{-# LANGUAGE DataKinds                   #-}
+{-# LANGUAGE PolyKinds                   #-}
+{-# LANGUAGE PatternSynonyms             #-}
+{-# LANGUAGE ScopedTypeVariables         #-}
+{-# LANGUAGE TypeApplications            #-}
+{-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 -- |Wraps the definitions of 'NP' and 'NS'
 --  into Representations ('Rep'), essentially providing
 --  the universe view over sums-of-products.
@@ -47,18 +49,12 @@ data NA  :: (kon -> *) -> (Nat -> *) -> Atom kon -> * where
   NA_I :: (IsNat k) => phi k -> NA ki phi ('I k) 
   NA_K ::              ki  k -> NA ki phi ('K k)
 
-instance (EqHO phi, EqHO ki) => EqHO (NA ki phi) where
-  eqHO = eqNA eqHO eqHO
+instance (EqHO phi , EqHO ki) => Eq (NA ki phi at) where
+  (==) = eqNA (==) (==)
 
-instance (EqHO phi, EqHO ki) => Eq (NA ki phi at) where
-  (==) = eqHO
-
-instance (ShowHO phi, ShowHO ki) => ShowHO (NA ki phi) where
-  showHO (NA_I i) = "(NA_I " ++ showHO i ++ ")"
-  showHO (NA_K k) = "(NA_K " ++ showHO k ++ ")"
-
-instance (ShowHO phi, ShowHO ki) => Show (NA ki phi at) where
-  show = showHO
+instance (ShowHO phi , ShowHO ki) => Show (NA ki phi at) where
+  show (NA_I i) = "(NA_I " ++ show i ++ ")"
+  show (NA_K k) = "(NA_K " ++ show k ++ ")"
 
 instance (TestEquality ki) => TestEquality (NA ki phi) where
   testEquality (NA_I _) (NA_K _) = Nothing
@@ -128,11 +124,8 @@ eqNA kp fp x = elimNA (uncurry' kp) (uncurry' fp) . zipNA x
 newtype Rep (ki :: kon -> *) (phi :: Nat -> *) (code :: [[Atom kon]])
   = Rep { unRep :: NS (PoA ki phi) code }
 
-instance (EqHO phi, EqHO ki) => EqHO (Rep ki phi) where
-  eqHO = eqRep eqHO eqHO
-
 instance (EqHO phi, EqHO ki) => Eq (Rep ki phi at) where
-  (==) = eqHO
+  (==) = eqRep (==) (==)
   
 -- |Product of Atoms is a handy synonym to have.
 type PoA (ki :: kon -> *) (phi :: Nat -> *) = NP (NA ki phi)
@@ -284,11 +277,8 @@ fromView (Tag c x) = inj c x
 newtype Fix (ki :: kon -> *) (codes :: [[[ Atom kon ]]]) (n :: Nat)
   = Fix { unFix :: Rep ki (Fix ki codes) (Lkup n codes) }
 
-instance EqHO ki => EqHO (Fix ki codes) where
-  eqHO = eqFix eqHO
-
 instance EqHO ki => Eq (Fix ki codes ix) where
-  (==) = eqFix eqHO
+  (==) = eqFix (==)
 
 -- | Catamorphism over fixpoints
 cata :: (IsNat ix)

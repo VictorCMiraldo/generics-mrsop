@@ -1,3 +1,5 @@
+{-# LANGUAGE UndecidableInstances   #-}
+{-# LANGUAGE FlexibleContexts       #-}
 {-# LANGUAGE RankNTypes             #-}
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
@@ -10,6 +12,7 @@
 module Generics.MRSOP.Base.Metadata where
 
 import Data.Proxy
+import Data.SOP.Constraint
 
 import Generics.MRSOP.Util
 import Generics.MRSOP.Base.NP
@@ -49,7 +52,7 @@ datatypeName (New _ d _) = d
 
 constructorInfo :: DatatypeInfo code -> NP ConstructorInfo code
 constructorInfo (ADT _ _ c) = c
-constructorInfo (New _ _ c) = c :* NP0
+constructorInfo (New _ _ c) = c :* Nil
 
 -- |Associativity information for infix constructors.
 data Associativity
@@ -78,15 +81,17 @@ data FieldInfo :: Atom kon -> * where
 
 deriving instance Show (FieldInfo atom)
 
-instance ShowHO FieldInfo where
-  showHO = show
+-- instance ShowHO FieldInfo where
+--   showHO = show
 
-deriving instance Show (ConstructorInfo code)
+deriving instance (All (Compose Show FieldInfo) code)
+  => Show (ConstructorInfo code)
 
-instance ShowHO ConstructorInfo where
-  showHO = show
+--instance ShowHO ConstructorInfo where
+--  showHO = show
 
-deriving instance Show (DatatypeInfo code)
+deriving instance (All (Compose Show ConstructorInfo) code)
+  => Show (DatatypeInfo code)
 
 -- |Given a 'Family', provides the 'DatatypeInfo' for the type
 --  with index @ix@ in family 'fam'.

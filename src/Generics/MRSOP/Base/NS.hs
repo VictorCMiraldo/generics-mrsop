@@ -1,19 +1,34 @@
-{-# LANGUAGE RankNTypes             #-}
-{-# LANGUAGE FlexibleContexts       #-}
-{-# LANGUAGE FlexibleInstances      #-}
-{-# LANGUAGE GADTs                  #-}
-{-# LANGUAGE TypeOperators          #-}
-{-# LANGUAGE DataKinds              #-}
-{-# LANGUAGE PolyKinds              #-}
-{-# LANGUAGE ScopedTypeVariables    #-}
-{-# OPTIONS_GHC -Wno-name-shadowing #-}
+{-# LANGUAGE PatternSynonyms             #-}
+{-# LANGUAGE RankNTypes                  #-}
+{-# LANGUAGE FlexibleContexts            #-}
+{-# LANGUAGE FlexibleInstances           #-}
+{-# LANGUAGE GADTs                       #-}
+{-# LANGUAGE TypeOperators               #-}
+{-# LANGUAGE DataKinds                   #-}
+{-# LANGUAGE PolyKinds                   #-}
+{-# LANGUAGE ScopedTypeVariables         #-}
+{-# LANGUAGE ScopedTypeVariables         #-}
+{-# OPTIONS_GHC -Wno-name-shadowing      #-}
+{-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 
 -- | Standard representation of n-ary sums.
-module Generics.MRSOP.Base.NS where
+module Generics.MRSOP.Base.NS
+  ( SOP.NS , pattern Here , pattern There
+  , mapNS
+  , mapNSM
+  , elimNS 
+  , zipNS
+  , cataNS
+  , eqNS
+  ) where
+
+import qualified Data.SOP.NS as SOP
+import           Data.SOP.NS (NS(..))
 
 import Control.Monad
 import Generics.MRSOP.Util
 
+{-
 
 -- |Indexed n-ary sums. This is analogous to the @Any@ datatype
 --  in @Agda@. 
@@ -37,6 +52,20 @@ instance ShowHO phi => ShowHO (NS phi) where
 
 instance ShowHO phi => Show (NS phi xs) where
   show = showHO
+
+-}
+
+-- pattern There :: () => () => NS p xs -> NS p (x : xs)
+pattern There :: forall k (a :: k -> *) (b :: [k]).
+                       () =>
+                       forall (xs :: [k]) (x :: k). (b ~ (x : xs)) => NS a xs -> NS a b
+pattern There x = SOP.S x
+
+-- pattern Here  :: p x     -> NS p (x : xs)
+pattern Here :: forall k (a :: k -> *) (b :: [k]).
+                      () =>
+                      forall (x :: k) (xs :: [k]). (b ~ (x : xs)) => a x -> NS a b
+pattern Here x = SOP.Z x
 
 -- * Map, Zip and Elim
 

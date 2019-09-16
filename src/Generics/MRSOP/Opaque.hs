@@ -14,7 +14,6 @@
 module Generics.MRSOP.Opaque where
 
 import Data.Type.Equality
-import Generics.MRSOP.Util
 
 -- * Opaque Types
 --
@@ -59,12 +58,6 @@ instance Show (Singl k) where
  show (SBool     a) = show a
  show (SChar     a) = show a
  show (SString   a) = show a
-
-instance EqHO Singl where
-  eqHO = (==)
-
-instance ShowHO Singl where
-  showHO = show
 
 -- |Equality over singletons
 eqSingl :: Singl k -> Singl k -> Bool

@@ -1,13 +1,14 @@
-{-# LANGUAGE ConstraintKinds     #-}
-{-# LANGUAGE GADTs               #-}
-{-# LANGUAGE TypeFamilies        #-}
-{-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE PolyKinds           #-}
-{-# LANGUAGE TypeOperators       #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE TypeApplications    #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE PatternSynonyms     #-}
+{-# LANGUAGE QuantifiedConstraints #-}
+{-# LANGUAGE ConstraintKinds       #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE PolyKinds             #-}
+{-# LANGUAGE TypeOperators         #-}
+{-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE PatternSynonyms       #-}
 -- |Useful utilities we need accross multiple modules.
 module Generics.MRSOP.Util
   ( -- * Utility Functions and Types
@@ -34,7 +35,7 @@ module Generics.MRSOP.Util
   , Lkup , Idx , El(..) , getElSNat , into
 
     -- * Higher-order Eq and Show
-  , EqHO(..) , ShowHO(..)
+  , EqHO , ShowHO
   ) where
 
 import Data.Proxy
@@ -151,22 +152,22 @@ into = El
 --  This is useful since it enables us to pattern match on
 --  type-level lists whenever we see fit.
 data ListPrf :: [k] -> * where
-  Nil ::  ListPrf '[]
-  Cons :: ListPrf l ->  ListPrf (x ': l)
+  LP_Nil  :: ListPrf '[]
+  LP_Cons :: ListPrf l ->  ListPrf (x ': l)
 
 -- |The @IsList@ class allows us to construct
 --  'ListPrf's in a straight forward fashion.
 class IsList (xs :: [k]) where
   listPrf :: ListPrf xs
 instance IsList '[] where
-  listPrf = Nil
+  listPrf = LP_Nil
 instance IsList xs => IsList (x ': xs) where
-  listPrf = Cons listPrf
+  listPrf = LP_Cons listPrf
 
 -- |Concatenation of lists is also a list.
 appendIsListLemma :: ListPrf xs -> ListPrf ys -> ListPrf (xs :++: ys)
-appendIsListLemma Nil         isys = isys
-appendIsListLemma (Cons isxs) isys = Cons (appendIsListLemma isxs isys)
+appendIsListLemma LP_Nil         isys = isys
+appendIsListLemma (LP_Cons isxs) isys = LP_Cons (appendIsListLemma isxs isys)
 
 -- |Appending type-level lists
 type family (:++:) (txs :: [k]) (tys :: [k]) :: [k] where
@@ -180,8 +181,12 @@ type L3 xs ys zs    = (IsList xs, IsList ys, IsList zs)
 type L4 xs ys zs as = (IsList xs, IsList ys, IsList zs, IsList as) 
 
 -- TODO: VCM: looking at the implementation for the instances
---            in Generics.MRSOP.Opaque, it seems like we don't really need this.
+--       in Generics.MRSOP.Opaque, it seems like we don't really need this.
 
+type EqHO   f = forall x . Eq   (f x)
+type ShowHO f = forall x . Show (f x)
+
+{-
 -- |Higher order version of 'Eq'
 class EqHO (f :: ki -> *) where
   eqHO :: forall k . f k -> f k -> Bool
@@ -210,4 +215,4 @@ instance (ShowHO f , ShowHO g) => ShowHO (Product f g) where
 instance (ShowHO f , ShowHO g) => ShowHO (Sum f g) where
   showHO (InL fx) = "InL " ++ showHO fx
   showHO (InR gx) = "InR " ++ showHO gx
-
+-}

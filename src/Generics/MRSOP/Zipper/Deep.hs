@@ -1,3 +1,4 @@
+{-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE RankNTypes           #-}
 {-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE FlexibleInstances    #-}
@@ -17,12 +18,13 @@
 module Generics.MRSOP.Zipper.Deep where
 import Control.Monad (guard)
 import Data.Proxy
+import Data.SOP.Constraint
 
-import Generics.MRSOP.Base hiding (Cons , Nil)
+import Generics.MRSOP.Base 
 
 -- |Analogous to 'Generics.MRSOP.Zipper.Ctxs'
 data Ctxs (ki :: kon -> *) (codes :: [[[Atom kon]]]) :: Nat -> Nat -> * where
-  Nil  :: Ctxs ki codes ix ix
+  CNil :: Ctxs ki codes ix ix
   Cons :: (IsNat ix, IsNat a, IsNat b)
        => Ctx ki codes (Lkup ix codes) b
        -> Ctxs ki codes a ix
@@ -57,7 +59,7 @@ fillNPHole x (T y ys) = y :* fillNPHole x ys
 -- |Given a value that fits in a context, fills the context hole.
 fillCtxs :: (IsNat ix)
          => Fix ki codes iy -> Ctxs ki codes ix iy -> Fix ki codes ix
-fillCtxs h Nil = h
+fillCtxs h CNil = h
 fillCtxs h (Cons ctx ctxs) = fillCtxs (Fix $ fillCtx h ctx) ctxs
 
 fillCtx :: (IsNat ix)
@@ -73,7 +75,7 @@ removeCtxs :: (EqHO ki, IsNat ix)
            => Ctxs ki codes ix iy
            -> Fix ki codes ix
            -> Maybe (Fix ki codes iy)
-removeCtxs Nil f = pure f
+removeCtxs CNil f = pure f
 removeCtxs (Cons ctx ctxs) (Fix r) = do
     (Fix t) <- removeCtxs ctxs (Fix r)
     removeCtx t ctx
@@ -86,13 +88,13 @@ removeCtx :: forall ix ki codes c
 removeCtx x (Ctx c npHole) =
   match c x >>= removeNPHole npHole
 
-removeNPHole :: (EqHO ki, IsNat ix)
+removeNPHole :: (All (Compose Eq (NA ki (Fix ki codes))) xs , EqHO ki, IsNat ix)
              => NPHole ki codes ix xs
              -> PoA ki (Fix ki codes) xs
              -> Maybe (Fix ki codes ix)
 removeNPHole (H ys) (NA_I x :* xs) = do
-  guard $ eqHO xs ys
+  guard $ xs == ys
   pure x
 removeNPHole (T y ys) (x :* xs) = do
-  guard $ eqHO x y
+  guard $ x == y
   removeNPHole ys xs

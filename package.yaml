@@ -1,0 +1,27 @@
+name:        generics-mrsop
+version:     2.2.0
+synopsis:    Generic Programming with Mutually Recursive Sums of Products.
+description:
+  A library that supports generic programming for mutually
+  recursive families in the sum-of-products style.
+  .
+  A couple usage examples can be found under "Generics.MRSOP.Examples"
+  .
+license:     MIT
+author:      Victor Miraldo and Alejandro Serrano
+maintainer:  Victor Miraldo <v.cacciarimiraldo@gmail.com>
+github:      VictorCMiraldo/generics-mrsop
+category:    Generics
+
+dependencies:
+  - base >= 4.9 && < 5
+  - sop-core
+  - containers
+  - template-haskell
+  - mtl
+
+library:
+  source-dirs: src/
+  ghc-options: -Wall
+
+
