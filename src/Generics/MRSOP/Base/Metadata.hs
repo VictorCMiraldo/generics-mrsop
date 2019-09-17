@@ -1,3 +1,5 @@
+{-# LANGUAGE UndecidableInstances   #-}
+{-# LANGUAGE FlexibleContexts       #-}
 {-# LANGUAGE RankNTypes             #-}
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
@@ -10,6 +12,7 @@
 module Generics.MRSOP.Base.Metadata where
 
 import Data.Proxy
+import Data.SOP.Constraint
 
 import Generics.MRSOP.Util
 import Generics.MRSOP.Base.NP
@@ -39,17 +42,20 @@ data DatatypeInfo :: [[Atom kon]] -> * where
   New :: ModuleName -> DatatypeName -> ConstructorInfo '[ c ]
       -> DatatypeInfo '[ '[ c ]]
 
+-- |Returns the name of a module
 moduleName :: DatatypeInfo code -> ModuleName
 moduleName (ADT m _ _) = m
 moduleName (New m _ _) = m
 
+-- |Returns the name of a datatype
 datatypeName :: DatatypeInfo code -> DatatypeName
 datatypeName (ADT _ d _) = d
 datatypeName (New _ d _) = d
 
+-- |Returns information about the constructor fields
 constructorInfo :: DatatypeInfo code -> NP ConstructorInfo code
 constructorInfo (ADT _ _ c) = c
-constructorInfo (New _ _ c) = c :* NP0
+constructorInfo (New _ _ c) = c :* Nil
 
 -- |Associativity information for infix constructors.
 data Associativity
@@ -67,6 +73,7 @@ data ConstructorInfo :: [Atom kon] -> * where
   Infix       :: ConstructorName -> Associativity -> Fixity -> ConstructorInfo '[ x , y ]
   Record      :: ConstructorName -> NP FieldInfo xs -> ConstructorInfo xs
 
+-- |Returns the name of a constructor
 constructorName :: ConstructorInfo con -> ConstructorName
 constructorName (Constructor c) = c
 constructorName (Infix c _ _)   = c
@@ -78,18 +85,14 @@ data FieldInfo :: Atom kon -> * where
 
 deriving instance Show (FieldInfo atom)
 
-instance ShowHO FieldInfo where
-  showHO = show
+deriving instance (All (Compose Show FieldInfo) code)
+  => Show (ConstructorInfo code)
 
-deriving instance Show (ConstructorInfo code)
-
-instance ShowHO ConstructorInfo where
-  showHO = show
-
-deriving instance Show (DatatypeInfo code)
+deriving instance (All (Compose Show ConstructorInfo) code)
+  => Show (DatatypeInfo code)
 
 -- |Given a 'Family', provides the 'DatatypeInfo' for the type
---  with index @ix@ in family 'fam'.
+--  with index @ix@ in family @fam@.
 class (Family ki fam codes) => HasDatatypeInfo ki fam codes
     | fam -> codes ki where
   datatypeInfo :: Proxy fam -> SNat ix -> DatatypeInfo (Lkup ix codes)

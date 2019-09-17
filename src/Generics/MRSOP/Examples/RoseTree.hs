@@ -86,37 +86,37 @@ type FamRose   = '[ [R Int] , R Int]
 -- this code automatically.
 --
 -- >instance Family Singl FamRose CodesRose where
--- >   sfrom' (SS SZ) (El (a :>: as)) = Rep $ Here (NA_K (SInt a) :* NA_I (El as) :* NP0)
--- >   sfrom' (SS SZ) (El (Leaf a))   = Rep $ There (Here (NA_K (SInt a) :* NP0))
--- >   sfrom' SZ (El [])              = Rep $ Here NP0
--- >   sfrom' SZ (El (x:xs))          = Rep $ There (Here (NA_I (El x) :* NA_I (El xs) :* NP0))
+-- >   sfrom' (SS SZ) (El (a :>: as)) = Rep $ Here (NA_K (SInt a) :* NA_I (El as) :* Nil)
+-- >   sfrom' (SS SZ) (El (Leaf a))   = Rep $ There (Here (NA_K (SInt a) :* Nil))
+-- >   sfrom' SZ (El [])              = Rep $ Here Nil
+-- >   sfrom' SZ (El (x:xs))          = Rep $ There (Here (NA_I (El x) :* NA_I (El xs) :* Nil))
 -- >   sfrom' _ _ = error "unreachable"
 -- > 
--- >   sto' SZ (Rep (Here NP0))
+-- >   sto' SZ (Rep (Here Nil))
 -- >     = El []
--- >   sto' SZ (Rep (There (Here (NA_I (El x) :* NA_I (El xs) :* NP0))))
+-- >   sto' SZ (Rep (There (Here (NA_I (El x) :* NA_I (El xs) :* Nil))))
 -- >     = El (x : xs)
--- >   sto' (SS SZ) (Rep (Here (NA_K (SInt a) :* NA_I (El as) :* NP0)))
+-- >   sto' (SS SZ) (Rep (Here (NA_K (SInt a) :* NA_I (El as) :* Nil)))
 -- >     = El (a :>: as)
--- >   sto' (SS SZ) (Rep (There (Here (NA_K (SInt a) :* NP0))))
+-- >   sto' (SS SZ) (Rep (There (Here (NA_K (SInt a) :* Nil))))
 -- >     = El (Leaf a)
 -- >   sto' _ _ = error "unreachable"
 
 
 instance Family Singl FamRose CodesRose where
-  sfrom' (SS SZ) (El (a :>: as)) = Rep $ Here (NA_K (SInt a) :* NA_I (El as) :* NP0)
-  sfrom' (SS SZ) (El (Leaf a))   = Rep $ There (Here (NA_K (SInt a) :* NP0))
-  sfrom' SZ (El [])              = Rep $ Here NP0
-  sfrom' SZ (El (x:xs))          = Rep $ There (Here (NA_I (El x) :* NA_I (El xs) :* NP0))
+  sfrom' (SS SZ) (El (a :>: as)) = Rep $ Here (NA_K (SInt a) :* NA_I (El as) :* Nil)
+  sfrom' (SS SZ) (El (Leaf a))   = Rep $ There (Here (NA_K (SInt a) :* Nil))
+  sfrom' SZ (El [])              = Rep $ Here Nil
+  sfrom' SZ (El (x:xs))          = Rep $ There (Here (NA_I (El x) :* NA_I (El xs) :* Nil))
   sfrom' _ _ = error "unreachable"
 
-  sto' SZ (Rep (Here NP0))
+  sto' SZ (Rep (Here Nil))
     = El []
-  sto' SZ (Rep (There (Here (NA_I (El x) :* NA_I (El xs) :* NP0))))
+  sto' SZ (Rep (There (Here (NA_I (El x) :* NA_I (El xs) :* Nil))))
     = El (x : xs)
-  sto' (SS SZ) (Rep (Here (NA_K (SInt a) :* NA_I (El as) :* NP0)))
+  sto' (SS SZ) (Rep (Here (NA_K (SInt a) :* NA_I (El as) :* Nil)))
     = El (a :>: as)
-  sto' (SS SZ) (Rep (There (Here (NA_K (SInt a) :* NP0))))
+  sto' (SS SZ) (Rep (There (Here (NA_K (SInt a) :* Nil))))
     = El (Leaf a)
   sto' _ _ = error "unreachable"
 
@@ -125,12 +125,12 @@ instance HasDatatypeInfo Singl FamRose CodesRose where
     = ADT "module" (Name "[]" :@: (Name "R" :@: Name "Int"))
       $  (Constructor "[]")
       :* (Infix ":" RightAssociative 5)
-      :* NP0
+      :* Nil
   datatypeInfo _ (SS SZ)
     = ADT "module" (Name "R" :@: Name "Int")
       $  (Infix ":>:" NotAssociative 0)
       :* (Constructor "Leaf")
-      :* NP0
+      :* Nil
   datatypeInfo _ _
     = error "unreachable"
 

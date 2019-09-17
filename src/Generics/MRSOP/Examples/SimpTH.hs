@@ -196,12 +196,12 @@ test5 = enter
 
 test6 :: Holes Singl CodesStmtString (Const Int) ('I ('S 'Z))
 test6 = HPeel' (CS (CS CZ))
-          (  (HPeel' CZ (HOpq' (SString "lol") :* NP0))
+          (  (HPeel' CZ (HOpq' (SString "lol") :* Nil))
           :* (Hole' (Const 42))
-          :* NP0)
+          :* Nil)
 
 test7 :: HolesAnn (Const Int) Singl CodesStmtString (Const Int) ('I ('S 'Z))
 test7 = HPeel (Const 1) (CS (CS CZ))
-          (  (HPeel (Const 2) CZ (HOpq (Const 4) (SString "lol") :* NP0))
+          (  (HPeel (Const 2) CZ (HOpq (Const 4) (SString "lol") :* Nil))
           :* (Hole (Const 3) (Const 42))
-          :* NP0)
+          :* Nil)

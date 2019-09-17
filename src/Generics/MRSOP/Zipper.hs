@@ -12,7 +12,7 @@
 --  universe.
 module Generics.MRSOP.Zipper where
 
-import Generics.MRSOP.Base hiding (Cons , Nil)
+import Generics.MRSOP.Base 
 
 -- |In a @Zipper@, a Location is a a pair of a one hole context
 --  and whatever was supposed to be there. In a sums of products
@@ -24,7 +24,7 @@ data Loc :: (kon -> *) -> [*] -> [[[Atom kon]]] -> Nat -> * where
 -- |A @Ctxs ki fam codes ix iy@ represents a value of type @El fam ix@
 --  with a @El fam iy@-typed hole in it.
 data Ctxs :: (kon -> *) -> [*] -> [[[Atom kon]]] -> Nat -> Nat -> * where
-  Nil  :: Ctxs ki fam cs ix ix
+  CNil :: Ctxs ki fam cs ix ix
   Cons :: (IsNat ix , IsNat a , IsNat b)
        => Ctx ki fam (Lkup ix cs) b -> Ctxs ki fam cs a ix
        -> Ctxs ki fam cs a b
@@ -52,7 +52,7 @@ data NPHoleE :: (kon -> *) -> [*] -> [Atom kon] -> * where
 --  with the existential because we don't know, a priori, what
 --  will be the type of such hole.
 mkNPHole :: PoA ki (El fam) xs -> Maybe (NPHoleE ki fam xs)
-mkNPHole NP0 = Nothing
+mkNPHole Nil = Nothing
 mkNPHole (NA_I x :* xs) = Just (ExistsIX x (H xs))
 mkNPHole (NA_K k :* xs)
   = do (ExistsIX el c) <- mkNPHole xs
@@ -93,7 +93,7 @@ fill el (Ctx c nphole) = inj c (fillNPHole el nphole)
 -- take zippers over a deep representation
 fillCtxs :: forall ix fam iy ki c. (IsNat ix, Family ki fam c) => El fam iy -> Ctxs ki fam c ix iy -> El fam ix
 -- not sure if this should be h or Nothing
-fillCtxs h Nil = h
+fillCtxs h CNil = h
 fillCtxs h (Cons ctx ctxs) =
   fillCtxs (sto @fam @ki @c $ fill h ctx) ctxs
 
@@ -117,13 +117,13 @@ down (Loc el ctx)
 -- |Move one layer upwards within the recursive structure
 up :: (Family ki fam codes, IsNat ix)
    => Loc ki fam codes ix -> Maybe (Loc ki fam codes ix)
-up (Loc _  Nil)             = Nothing
+up (Loc _  CNil)            = Nothing
 up (Loc el (Cons ctx ctxs)) = Just (Loc (sto $ fill el ctx) ctxs)
 
 -- |More one hole to the right
 right :: (Family ki fam codes, IsNat ix)
       => Loc ki fam codes ix -> Maybe (Loc ki fam codes ix)
-right (Loc _  Nil)             = Nothing
+right (Loc _  CNil)            = Nothing
 right (Loc el (Cons ctx ctxs)) = next (\el' ctx' -> Loc el' (Cons ctx' ctxs)) el ctx
 
 -- * Interface
@@ -131,13 +131,13 @@ right (Loc el (Cons ctx ctxs)) = next (\el' ctx' -> Loc el' (Cons ctx' ctxs)) el
 -- |Initializes the zipper
 enter :: (Family ki fam codes , IsNat ix)
       => El fam ix -> Loc ki fam codes ix
-enter el = Loc el Nil
+enter el = Loc el CNil
 
 -- |Exits the zipper
 leave :: (Family ki fam codes , IsNat ix)
       => Loc ki fam codes ix -> El fam ix
-leave (Loc x Nil) = x
-leave loc         = maybe undefined leave $ up loc -- up returns a just!
+leave (Loc x CNil) = x
+leave loc          = maybe undefined leave $ up loc -- up returns a just!
 
 -- |Updates the value in the hole.
 update :: (Family ki fam codes , IsNat ix)

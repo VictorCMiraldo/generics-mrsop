@@ -26,34 +26,34 @@
 --  > 
 --  > -- (:>:) pattern syn
 --  > pattern RoseInt_Ifx0 :: kon KInt -> phi (S Z) -> View kon phi (Lkup Z CodesRoseInt)
---  > pattern RoseInt_Ifx0 p q = Tag CZ (NA_K p :* (NA_I q :* NP0))
+--  > pattern RoseInt_Ifx0 p q = Tag CZ (NA_K p :* (NA_I q :* Nil))
 --  > 
 --  > -- Leaf pattern syn
 --  > pattern RoseIntLeaf_ :: kon KInt -> View kon phi (Lkup Z CodesRoseInt)
---  > pattern RoseIntLeaf_ p = Tag (CS CZ) (NA_K p :* NP0)
+--  > pattern RoseIntLeaf_ p = Tag (CS CZ) (NA_K p :* Nil)
 --  > 
 --  > -- [] pattern syn
 --  > pattern ListRoseInt_Ifx0 :: View kon phi (Lkup (S Z) CodesRoseInt)
---  > pattern ListRoseInt_Ifx0 = Tag CZ NP0
+--  > pattern ListRoseInt_Ifx0 = Tag CZ Nil
 --  > 
 --  > -- (:) pattern syn
 --  > pattern ListRoseInt_Ifx1 :: phi Z -> phi (S Z) -> View kon phi (Lkup (S Z) CodesRoseInt)
---  > pattern ListRoseInt_Ifx1 p q = Tag (CS CZ) (NA_I p :* (NA_I q :* NP0))
+--  > pattern ListRoseInt_Ifx1 p q = Tag (CS CZ) (NA_I p :* (NA_I q :* Nil))
 --  > 
 --  > instance Family Singl FamRose CodesRose where
---  >   sfrom' (SS SZ) (El (a :>: as)) = Rep $ Here (NA_K (SInt a) :* NA_I (El as) :* NP0)
---  >   sfrom' (SS SZ) (El (Leaf a))   = Rep $ There (Here (NA_K (SInt a) :* NP0))
---  >   sfrom' SZ (El [])              = Rep $ Here NP0
---  >   sfrom' SZ (El (x:xs))          = Rep $ There (Here (NA_I (El x) :* NA_I (El xs) :* NP0))
+--  >   sfrom' (SS SZ) (El (a :>: as)) = Rep $ Here (NA_K (SInt a) :* NA_I (El as) :* Nil)
+--  >   sfrom' (SS SZ) (El (Leaf a))   = Rep $ There (Here (NA_K (SInt a) :* Nil))
+--  >   sfrom' SZ (El [])              = Rep $ Here Nil
+--  >   sfrom' SZ (El (x:xs))          = Rep $ There (Here (NA_I (El x) :* NA_I (El xs) :* Nil))
 --  >   sfrom' _ _ = error "unreachable"
 --  > 
---  >   sto' SZ (Rep (Here NP0))
+--  >   sto' SZ (Rep (Here Nil))
 --  >     = El []
---  >   sto' SZ (Rep (There (Here (NA_I (El x) :* NA_I (El xs) :* NP0))))
+--  >   sto' SZ (Rep (There (Here (NA_I (El x) :* NA_I (El xs) :* Nil))))
 --  >     = El (x : xs)
---  >   sto' (SS SZ) (Rep (Here (NA_K (SInt a) :* NA_I (El as) :* NP0)))
+--  >   sto' (SS SZ) (Rep (Here (NA_K (SInt a) :* NA_I (El as) :* Nil)))
 --  >     = El (a :>: as)
---  >   sto' (SS SZ) (Rep (There (Here (NA_K (SInt a) :* NP0))))
+--  >   sto' (SS SZ) (Rep (There (Here (NA_K (SInt a) :* Nil))))
 --  >     = El (Leaf a)
 --  >   sto' _ _ = error "unreachable"
 --  > 
@@ -62,12 +62,12 @@
 --  >     = ADT "module" (Name "[]" :@: (Name "R" :@: Name "Int"))
 --  >       $  (Constructor "[]")
 --  >       :* (Infix ":" RightAssociative 5)
---  >       :* NP0
+--  >       :* Nil
 --  >   datatypeInfo _ (SS SZ)
 --  >     = ADT "module" (Name "R" :@: Name "Int")
 --  >       $  (Infix ":>:" NotAssociative 0)
 --  >       :* (Constructor "Leaf")
---  >       :* NP0
+--  >       :* Nil
 --  >   datatypeInfo _ _
 --  >     = error "unreachable"
 --
@@ -135,7 +135,7 @@
 --  > pattern DeclStringDVar_ 
 --  > pattern DeclStringDFun_ 
 --
---  We did ommit the definitions and 'Family' and 'HasDatatypeInfo' instances
+--  We did ommit the definitions and 'Family' and 'Generics.MRSOP.Base.Metadata.HasDatatypeInfo' instances
 --  for brevity here. If you want to see the actual generated code, compile with
 --  
 --  > stack build ghc-options="-ddump-splices -ddump-to-file"
@@ -157,6 +157,7 @@ module Generics.MRSOP.TH
 import Data.Function (on)
 import Data.Char (isAlphaNum)
 import Data.List (sortBy)
+import qualified Data.SOP.NS as SOP (NS(..))
 
 import Control.Monad
 import Control.Monad.State
@@ -168,7 +169,6 @@ import Language.Haskell.TH.Syntax (liftString)
 
 import Generics.MRSOP.Util
 import Generics.MRSOP.Base.Class
-import Generics.MRSOP.Base.NS
 import Generics.MRSOP.Base.NP
 import Generics.MRSOP.Base.Universe hiding (match)
 import qualified Generics.MRSOP.Base.Metadata as Meta
@@ -187,9 +187,9 @@ data OpaqueData = OpaqueData
 -- |Given the name of the first element in the family,
 --  derives:
 --
---    1. The other types in the family and Konstant types one needs.
+--    1. The other types in the family and opaque types one needs.
 --    2. the SOP code for each of the datatypes involved
---    3. One 'Element' instance per datatype
+--    3. The 'Family' instance
 --    4. Metadada information for each of the datatypes involved
 --    5. Uses the opaque-type universe provided.
 deriveFamilyWith :: Name -> Q Type -> Q [Dec]
@@ -616,33 +616,33 @@ reifySTy opq sty
 --   dropping that.
 --
 -- 2.2. constructors
--- > pattern a :>:_ as = Tag CZ      (NA_K a :* NA_I (El as) :* NP0)
--- > pattern Leaf_ a   = Tag (CS CZ) (NA_K a :* NP0)
--- > pattern nil_      = Tag CZ NP0
--- > pattern a :_ as   = Tag (CS CZ) (NA_I a :* NA_I (El as) :* NP0)
+-- > pattern a :>:_ as = Tag CZ      (NA_K a :* NA_I (El as) :* Nil)
+-- > pattern Leaf_ a   = Tag (CS CZ) (NA_K a :* Nil)
+-- > pattern nil_      = Tag CZ Nil
+-- > pattern a :_ as   = Tag (CS CZ) (NA_I a :* NA_I (El as) :* Nil)
 --
 -- 3. The instance:
 -- > instance Family Singl FamRose CodesRose where
 --
 -- 3.1. for each type in (1)
 -- >   sfrom' (SS SZ) (El (a :>: as))
--- >     = Rep $ HT0_ (NA_K (SInt a) :* NA_I (El as) :* NP0)
+-- >     = Rep $ HT0_ (NA_K (SInt a) :* NA_I (El as) :* Nil)
 -- >   sfrom' (SS SZ) (El (Leaf a))
--- >     = Rep $ HT1_ (NA_K (SInt a) :* NP0)
+-- >     = Rep $ HT1_ (NA_K (SInt a) :* Nil)
 -- >   sfrom' SZ (El [])
--- >     = Rep $ HT0_ NP0
+-- >     = Rep $ HT0_ Nil
 -- >   sfrom' SZ (El (x:xs))
--- >     = Rep $ HT1_ (NA_I (El x) :* NA_I (El xs) :* NP0)
+-- >     = Rep $ HT1_ (NA_I (El x) :* NA_I (El xs) :* Nil)
 --
 -- 3.2.
 -- > 
--- >   sto' SZ (Rep (HT0_ NP0))
+-- >   sto' SZ (Rep (HT0_ Nil))
 -- >     = El []
--- >   sto' SZ (Rep (HT1_ (NA_I (El x) :* NA_I (El xs) :* NP0)))
+-- >   sto' SZ (Rep (HT1_ (NA_I (El x) :* NA_I (El xs) :* Nil)))
 -- >     = El (x : xs)
--- >   sto' (SS SZ) (Rep (HT0_ (NA_K (SInt a) :* NA_I (El as) :* NP0)))
+-- >   sto' (SS SZ) (Rep (HT0_ (NA_K (SInt a) :* NA_I (El as) :* Nil)))
 -- >     = El (a :>: as)
--- >   sto' (SS SZ) (Rep (HT1_ (NA_K (SInt a) :* NP0)))
+-- >   sto' (SS SZ) (Rep (HT1_ (NA_K (SInt a) :* Nil)))
 -- >     = El (Leaf a)
 --
 -- 4. Metadata for each type in (1)
@@ -912,7 +912,7 @@ genPiece2_2 _opq first ls
     ciHasIllegalName ci = any (not . isAlphaNum) $ nameBase (ciName ci)
 
     tagPatSynProd :: [(IK , Name)] -> Q Pat
-    tagPatSynProd []     = [p| NP0 |]
+    tagPatSynProd []     = [p| Nil |]
     tagPatSynProd (h:hs) = [p| $(tagPatSynProdHead h) :* ( $(tagPatSynProd hs) ) |]
 
     int2Constr :: Int -> Q Pat
@@ -937,7 +937,7 @@ genPiece3 opq first ls
 --
 --  > ci2PatExp opq IdxBinTree 3 (Normal "Bin" [VarT a , VarT a])
 --  >   = ( El (Bin x_1 x_2)
---  >     , Rep (There (There (Here (NA_I (El x_1) :* NA_I (El x_2) :* NP0))))
+--  >     , Rep (There (There (Here (NA_I (El x_1) :* NA_I (El x_2) :* Nil))))
 --  >     )
 ci2PatExp :: OpaqueData -> Int -> Int -> CI IK -> Q (Pat , Exp)
 ci2PatExp opq _dtiIx cIdx ci
@@ -946,11 +946,11 @@ ci2PatExp opq _dtiIx cIdx ci
        return (ConP (mkName "El") [pat] , bdy)
   where
     mkInj :: Int -> Q Exp -> Q Exp
-    mkInj 0 e = [e| Here $e                |]
-    mkInj n e = [e| There $(mkInj (n-1) e) |]
+    mkInj 0 e = [e| SOP.Z $e               |]
+    mkInj n e = [e| SOP.S $(mkInj (n-1) e) |]
 
     genBdy :: [(Name , IK)] -> Q Exp
-    genBdy []       = [e| NP0 |]
+    genBdy []       = [e| Nil |]
     genBdy (x : xs) = [e| $(mkHead x) :* ( $(genBdy xs) ) |]
 
 
@@ -961,7 +961,7 @@ ci2PatExp opq _dtiIx cIdx ci
 -- | Just like 'ci2PatExp', but the other way around.
 --
 --  > ci2ExpPat opq IdxBinTree 2 (Normal "Bin" [VarT a , VarT a])
---  >   = ( Rep (There (There (Here (NA_I (El x_1) :* NA_I (El x_2) :* NP0))))
+--  >   = ( Rep (There (There (Here (NA_I (El x_1) :* NA_I (El x_2) :* Nil))))
 --        , El (Bin x_1 x_2)
 --  >     )
 ci2ExpPat :: OpaqueData -> Int -> Int -> CI IK -> Q (Pat , Exp)
@@ -971,11 +971,11 @@ ci2ExpPat opq _dtiIx cIdx ci
        return (pat , AppE (ConE $ mkName "El") myexp)
   where
     mkInj :: Int -> Q Pat -> Q Pat
-    mkInj 0 e = [p| Here $e                |]
-    mkInj n e = [p| There $(mkInj (n-1) e) |]
+    mkInj 0 e = [p| SOP.Z $e                |]
+    mkInj n e = [p| SOP.S $(mkInj (n-1) e) |]
     
     genBdy :: [(Name , IK)] -> Q Pat
-    genBdy []       = [p| NP0 |]
+    genBdy []       = [p| Nil |]
     genBdy (x : xs) = [p| $(mkHead x) :* ( $(genBdy xs) ) |]
 
 
@@ -1079,16 +1079,16 @@ genPiece4 opq first ls
         genFix (Fixity i _) = return . LitE . IntegerL . fromIntegral $ i
 
     genFieldInfo :: [ FieldName ] -> Q Exp
-    genFieldInfo []     = [e| NP0 |]
+    genFieldInfo []     = [e| Nil |]
     genFieldInfo (f:fs) = [e| Meta.FieldInfo $(strlit . nameBase $ f) :* ( $(genFieldInfo fs) ) |]
 
     genConInfoNP :: [ CI IK ] -> Q Exp
-    genConInfoNP []       = [e| NP0 |]
+    genConInfoNP []       = [e| Nil |]
     genConInfoNP (ci:cis) = [e| $(genConInfo ci) :* ( $(genConInfoNP cis) ) |]
 
 -- |@genFamily opq init fam@ generates a type-level list
 --  of the codes for the family. It also generates
---  the necessary 'Family' and 'HasDatatypeInfo' instances.
+--  the necessary 'Family' and 'Generics.MRSOP.Base.Metadata.HasDatatypeInfo' instances.
 --
 --  Precondition, input is sorted on second component.
 genFamily :: OpaqueData -> STy -> Input -> Q [Dec]

@@ -1,84 +1,56 @@
-name:                generics-mrsop
-version:             2.1.0
+cabal-version: 1.12
 
-synopsis:            Generic Programming with Mutually Recursive Sums of Products.
+-- This file has been generated from package.yaml by hpack version 0.31.2.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: 6e4f3e6671cfaeff58301e7f3a59013225b8995b0e8cb2fbb43c1d48c1158cf0
 
-description:
-  A library that supports generic programming for mutually
-  recursive families in the sum-of-products style.
-  .
-  A couple usage examples can be found under "Generics.MRSOP.Examples"
-  .
-
-license:             MIT
-license-file:        LICENSE
-author:              Victor Miraldo and Alejandro Serrano
-maintainer:          v.cacciarimiraldo@gmail.com
--- copyright:           
-
-category:            Generics
-build-type:          Simple
-
-extra-source-files:  ChangeLog.md, README.md
-cabal-version:       1.24
-tested-with:         GHC == 8.2.2, GHC == 8.4.2
-
-
-library
-  -- Modules exported by the library.
-  exposed-modules: 
-    Generics.MRSOP.Base.NS,
-    Generics.MRSOP.Base.NP,
-    Generics.MRSOP.Base.Universe,
-    Generics.MRSOP.Base.Class,
-    Generics.MRSOP.Base.Combinators,
-    Generics.MRSOP.Base.Metadata,
-    Generics.MRSOP.Base,
-    Generics.MRSOP.Opaque,
-    Generics.MRSOP.Util,
-    Generics.MRSOP.Holes
-    Generics.MRSOP.TH,
-    Generics.MRSOP.Zipper,
-    Generics.MRSOP.Zipper.Deep,
-    Generics.MRSOP.Examples.RoseTree,
-    Generics.MRSOP.Examples.RoseTreeTH,
-    Generics.MRSOP.Examples.LambdaAlphaEqTH,
-    Generics.MRSOP.Examples.SimpTH,
-    Generics.MRSOP.AG
-
-  other-extensions: 
-    MultiParamTypeClasses,
-    FlexibleInstances,
-    FlexibleContexts,
-    TypeSynonymInstances,
-    RankNTypes,
-    TypeFamilies,
-    TypeOperators,
-    DataKinds,
-    PolyKinds,
-    GADTs,
-    TypeApplications,
-    ConstraintKinds,
-    FunctionalDependencies,
-    ScopedTypeVariables
-
-  ghc-options: -Wall
-
-  build-depends:       base >= 4.9 && <= 5,
-                       containers,
-                       template-haskell,
-                       mtl
-  
-  hs-source-dirs:      src
-  
-  default-language:    Haskell2010
-  
+name:           generics-mrsop
+version:        2.2.0
+synopsis:       Generic Programming with Mutually Recursive Sums of Products.
+description:    A library that supports generic programming for mutually recursive families in the sum-of-products style. . A couple usage examples can be found under "Generics.MRSOP.Examples" .
+category:       Generics
+homepage:       https://github.com/VictorCMiraldo/generics-mrsop#readme
+bug-reports:    https://github.com/VictorCMiraldo/generics-mrsop/issues
+author:         Victor Miraldo and Alejandro Serrano
+maintainer:     Victor Miraldo <v.cacciarimiraldo@gmail.com>
+license:        MIT
+license-file:   LICENSE
+build-type:     Simple
 
 source-repository head
-  type:     git
+  type: git
   location: https://github.com/VictorCMiraldo/generics-mrsop
 
-source-repository this
-  type:     git
-  location: https://github.com/VictorCMiraldo/generics-mrsop
-  tag: v2.1.0
+library
+  exposed-modules:
+      Generics.MRSOP.AG
+      Generics.MRSOP.Base
+      Generics.MRSOP.Base.Class
+      Generics.MRSOP.Base.Combinators
+      Generics.MRSOP.Base.Metadata
+      Generics.MRSOP.Base.NP
+      Generics.MRSOP.Base.NS
+      Generics.MRSOP.Base.Universe
+      Generics.MRSOP.Examples.LambdaAlphaEqTH
+      Generics.MRSOP.Examples.RoseTree
+      Generics.MRSOP.Examples.RoseTreeTH
+      Generics.MRSOP.Examples.SimpTH
+      Generics.MRSOP.Holes
+      Generics.MRSOP.Opaque
+      Generics.MRSOP.TH
+      Generics.MRSOP.Util
+      Generics.MRSOP.Zipper
+  other-modules:
+      Paths_generics_mrsop
+  hs-source-dirs:
+      src/
+  ghc-options: -Wall
+  build-depends:
+      base >=4.9 && <5
+    , containers
+    , mtl
+    , sop-core
+    , template-haskell
+  default-language: Haskell2010

@@ -1,13 +1,16 @@
-{-# LANGUAGE ConstraintKinds     #-}
-{-# LANGUAGE GADTs               #-}
-{-# LANGUAGE TypeFamilies        #-}
-{-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE PolyKinds           #-}
-{-# LANGUAGE TypeOperators       #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE TypeApplications    #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE PatternSynonyms     #-}
+{-# LANGUAGE TypeSynonymInstances  #-}
+{-# LANGUAGE QuantifiedConstraints #-}
+{-# LANGUAGE ConstraintKinds       #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE PolyKinds             #-}
+{-# LANGUAGE TypeOperators         #-}
+{-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE PatternSynonyms       #-}
+{-# OPTIONS_GHC -Wno-orphans       #-}
 -- |Useful utilities we need accross multiple modules.
 module Generics.MRSOP.Util
   ( -- * Utility Functions and Types
@@ -34,7 +37,7 @@ module Generics.MRSOP.Util
   , Lkup , Idx , El(..) , getElSNat , into
 
     -- * Higher-order Eq and Show
-  , EqHO(..) , ShowHO(..)
+  , EqHO , ShowHO
   ) where
 
 import Data.Proxy
@@ -45,10 +48,13 @@ import Data.Functor.Const
 import GHC.TypeLits (TypeError , ErrorMessage(..))
 import Control.Arrow ((***) , (&&&))
 
+-- |Convenient type synonym for 'Product'
 type    (:*:)     = Product
 
+-- |Convnient pattern synonym for 'Pair'
 pattern (:*:) :: f a -> g a -> Product f g a
 pattern (:*:) x y = Pair x y
+{-# COMPLETE (:*:) #-}
 
 -- |Lifted curry
 curry' :: (Product f g x -> a) -> f x -> g x -> a
@@ -86,6 +92,7 @@ f <.> g = (>>= f) . g
 data Nat = S Nat | Z
   deriving (Eq , Show)
 
+-- |Typelevel predecessor operation
 proxyUnsuc :: Proxy ('S n) -> Proxy n
 proxyUnsuc _ = Proxy
 
@@ -94,6 +101,7 @@ data SNat :: Nat -> * where
   SZ ::           SNat 'Z
   SS :: SNat n -> SNat ('S n)
 
+-- |Returns @n@ as a first class integer.
 snat2int :: SNat n -> Integer
 snat2int SZ     = 0
 snat2int (SS n) = 1 + snat2int n
@@ -151,22 +159,22 @@ into = El
 --  This is useful since it enables us to pattern match on
 --  type-level lists whenever we see fit.
 data ListPrf :: [k] -> * where
-  Nil ::  ListPrf '[]
-  Cons :: ListPrf l ->  ListPrf (x ': l)
+  LP_Nil  :: ListPrf '[]
+  LP_Cons :: ListPrf l ->  ListPrf (x ': l)
 
 -- |The @IsList@ class allows us to construct
 --  'ListPrf's in a straight forward fashion.
 class IsList (xs :: [k]) where
   listPrf :: ListPrf xs
 instance IsList '[] where
-  listPrf = Nil
+  listPrf = LP_Nil
 instance IsList xs => IsList (x ': xs) where
-  listPrf = Cons listPrf
+  listPrf = LP_Cons listPrf
 
 -- |Concatenation of lists is also a list.
 appendIsListLemma :: ListPrf xs -> ListPrf ys -> ListPrf (xs :++: ys)
-appendIsListLemma Nil         isys = isys
-appendIsListLemma (Cons isxs) isys = Cons (appendIsListLemma isxs isys)
+appendIsListLemma LP_Nil         isys = isys
+appendIsListLemma (LP_Cons isxs) isys = LP_Cons (appendIsListLemma isxs isys)
 
 -- |Appending type-level lists
 type family (:++:) (txs :: [k]) (tys :: [k]) :: [k] where
@@ -179,35 +187,19 @@ type L2 xs ys       = (IsList xs, IsList ys)
 type L3 xs ys zs    = (IsList xs, IsList ys, IsList zs) 
 type L4 xs ys zs as = (IsList xs, IsList ys, IsList zs, IsList as) 
 
--- TODO: VCM: looking at the implementation for the instances
---            in Generics.MRSOP.Opaque, it seems like we don't really need this.
+-- |Constraint synonym replacing the old @EqHO@ hack.
+-- @since 2.2.0
+type EqHO   f = forall x . Eq   (f x)
 
--- |Higher order version of 'Eq'
-class EqHO (f :: ki -> *) where
-  eqHO :: forall k . f k -> f k -> Bool
+-- |Constraint synonym replacing the old @ShowHO@ hack.
+-- @since 2.2.0
+type ShowHO f = forall x . Show (f x)
 
-instance Eq a => EqHO (Const a) where
-  eqHO (Const a) (Const b) = a == b
+instance (EqHO f , EqHO g) => Eq ((f :*: g) x) where
+  (fx :*: gx) == (fy :*: gy) = fx == fy && gx == gy
 
-instance (EqHO f, EqHO g) => EqHO (Product f g) where
-  eqHO (Pair fx gx) (Pair fy gy) = eqHO fx fy && eqHO gx gy
-
-instance (EqHO f, EqHO g) => EqHO (Sum f g) where
-  eqHO (InL fx) (InL fy) = eqHO fx fy
-  eqHO (InR gx) (InR gy) = eqHO gx gy
-  eqHO _        _        = False
-
--- |Higher order version of 'Show'
-class ShowHO (f :: ki -> *) where
-  showHO :: forall k . f k -> String
-
-instance Show a => ShowHO (Const a) where
-  showHO (Const a) = show a
-
-instance (ShowHO f , ShowHO g) => ShowHO (Product f g) where
-  showHO (Pair x y) = "(" ++ showHO x ++ ", " ++ showHO y ++ ")"
-
-instance (ShowHO f , ShowHO g) => ShowHO (Sum f g) where
-  showHO (InL fx) = "InL " ++ showHO fx
-  showHO (InR gx) = "InR " ++ showHO gx
+instance (EqHO f , EqHO g) => Eq (Sum f g x) where
+  (InL x) == (InL y) = x == y
+  (InR x) == (InR y) = x == y
+  _       == _       = False
 
