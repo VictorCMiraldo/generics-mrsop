@@ -1,5 +1,17 @@
 # Revision history for generics-mrsop
 
+## 2.2.0 -- Sep 2019
+
+- Brought in `NS` and `NP` from `sop-core` instead of defining it ourselfes.
+  The most striking change is that our old `NP0` is now called `Nil`
+- Added pattern synonyms for `NS.Z` and `NS.S`, namelly, `Here` and `There`
+- Declared pattern synonyms as `{-# COMPLETE ... #-}`
+- Removed `EqHO` and `ShowHO` in favor of quantified constraints `forall x . Eq (f x)`
+- Removed `Generics.MRSOP.Zipper.Deep`: No use up to this point and the new
+  quantified constraints would require some intervention.
+- started using hpack
+
+
 ## 2.1.0 -- Jul 2019
 
 - Added datatype `Holes` for representing families annotated with holes.
