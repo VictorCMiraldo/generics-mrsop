@@ -270,7 +270,7 @@ fromView (Tag c x) = inj c x
 --
 -- Finally we tie the recursive knot. Given an interpretation
 -- for the constant types, a family of sums-of-products and
--- an index ix into such family, we take the least fixpoint of
+-- an index @ix@ into such family, we take the least fixpoint of
 -- the representation of the code indexed by ix
 
 -- |Indexed least fixpoints

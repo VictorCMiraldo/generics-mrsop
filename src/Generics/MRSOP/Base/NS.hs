@@ -27,11 +27,13 @@ import           Data.SOP.NS (NS(..))
 import Control.Monad
 import Generics.MRSOP.Util
 
+-- |Pattern synonym to 'SOP.S'
 pattern There :: forall k (a :: k -> *) (b :: [k]). ()
               => forall (xs :: [k]) (x :: k). (b ~ (x : xs))
               => NS a xs -> NS a b
 pattern There x = SOP.S x
 
+-- |Pattern synonym to 'SOP.Z'
 pattern Here :: forall k (a :: k -> *) (b :: [k]). ()
              => forall (x :: k) (xs :: [k]). (b ~ (x : xs))
              => a x -> NS a b

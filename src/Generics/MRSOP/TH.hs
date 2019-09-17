@@ -135,7 +135,7 @@
 --  > pattern DeclStringDVar_ 
 --  > pattern DeclStringDFun_ 
 --
---  We did ommit the definitions and 'Family' and 'HasDatatypeInfo' instances
+--  We did ommit the definitions and 'Family' and 'Generics.MRSOP.Base.Metadata.HasDatatypeInfo' instances
 --  for brevity here. If you want to see the actual generated code, compile with
 --  
 --  > stack build ghc-options="-ddump-splices -ddump-to-file"
@@ -187,9 +187,9 @@ data OpaqueData = OpaqueData
 -- |Given the name of the first element in the family,
 --  derives:
 --
---    1. The other types in the family and Konstant types one needs.
+--    1. The other types in the family and opaque types one needs.
 --    2. the SOP code for each of the datatypes involved
---    3. One 'Element' instance per datatype
+--    3. The 'Family' instance
 --    4. Metadada information for each of the datatypes involved
 --    5. Uses the opaque-type universe provided.
 deriveFamilyWith :: Name -> Q Type -> Q [Dec]
@@ -1088,7 +1088,7 @@ genPiece4 opq first ls
 
 -- |@genFamily opq init fam@ generates a type-level list
 --  of the codes for the family. It also generates
---  the necessary 'Family' and 'HasDatatypeInfo' instances.
+--  the necessary 'Family' and 'Generics.MRSOP.Base.Metadata.HasDatatypeInfo' instances.
 --
 --  Precondition, input is sorted on second component.
 genFamily :: OpaqueData -> STy -> Input -> Q [Dec]

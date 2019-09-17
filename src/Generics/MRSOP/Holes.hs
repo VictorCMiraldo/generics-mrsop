@@ -191,7 +191,7 @@ holesRefineAnnM _ g (HOpq a k) = g a k
 holesRefineAnnM f g (HPeel a c holesnp)
   = HPeel a c <$> mapNPM (holesRefineAnnM f g) holesnp
 
--- |Just like 'holesRefineM', but only refines variables. One example is to implement
+-- |Just like 'holesRefineAnnM', but only refines variables. One example is to implement
 -- 'holesJoin' with it.
 --
 -- > holesJoin = runIdentity . holesRefineVarsM (\_ -> return)
@@ -289,6 +289,8 @@ pattern HPeel' :: () => (IsNat n, IsNat i)
                -> NP (Holes ki codes phi) (Lkup n (Lkup i codes))
                -> Holes ki codes phi ('I i)
 pattern HPeel' c p = HPeel (Const ()) c p
+
+{-# COMPLETE Hole' , HOpq' , HPeel' #-}
 
 -- |Factors out the largest common prefix of two treefixes.
 --  This is also known as the anti-unification of two

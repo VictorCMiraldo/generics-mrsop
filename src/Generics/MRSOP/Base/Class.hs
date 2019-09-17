@@ -39,7 +39,7 @@ sfrom :: forall fam ki codes ix
 sfrom el = sfrom' (getElSNat el) el
 
 -- |For 'sto'' there is a similar more general combinator.
---  If 'ix' implements 'IsNat' we can cast it.
+--  If @ix@ implements 'IsNat' we can cast it.
 sto :: forall fam ki codes ix
      . (Family ki fam codes , IsNat ix)
     => Rep ki (El fam) (Lkup ix codes) -> El fam ix  

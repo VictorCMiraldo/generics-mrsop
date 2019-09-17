@@ -48,8 +48,10 @@ import Data.Functor.Const
 import GHC.TypeLits (TypeError , ErrorMessage(..))
 import Control.Arrow ((***) , (&&&))
 
+-- |Convenient type synonym for 'Product'
 type    (:*:)     = Product
 
+-- |Convnient pattern synonym for 'Pair'
 pattern (:*:) :: f a -> g a -> Product f g a
 pattern (:*:) x y = Pair x y
 {-# COMPLETE (:*:) #-}
@@ -90,6 +92,7 @@ f <.> g = (>>= f) . g
 data Nat = S Nat | Z
   deriving (Eq , Show)
 
+-- |Typelevel predecessor operation
 proxyUnsuc :: Proxy ('S n) -> Proxy n
 proxyUnsuc _ = Proxy
 
@@ -98,6 +101,7 @@ data SNat :: Nat -> * where
   SZ ::           SNat 'Z
   SS :: SNat n -> SNat ('S n)
 
+-- |Returns @n@ as a first class integer.
 snat2int :: SNat n -> Integer
 snat2int SZ     = 0
 snat2int (SS n) = 1 + snat2int n
@@ -183,10 +187,12 @@ type L2 xs ys       = (IsList xs, IsList ys)
 type L3 xs ys zs    = (IsList xs, IsList ys, IsList zs) 
 type L4 xs ys zs as = (IsList xs, IsList ys, IsList zs, IsList as) 
 
--- TODO: VCM: looking at the implementation for the instances
---       in Generics.MRSOP.Opaque, it seems like we don't really need this.
-
+-- |Constraint synonym replacing the old @EqHO@ hack.
+-- @since 2.2.0
 type EqHO   f = forall x . Eq   (f x)
+
+-- |Constraint synonym replacing the old @ShowHO@ hack.
+-- @since 2.2.0
 type ShowHO f = forall x . Show (f x)
 
 instance (EqHO f , EqHO g) => Eq ((f :*: g) x) where
@@ -197,34 +203,3 @@ instance (EqHO f , EqHO g) => Eq (Sum f g x) where
   (InR x) == (InR y) = x == y
   _       == _       = False
 
-
-{-
--- |Higher order version of 'Eq'
-class EqHO (f :: ki -> *) where
-  eqHO :: forall k . f k -> f k -> Bool
-
-instance Eq a => EqHO (Const a) where
-  eqHO (Const a) (Const b) = a == b
-
-instance (EqHO f, EqHO g) => EqHO (Product f g) where
-  eqHO (Pair fx gx) (Pair fy gy) = eqHO fx fy && eqHO gx gy
-
-instance (EqHO f, EqHO g) => EqHO (Sum f g) where
-  eqHO (InL fx) (InL fy) = eqHO fx fy
-  eqHO (InR gx) (InR gy) = eqHO gx gy
-  eqHO _        _        = False
-
--- |Higher order version of 'Show'
-class ShowHO (f :: ki -> *) where
-  showHO :: forall k . f k -> String
-
-instance Show a => ShowHO (Const a) where
-  showHO (Const a) = show a
-
-instance (ShowHO f , ShowHO g) => ShowHO (Product f g) where
-  showHO (Pair x y) = "(" ++ showHO x ++ ", " ++ showHO y ++ ")"
-
-instance (ShowHO f , ShowHO g) => ShowHO (Sum f g) where
-  showHO (InL fx) = "InL " ++ showHO fx
-  showHO (InR gx) = "InR " ++ showHO gx
--}
