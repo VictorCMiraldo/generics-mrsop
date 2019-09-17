@@ -9,7 +9,6 @@
 {-# LANGUAGE ScopedTypeVariables         #-}
 {-# LANGUAGE ScopedTypeVariables         #-}
 {-# OPTIONS_GHC -Wno-name-shadowing      #-}
-{-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 
 -- | Standard representation of n-ary sums.
 module Generics.MRSOP.Base.NS
@@ -28,44 +27,17 @@ import           Data.SOP.NS (NS(..))
 import Control.Monad
 import Generics.MRSOP.Util
 
-{-
-
--- |Indexed n-ary sums. This is analogous to the @Any@ datatype
---  in @Agda@. 
---  Combinations of 'Here' and 'There's are also called injections.
-data NS :: (k -> *) -> [k] -> * where
-  There :: NS p xs -> NS p (x : xs)
-  Here  :: p x     -> NS p (x : xs)
-
-instance EqHO phi => EqHO (NS phi) where
-  eqHO = eqNS eqHO
-
-instance EqHO phi => Eq (NS phi xs) where
-  (==) = eqHO
-
-instance ShowHO phi => ShowHO (NS phi) where
-  showHO x = concat ["(" , go 0 x , ")"]
-    where
-      go :: ShowHO phi => Int -> NS phi xs -> String
-      go n (Here r)  = "C" ++ show n ++ " " ++ showHO r
-      go n (There r) = go (n+1) r
-
-instance ShowHO phi => Show (NS phi xs) where
-  show = showHO
-
--}
-
--- pattern There :: () => () => NS p xs -> NS p (x : xs)
-pattern There :: forall k (a :: k -> *) (b :: [k]).
-                       () =>
-                       forall (xs :: [k]) (x :: k). (b ~ (x : xs)) => NS a xs -> NS a b
+pattern There :: forall k (a :: k -> *) (b :: [k]). ()
+              => forall (xs :: [k]) (x :: k). (b ~ (x : xs))
+              => NS a xs -> NS a b
 pattern There x = SOP.S x
 
--- pattern Here  :: p x     -> NS p (x : xs)
-pattern Here :: forall k (a :: k -> *) (b :: [k]).
-                      () =>
-                      forall (x :: k) (xs :: [k]). (b ~ (x : xs)) => a x -> NS a b
+pattern Here :: forall k (a :: k -> *) (b :: [k]). ()
+             => forall (x :: k) (xs :: [k]). (b ~ (x : xs))
+             => a x -> NS a b
 pattern Here x = SOP.Z x
+
+{-# COMPLETE Here, There #-}
 
 -- * Map, Zip and Elim
 

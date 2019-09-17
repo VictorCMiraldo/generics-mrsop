@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeSynonymInstances  #-}
 {-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE GADTs                 #-}
@@ -9,6 +10,7 @@
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE PatternSynonyms       #-}
+{-# OPTIONS_GHC -Wno-orphans       #-}
 -- |Useful utilities we need accross multiple modules.
 module Generics.MRSOP.Util
   ( -- * Utility Functions and Types
@@ -50,6 +52,7 @@ type    (:*:)     = Product
 
 pattern (:*:) :: f a -> g a -> Product f g a
 pattern (:*:) x y = Pair x y
+{-# COMPLETE (:*:) #-}
 
 -- |Lifted curry
 curry' :: (Product f g x -> a) -> f x -> g x -> a
@@ -185,6 +188,15 @@ type L4 xs ys zs as = (IsList xs, IsList ys, IsList zs, IsList as)
 
 type EqHO   f = forall x . Eq   (f x)
 type ShowHO f = forall x . Show (f x)
+
+instance (EqHO f , EqHO g) => Eq ((f :*: g) x) where
+  (fx :*: gx) == (fy :*: gy) = fx == fy && gx == gy
+
+instance (EqHO f , EqHO g) => Eq (Sum f g x) where
+  (InL x) == (InL y) = x == y
+  (InR x) == (InR y) = x == y
+  _       == _       = False
+
 
 {-
 -- |Higher order version of 'Eq'

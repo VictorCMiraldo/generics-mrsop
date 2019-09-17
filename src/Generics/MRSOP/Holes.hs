@@ -350,9 +350,7 @@ holesSNat _ = getSNat (Proxy :: Proxy ix)
 
 -- -* Instances
 
-instance ( forall iy . Eq (phi iy)
-         , forall k  . Eq (ki k))
-    => Eq (Holes ki codes phi ix) where
+instance (EqHO phi , EqHO ki) => Eq (Holes ki codes phi ix) where
   utx == uty = and $ holesGetHolesAnnWith' (uncurry' cmp) $ holesLCP utx uty
     where
       cmp :: HolesAnn ann ki codes phi at -> HolesAnn ann ki codes phi at -> Bool

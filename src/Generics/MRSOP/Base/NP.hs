@@ -26,21 +26,6 @@ import           Data.SOP.NP (NP(..))
 import qualified Data.SOP.NP as SOP
 import Generics.MRSOP.Util
 
-{-
-instance EqHO phi => EqHO (NP phi) where
-  eqHO = eqNP eqHO
-
-instance EqHO phi => Eq (NP phi xs) where
-  (==) = eqHO
-
-instance ShowHO phi => ShowHO (NP phi) where
-  showHO Nil      = "Nil"
-  showHO (a :* b) = showHO a ++ " :* " ++ showHO b
-
-instance ShowHO phi => Show (NP phi xs) where
-  show = showHO
--}
-
 -- * Relation to IsList predicate
 
 -- |Append two values of type 'NP'

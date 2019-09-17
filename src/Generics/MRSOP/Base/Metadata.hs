@@ -81,14 +81,8 @@ data FieldInfo :: Atom kon -> * where
 
 deriving instance Show (FieldInfo atom)
 
--- instance ShowHO FieldInfo where
---   showHO = show
-
 deriving instance (All (Compose Show FieldInfo) code)
   => Show (ConstructorInfo code)
-
---instance ShowHO ConstructorInfo where
---  showHO = show
 
 deriving instance (All (Compose Show ConstructorInfo) code)
   => Show (DatatypeInfo code)
