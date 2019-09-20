@@ -85,6 +85,8 @@ runAlpha = flip evalState [[]]
 
 type FIX = Fix Singl CodesTerm
 
+{-
+
 -- |Decides whether or not two terms are alpha equivalent.
 alphaEq :: Term -> Term -> Bool
 alphaEq x y = runAlpha $ galphaEqT (deep @FamTerm x) (deep @FamTerm y)
@@ -129,3 +131,5 @@ t1 x y = Abs x (Abs y (App (Var x) (Var y)))
 t2 :: String -> String -> String -> Char -> Term
 t2 a b c d
   = Abs a (App (Abs b (App (Var b) (Var [d]))) (Abs c (App (Var c) (Var [d]))))
+
+-}

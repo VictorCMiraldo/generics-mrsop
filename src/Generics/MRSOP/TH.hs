@@ -194,9 +194,9 @@ data OpaqueData = OpaqueData
 --    5. Uses the opaque-type universe provided.
 deriveFamilyWith :: Name -> Q Type -> Q [Dec]
 deriveFamilyWith opqName t
-  = do sty              <- t >>= convertType 
-       opqData          <- reifyOpaqueType opqName
-       (_ , (Idxs _ m)) <- runIdxsM (reifySTy opqData sty)
+  = do sty                <- t >>= convertType 
+       opqData            <- reifyOpaqueType opqName
+       (_ , (Idxs _ m _)) <- runIdxsM (reifySTy opqData sty)
        -- Now we make sure we have processed all
        -- types
        m' <- mapM extractDTI (M.toList m)
@@ -445,17 +445,18 @@ data IK
 data Idxs 
   = Idxs { idxsNext :: Int
          , idxsMap  :: M.Map STy (Int , Maybe (DTI IK))
+         , idxsSyns :: M.Map STy STy
          }
   deriving (Show)
 
 onMap :: (M.Map STy (Int , Maybe (DTI IK)) -> M.Map STy (Int , Maybe (DTI IK)))
       -> Idxs -> Idxs
-onMap f (Idxs n m) = Idxs n (f m)
+onMap f (Idxs n m eqs) = Idxs n (f m) eqs
 
 type IdxsM = StateT Idxs
 
 runIdxsM :: (Monad m) => IdxsM m a -> m (a , Idxs)
-runIdxsM = flip runStateT (Idxs 0 M.empty)
+runIdxsM = flip runStateT (Idxs 0 M.empty M.empty)
 
 -- |The actual monad we need to run all of this;
 type M = IdxsM Q
@@ -466,11 +467,16 @@ type M = IdxsM Q
 indexOf :: (Monad m) => STy -> IdxsM m Int
 indexOf name
   = do st <- get
-       case M.lookup name (idxsMap st) of
-         Just i  -> return (fst i)
-         Nothing -> let i = idxsNext st
-                     in put (Idxs (i + 1) (M.insert name (i , Nothing) (idxsMap st)))
-                     >> return i
+       case M.lookup name (idxsSyns st) of
+         Just orig -> indexOf orig -- TODO: make sure orig is in the map! :P
+         Nothing ->
+           case M.lookup name (idxsMap st) of
+             Just i  -> return (fst i)
+             Nothing -> let i = idxsNext st
+                         in put (Idxs (i + 1)
+                                      (M.insert name (i , Nothing) (idxsMap st))
+                                      (idxsSyns st))
+                         >> return i
 
 -- |Register some Datatype Information for a given STy
 register :: (Monad m) => STy -> DTI IK -> IdxsM m ()
@@ -481,6 +487,12 @@ register ty info = indexOf ty -- the call to indexOf guarantees the
 -- | All the necessary lookups:
 lkup :: (Monad m) => STy -> IdxsM m (Maybe (Int , Maybe (DTI IK)))
 lkup ty = M.lookup ty . idxsMap <$> get
+
+
+-- | Adds another type with the same index as the previous
+addTySynEquiv :: (Monad m) => STy -> STy -> IdxsM m ()
+addTySynEquiv orig new = 
+  modify (\st -> st { idxsSyns = M.insert new orig (idxsSyns st) })
 
 -- defined but not used
 -- lkupInfo :: (Monad m) => STy -> IdxsM m (Maybe Int)
@@ -537,23 +549,39 @@ reifyOpaqueType opq
 
     failMsg = fail $ "The opaque-type universe you provided is of the wrong form;"
                   ++ "Check documentation for Generics.MRSOP.TH.reifyOpaqueType"
-
 -- |Performs step 2 of the sketch;
 reifySTy :: OpaqueData -> STy -> M ()
-reifySTy opq sty
-  = do _ <- indexOf sty -- we don't care about the index of sty now, but we
+reifySTy opq sty0
+  = do _ <- indexOf sty0 -- we don't care about the index of sty now, but we
                         -- need to register it
-       uncurry go (styFlatten sty)
+       (dec , args) <- preprocess sty0
+       go dec args
   where
-    go :: STy -> [STy] -> M ()
-    go (ConST name) args
-      = do dec <- lift (reifyDec name >>= decInfo)
-           -- TODO: Check that the precondition holds.
+    preprocess :: STy -> M (DTI STy , [STy])
+    preprocess ty = 
+      let (head , args) = styFlatten ty
+       in case head of
+         ConST name -> do
+           dec <- lift (reifyDec name)
+           resolveTySyn (addTySynEquiv ty) dec args
+         _ -> fail "I can't convert appST or varST in reifySTy"
+
+    resolveTySyn :: (STy -> M ()) -> Dec -> [STy] -> M (DTI STy , [STy])
+    resolveTySyn upd8 (TySynD _ defargs def) localargs = do
+      sdef <- convertType def
+      let dict = zip (map argInfo defargs) localargs
+      let res = styReduce dict sdef
+      upd8 res
+      preprocess res
+    resolveTySyn _ def localargs = (,localargs) <$> lift (decInfo def)
+    
+    go :: DTI STy -> [STy] -> M ()
+    go dec args
+      = do -- TODO: Check that the precondition holds.
            let res = dtiReduce dec args
            (final , todo) <- runWriterT $ dtiMapM (convertSTy (opaqueTable opq)) res
-           register sty final
+           register sty0 final
            mapM_ (reifySTy opq) todo
-    go _ _ = fail "I can't convert appST or varST in reifySTy"
     
     -- Convert the STy's in the fields of the constructors;
     -- tells a list of STy's we still need to process.
@@ -561,7 +589,7 @@ reifySTy opq sty
     convertSTy opqTable ty
       -- We remove sty from the list of todos
       -- otherwise we get an infinite loop
-      | ty == sty = AtomI <$> lift (indexOf ty)
+      | ty == sty0 = AtomI <$> lift (indexOf ty)
       | isClosed ty
       = case makeCons opqTable ty of
           Just k  -> return (AtomK k)
@@ -571,7 +599,7 @@ reifySTy opq sty
                         return (AtomI ix)
       | otherwise
       = fail $ "I can't convert type variable " ++ show ty
-              ++ " when converting " ++ show sty
+              ++ " when converting " ++ show sty0
 
     makeCons :: M.Map Name Name -> STy -> Maybe Name
     makeCons opqTable (ConST n) = M.lookup n opqTable
