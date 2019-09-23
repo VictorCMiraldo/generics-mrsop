@@ -202,7 +202,7 @@ holesRefineVarsM :: (Monad m)
                  -> m (HolesAnn ann ki codes g at)
 holesRefineVarsM f = holesRefineAnnM f (\a -> return . HOpq a)
 
--- |Pure version of 'holesRefineM'
+-- |Pure version of 'holesRefineAnnM'
 holesRefineAnn :: (forall ix . ann ix     -> f ix -> HolesAnn ann ki codes g ix) -- ^
                -> (forall k  . ann ('K k) -> ki k -> HolesAnn ann ki codes g ('K k))
                -> HolesAnn ann ki codes f at 
@@ -278,12 +278,17 @@ holesSynthesize hF oF cF = runIdentity
 --  @Const ()@
 type Holes = HolesAnn (Const ())
 
+-- |Synonym to @Hole (Const ())@
 pattern Hole' :: phi at -> Holes ki codes phi at
 pattern Hole' x = Hole (Const ()) x
 
+
+-- |Synonym to @HOpq (Const ())@
 pattern HOpq' :: ki k -> Holes ki codes phi ('K k)
 pattern HOpq' x = HOpq (Const ()) x
 
+
+-- |Synonym to @HPeel (Const ())@
 pattern HPeel' :: () => (IsNat n, IsNat i)
                => Constr (Lkup i codes) n
                -> NP (Holes ki codes phi) (Lkup n (Lkup i codes))

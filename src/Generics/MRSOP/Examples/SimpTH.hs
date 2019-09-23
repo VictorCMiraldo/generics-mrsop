@@ -45,10 +45,18 @@ data Stmt var
   | SSkip
   deriving Show
 
-data Decl var
+-- Below is a little type synonym fun, to make sure
+-- generation is working
+data ODecl var
   = DVar var
   | DFun var var (Stmt var)
   deriving Show
+
+-- Note that since we use 'Decl' directly in the family;
+-- there won't be pattern-synonyms generated for 'ODecl' or 'TDecl'
+type Decl x = TDecl x
+
+type TDecl x = ODecl x
 
 data Exp var
   = EVar  var
@@ -156,6 +164,7 @@ decl f(n):
   return g(n)
 
 -}
+
 
 test3 :: String -> String -> String -> Decl String
 test3 n1 n2 z = DFun "f" n1
