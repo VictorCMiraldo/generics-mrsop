@@ -756,7 +756,7 @@ inputToFam = return . tlListOf trevnocType . map first
   where
     first (x , _ , _) = x
 
--- | @styToName "List (R Int)" == "ListRInt"@
+-- | @styToName "[R Int]" == "ListRInt"@
 styToName :: STy -> Name
 styToName = mkName . styFold (++) nameBase (fixList . nameBase)
   where
