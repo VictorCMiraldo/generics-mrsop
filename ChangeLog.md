@@ -10,6 +10,8 @@
 - Removed `Generics.MRSOP.Zipper.Deep`: No use up to this point and the new
   quantified constraints would require some intervention.
 - started using hpack
+- The `deriveFamily` now supports reviving families with type synonyms; Pattern
+synonyms for `Tag`s will only be generate for the types directly in use at the family.
 
 
 ## 2.1.0 -- Jul 2019
