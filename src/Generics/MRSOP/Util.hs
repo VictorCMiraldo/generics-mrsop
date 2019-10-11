@@ -1,5 +1,4 @@
 {-# LANGUAGE TypeSynonymInstances  #-}
-{-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE TypeFamilies          #-}
@@ -187,19 +186,66 @@ type L2 xs ys       = (IsList xs, IsList ys)
 type L3 xs ys zs    = (IsList xs, IsList ys, IsList zs) 
 type L4 xs ys zs as = (IsList xs, IsList ys, IsList zs, IsList as) 
 
--- |Constraint synonym replacing the old @EqHO@ hack.
--- @since 2.2.0
-type EqHO   f = forall x . Eq   (f x)
+-- |Higher order , poly kinded, version of 'Eq'
+-- @since 2.3.0
+class EqHO (f :: ki -> *) where
+  eqHO :: forall k . f k -> f k -> Bool
 
--- |Constraint synonym replacing the old @ShowHO@ hack.
--- @since 2.2.0
-type ShowHO f = forall x . Show (f x)
+instance Eq a => EqHO (Const a) where
+  eqHO (Const a) (Const b) = a == b
 
-instance (EqHO f , EqHO g) => Eq ((f :*: g) x) where
-  (fx :*: gx) == (fy :*: gy) = fx == fy && gx == gy
+instance (EqHO f, EqHO g) => EqHO (Product f g) where
+  eqHO (Pair fx gx) (Pair fy gy) = eqHO fx fy && eqHO gx gy
 
-instance (EqHO f , EqHO g) => Eq (Sum f g x) where
-  (InL x) == (InL y) = x == y
-  (InR x) == (InR y) = x == y
-  _       == _       = False
+instance (EqHO f, EqHO g) => EqHO (Sum f g) where
+  eqHO (InL fx) (InL fy) = eqHO fx fy
+  eqHO (InR gx) (InR gy) = eqHO gx gy
+  eqHO _        _        = False
 
+-- |Higher order, poly kinded, version of 'Show'; We provide
+-- the same 'showsPrec' mechanism. The documentation of "Text.Show"
+-- has a good example of the correct usage of 'showsPrec':
+--
+-- > 
+-- > infixr 5 :^:
+-- > data Tree a =  Leaf a  |  Tree a :^: Tree a
+-- >
+-- > instance (Show a) => Show (Tree a) where
+-- >   showsPrec d (Leaf m) = showParen (d > app_prec) $
+-- >        showString "Leaf " . showsPrec (app_prec+1) m
+-- >     where app_prec = 10
+-- > 
+-- >   showsPrec d (u :^: v) = showParen (d > up_prec) $
+-- >        showsPrec (up_prec+1) u .
+-- >        showString " :^: "      .
+-- >        showsPrec (up_prec+1) v
+-- >     where up_prec = 5
+--
+-- @since 2.3.0
+class ShowHO (f :: ki -> *) where
+  showHO      :: forall k . f k -> String
+  showsPrecHO :: forall k . Int -> f k -> ShowS
+  {-# MINIMAL showHO | showsPrecHO #-}
+
+  showHO fx          = showsPrecHO 0 fx ""
+  showsPrecHO _ fx s = showHO fx ++ s
+
+instance Show a => ShowHO (Const a) where
+  showsPrecHO d (Const a) = showParen (d > app_prec) $
+      showString "Const " . showsPrec (app_prec + 1) a
+    where app_prec = 10
+
+instance (ShowHO f , ShowHO g) => ShowHO (Product f g) where
+  showsPrecHO d (Pair x y) = showParen (d > app_prec) $
+      showString "Pair " . showsPrecHO (app_prec+1) x
+                         . showString " "
+                         . showsPrecHO (app_prec+1) y
+    where app_prec = 10
+
+instance (ShowHO f , ShowHO g) => ShowHO (Sum f g) where
+  showsPrecHO d (InL fx) = showParen (d > app_prec) $
+      showString "InL " . showsPrecHO (app_prec + 1) fx
+    where app_prec = 10
+  showsPrecHO d (InR gx) = showParen (d > app_prec) $
+      showString "InR " . showsPrecHO (app_prec + 1) gx
+    where app_prec = 10
