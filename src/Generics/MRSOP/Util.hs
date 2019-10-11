@@ -36,7 +36,7 @@ module Generics.MRSOP.Util
   , Lkup , Idx , El(..) , getElSNat , into
 
     -- * Higher-order Eq and Show
-  , EqHO , ShowHO
+  , EqHO(..) , ShowHO(..)
   ) where
 
 import Data.Proxy

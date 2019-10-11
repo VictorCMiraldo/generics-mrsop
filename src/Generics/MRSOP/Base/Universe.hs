@@ -49,12 +49,16 @@ data NA  :: (kon -> *) -> (Nat -> *) -> Atom kon -> * where
   NA_I :: (IsNat k) => phi k -> NA ki phi ('I k) 
   NA_K ::              ki  k -> NA ki phi ('K k)
 
-instance (EqHO phi , EqHO ki) => Eq (NA ki phi at) where
-  (==) = eqNA (==) (==)
+instance (EqHO phi , EqHO ki) => EqHO (NA ki phi) where
+  eqHO = eqNA eqHO eqHO
 
-instance (ShowHO phi , ShowHO ki) => Show (NA ki phi at) where
-  show (NA_I i) = "(NA_I " ++ show i ++ ")"
-  show (NA_K k) = "(NA_K " ++ show k ++ ")"
+instance (ShowHO phi , ShowHO ki) => ShowHO (NA ki phi) where
+  showsPrecHO d (NA_I i) = showParen (d > app_prec) $
+      showString "NA_I " . showsPrecHO (app_prec+1) i
+    where app_prec = 10
+  showsPrecHO d (NA_K k) = showParen (d > app_prec) $
+      showString "NA_K " . showsPrecHO (app_prec+1) k
+    where app_prec = 10
 
 instance (TestEquality ki) => TestEquality (NA ki phi) where
   testEquality (NA_I _) (NA_K _) = Nothing
@@ -124,8 +128,13 @@ eqNA kp fp x = elimNA (uncurry' kp) (uncurry' fp) . zipNA x
 newtype Rep (ki :: kon -> *) (phi :: Nat -> *) (code :: [[Atom kon]])
   = Rep { unRep :: NS (PoA ki phi) code }
 
-instance (EqHO phi, EqHO ki) => Eq (Rep ki phi at) where
-  (==) = eqRep (==) (==)
+instance (EqHO phi, EqHO ki) => EqHO (Rep ki phi) where
+  eqHO = eqRep eqHO eqHO
+
+instance (ShowHO ki , ShowHO phi) => ShowHO (Rep ki phi) where
+  showsPrecHO d (Rep ns) = showParen (d > app_prec) $
+      showString "Rep " . showsPrecHO (app_prec+1) ns
+    where app_prec = 10
   
 -- |Product of Atoms is a handy synonym to have.
 type PoA (ki :: kon -> *) (phi :: Nat -> *) = NP (NA ki phi)
@@ -277,8 +286,13 @@ fromView (Tag c x) = inj c x
 newtype Fix (ki :: kon -> *) (codes :: [[[ Atom kon ]]]) (n :: Nat)
   = Fix { unFix :: Rep ki (Fix ki codes) (Lkup n codes) }
 
-instance EqHO ki => Eq (Fix ki codes ix) where
-  (==) = eqFix (==)
+instance EqHO ki => EqHO (Fix ki codes) where
+  eqHO = eqFix eqHO
+
+instance (ShowHO ki) => ShowHO (Fix ki codes) where
+  showsPrecHO d (Fix rep) = showParen (d > app_prec) $
+      showString "Fix " . showsPrecHO (app_prec+1) rep
+    where app_prec = 10
 
 -- | Catamorphism over fixpoints
 cata :: (IsNat ix)
