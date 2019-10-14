@@ -6,6 +6,7 @@
 {-# LANGUAGE TypeOperators     #-}
 {-# LANGUAGE DataKinds         #-}
 {-# LANGUAGE PolyKinds         #-}
+{-# OPTIONS_GHC -Wno-orphans   #-}
 -- | Standard representation of n-ary products.
 module Generics.MRSOP.Base.NP
   ( SOP.NP(..)
@@ -25,6 +26,19 @@ module Generics.MRSOP.Base.NP
 import           Data.SOP.NP (NP(..))
 import qualified Data.SOP.NP as SOP
 import Generics.MRSOP.Util
+
+-- |@since 2.3.0
+instance EqHO f => EqHO (NP f) where
+  eqHO (x :* xs) (y :* ys) = eqHO x y && eqHO xs ys
+  eqHO Nil       Nil       = True
+
+-- |@since 2.3.0
+instance ShowHO f => ShowHO (NP f) where
+  showsPrecHO _ Nil = showString "Nil"
+  showsPrecHO d (x :* xs) = showParen (d > ifx_prec) $
+    showsPrecHO (ifx_prec+1) x . showString " :* " . showsPrecHO (ifx_prec+1) xs
+   where ifx_prec = 5
+
 
 -- * Relation to IsList predicate
 

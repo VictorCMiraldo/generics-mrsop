@@ -1,5 +1,10 @@
 # Revision history for generics-mrsop
 
+## 2.3.0 -- Oct 2019
+
+- Brought `EqHO` and `ShowHO` back. The quantified constraint fix (`forall x . Eq (f x)`)
+made for some complications on the user side that we were unhappy about.
+
 ## 2.2.0 -- Sep 2019
 
 - Brought in `NS` and `NP` from `sop-core` instead of defining it ourselfes.

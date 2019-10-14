@@ -9,6 +9,7 @@
 {-# LANGUAGE ScopedTypeVariables         #-}
 {-# LANGUAGE ScopedTypeVariables         #-}
 {-# OPTIONS_GHC -Wno-name-shadowing      #-}
+{-# OPTIONS_GHC -Wno-orphans             #-}
 
 -- | Standard representation of n-ary sums.
 module Generics.MRSOP.Base.NS
@@ -41,6 +42,21 @@ pattern Here x = SOP.Z x
 
 {-# COMPLETE Here, There #-}
 
+-- |@since 2.3.0
+instance EqHO f => EqHO (NS f) where
+  eqHO (Here fx) (Here fy) = eqHO fx fy
+  eqHO (There x) (There y) = eqHO x y
+  eqHO _         _         = False
+
+-- |@since 2.3.0
+instance ShowHO f => ShowHO (NS f) where
+  showsPrecHO d (Here fx) = showParen (d > app_prec) $
+    showString "Here " . showsPrecHO (app_prec+1) fx
+   where app_prec = 10
+  showsPrecHO d (There fx) = showParen (d > app_prec) $
+    showString "There " . showsPrecHO (app_prec+1) fx
+   where app_prec = 10
+
 -- * Map, Zip and Elim
 
 -- |Maps over a sum
@@ -66,7 +82,6 @@ zipNS (There p) (There q) = There <$> zipNS p q
 zipNS _         _         = mzero
 
 -- * Catamorphism
-
 
 -- |Consumes a value of type 'NS'
 cataNS :: (forall x xs . f x  -> r (x ': xs))

@@ -14,6 +14,7 @@
 module Generics.MRSOP.Opaque where
 
 import Data.Type.Equality
+import Generics.MRSOP.Util
 
 -- * Opaque Types
 --
@@ -48,7 +49,7 @@ data Singl (kon :: Kon) :: * where
   SChar    :: Char    -> Singl 'KChar
   SString  :: String  -> Singl 'KString
 
-deriving instance Eq   (Singl k)
+deriving instance Eq (Singl k)
 
 instance Show (Singl k) where
  show (SInt      a) = show a 
@@ -62,6 +63,12 @@ instance Show (Singl k) where
 -- |Equality over singletons
 eqSingl :: Singl k -> Singl k -> Bool
 eqSingl = (==)
+
+instance EqHO Singl where
+  eqHO = eqSingl
+
+instance ShowHO Singl where
+  showHO = show
 
 instance TestEquality Singl where
   testEquality (SInt _) (SInt _)         = Just Refl
