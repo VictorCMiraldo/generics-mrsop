@@ -37,6 +37,9 @@ module Generics.MRSOP.Util
 
     -- * Higher-order Eq and Show
   , EqHO(..) , ShowHO(..)
+
+    -- * Existential type
+  , Exists(..) , exElim , exMapM , exMap
   ) where
 
 import Data.Proxy
@@ -249,3 +252,25 @@ instance (ShowHO f , ShowHO g) => ShowHO (Sum f g) where
   showsPrecHO d (InR gx) = showParen (d > app_prec) $
       showString "InR " . showsPrecHO (app_prec + 1) gx
     where app_prec = 10
+
+-- |Existential type wrapper. This comesin particularly
+-- handy when we want to add mrsop terms to
+-- some container. See "Generics.MRSOP.Holes.Unify" for example.
+data Exists (f :: k -> *) :: * where
+  Exists :: f x -> Exists f
+
+-- |Maps over 'Exists'
+exMap :: (forall x . f x -> g x) -> Exists f -> Exists g
+exMap f (Exists x) = Exists (f x)
+
+-- |Maps a monadic actino over 'Exists'
+exMapM :: (Monad m) => (forall x . f x -> m (g x)) -> Exists f -> m (Exists g)
+exMapM f (Exists x) = Exists <$> f x
+
+-- |eliminates an 'Exists'
+exElim :: (forall x . f x -> a) -> Exists f -> a
+exElim f (Exists x) = f x
+
+instance ShowHO x => Show (Exists x) where
+  show (Exists x) = showHO x
+

@@ -284,15 +284,15 @@ pattern Hole' x = Hole (Const ()) x
 
 
 -- |Synonym to @HOpq (Const ())@
-pattern HOpq' :: ki k -> Holes ki codes phi ('K k)
+pattern HOpq' :: (at ~ 'K k) => ki k -> Holes ki codes phi at
 pattern HOpq' x = HOpq (Const ()) x
 
 
 -- |Synonym to @HPeel (Const ())@
-pattern HPeel' :: () => (IsNat n, IsNat i)
+pattern HPeel' :: (at ~ 'I i) => (IsNat n, IsNat i)
                => Constr (Lkup i codes) n
                -> NP (Holes ki codes phi) (Lkup n (Lkup i codes))
-               -> Holes ki codes phi ('I i)
+               -> Holes ki codes phi at
 pattern HPeel' c p = HPeel (Const ()) c p
 
 {-# COMPLETE Hole' , HOpq' , HPeel' #-}
@@ -371,8 +371,8 @@ holesShow :: forall ki ann f fam codes ix
           -> (forall at . ann at -> ShowS)
           -> HolesAnn ann ki codes f ix
           -> ShowS
-holesShow _ f (Hole a x)       = ('`':) . f a . showString (showHO x) 
-holesShow _ f (HOpq a k)       = f a . showString (showHO k)
+holesShow _ f (Hole a x)       = showParen True $ f a . showString (showHO x) 
+holesShow _ f (HOpq a k)       = showParen True $ f a . showString (showHO k)
 holesShow p f h@(HPeel a c rest)
   = showParen (needParens h) $ showString cname
                              . f a
@@ -393,14 +393,6 @@ holesShow p f h@(HPeel a c rest)
     needParens (HPeel _ _ Nil) = False
     needParens _               = True
 
-instance {-# OVERLAPPABLE #-} (HasDatatypeInfo ki fam codes , ShowHO ki , ShowHO f , ShowHO ann)
-    => ShowHO (HolesAnn ann ki codes f) where
-  showHO h = holesShow (Proxy :: Proxy fam) showsAnn h ""
-    where
-      showsAnn ann = showString "{"
-                   . showString (showHO ann)
-                   . showString "}"
-
-instance {-# OVERLAPPING #-} (HasDatatypeInfo ki fam codes , ShowHO ki , ShowHO f)
+instance (HasDatatypeInfo ki fam codes , ShowHO ki , ShowHO f)
     => Show (Holes ki codes f at) where
   show h = holesShow (Proxy :: Proxy fam) (const id) h ""
