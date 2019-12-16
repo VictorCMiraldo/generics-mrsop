@@ -204,6 +204,14 @@ minimize sigma = whileM sigma [] $ \s _
              Just r  -> tell [Exists var]
                      >> return r
 
+    -- | Just like nub; but works on a sorted list
+    mnub :: (Ord a) => [a] -> [a]
+    mnub [] = []
+    mnub [x] = [x]
+    mnub (x:y:ys)
+      | x == y    = mnub (y:ys)
+      | otherwise = x : mnub (y:ys)
+
     -- We loop while there is work to be done or no progress
     -- was done.
     whileM :: (Ord (Exists phi))
@@ -213,6 +221,6 @@ minimize sigma = whileM sigma [] $ \s _
       let (x' , xs') = runWriter (f a xs)
       if null xs'
       then return x'
-      else if (sort xs' == sort xs)
+      else if (mnub (sort xs') == mnub (sort xs))
            then Left xs'
            else whileM x' xs' f
