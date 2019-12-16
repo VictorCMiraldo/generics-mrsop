@@ -4,10 +4,10 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 70539c4715fe3541bae476f1a318b450ec2afab772fca5e4d87aa41b9eab122a
+-- hash: ef2b4ebbaea28c6fcda9d74288285258bd1d4c10056580d95dd73f868c0f8518
 
 name:           generics-mrsop
-version:        2.3.0
+version:        2.3.1
 synopsis:       Generic Programming with Mutually Recursive Sums of Products.
 description:    A library that supports generic programming for mutually recursive families in the sum-of-products style. . A couple usage examples can be found under "Generics.MRSOP.Examples" .
 category:       Generics
@@ -38,6 +38,7 @@ library
       Generics.MRSOP.Examples.RoseTreeTH
       Generics.MRSOP.Examples.SimpTH
       Generics.MRSOP.Holes
+      Generics.MRSOP.Holes.Unify
       Generics.MRSOP.Opaque
       Generics.MRSOP.TH
       Generics.MRSOP.Util

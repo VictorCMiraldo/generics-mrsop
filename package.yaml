@@ -1,5 +1,5 @@
 name:        generics-mrsop
-version:     2.3.0
+version:     2.3.1
 synopsis:    Generic Programming with Mutually Recursive Sums of Products.
 description:
   A library that supports generic programming for mutually
