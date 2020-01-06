@@ -72,6 +72,8 @@ type FIX = Fix Singl CodesStmtString
 
 -- * Alpha Equality Functionality
 
+{-
+
 alphaEqD :: Decl String -> Decl String -> Bool
 alphaEqD = (galphaEq IdxDeclString) `on` (deep @FamStmtString)
   where
@@ -214,3 +216,5 @@ test7 = HPeel (Const 1) (CS (CS CZ))
           (  (HPeel (Const 2) CZ (HOpq (Const 4) (SString "lol") :* Nil))
           :* (Hole (Const 3) (Const 42))
           :* Nil)
+
+-}

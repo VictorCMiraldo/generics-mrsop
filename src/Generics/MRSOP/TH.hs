@@ -867,9 +867,9 @@ genIdxPatSyn sty ix
 genPiece2 :: OpaqueData -> STy -> Input -> Q [Dec]
 genPiece2 opq first ls
   = do p21  <- mapM (\(sty , ix , _dti) -> genIdxPatSyn sty ix) ls
-       p22  <- genPiece2_2 opq first ls
+       -- p22  <- genPiece2_2 opq first ls
        -- p211 <- genHereTherePatSyn opq first ls
-       return $ p21 ++ p22
+       return $ p21 -- ++ p22
 
 -- |Generating pattern synonyms for constructors with 'Tag'
 --
