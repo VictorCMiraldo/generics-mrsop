@@ -1,10 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TupleSections     #-}
 {-# LANGUAGE DeriveTraversable #-}
-{-# LANGUAGE DeriveFunctor     #-}
 {-# LANGUAGE TemplateHaskell   #-}
-{-# OPTIONS_GHC -cpp                      #-}
+{-# LANGUAGE CPP               #-}
 {-# OPTIONS_GHC -Wno-name-shadowing       #-}
 {-# OPTIONS_GHC -Wno-unused-pattern-binds #-}
 -- | Provides a simple way for the end-user to derive
@@ -163,6 +161,10 @@ import Control.Monad
 import Control.Monad.State
 import Control.Monad.Writer   (WriterT, tell, runWriterT)
 import Control.Monad.Identity (runIdentity)
+#if MIN_VERSION_GLASGOW_HASKELL(8,8,8,0)
+#else
+import Control.Monad.Fail
+#endif
 
 import Language.Haskell.TH hiding (match)
 import Language.Haskell.TH.Syntax (liftString)
@@ -340,7 +342,7 @@ isClosed = styFold (&&) (const False) (const True)
 
 -- ** Back and Forth conversion
 
-convertType :: (Monad m) => Type -> m STy
+convertType :: (MonadFail m) => Type -> m STy
 convertType (AppT a b)  = AppST <$> convertType a <*> convertType b
 convertType (SigT t _)  = convertType t
 convertType (VarT n)    = return (VarST n)
@@ -388,9 +390,15 @@ reifyDec name =
      case info of TyConI dec -> return dec
                   _          -> fail $ show name ++ " is not a declaration"
 
+#if MIN_VERSION_template_haskell(2,17,0)
+argInfo :: TyVarBndr flag -> Name
+argInfo (PlainTV  n _)   = n
+argInfo (KindedTV n _ _) = n
+#else
 argInfo :: TyVarBndr -> Name
 argInfo (PlainTV  n)   = n
 argInfo (KindedTV n _) = n
+#endif
 
 -- Extracts a DTI from a Dec
 decInfo :: Dec -> Q (DTI STy)
